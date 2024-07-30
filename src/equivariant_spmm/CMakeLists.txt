@@ -15,3 +15,4 @@ set_target_properties(test_exec PROPERTIES
 set_target_properties(test_exec PROPERTIES LINKER_LANGUAGE CXX)
 # Link against CUDA
 target_link_libraries(test_exec ${CUDA_LIBRARIES})
+install(TARGETS test_exec)
