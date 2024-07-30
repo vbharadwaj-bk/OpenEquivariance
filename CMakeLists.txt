@@ -14,4 +14,4 @@ endif()
 # Set CUDA flags
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --gpu-architecture=sm_80)
 
-add_subdirectory(src/equivariant_spmm)
+add_subdirectory(src/kernel)
