@@ -2,6 +2,8 @@
 
 using namespace std;
 
+// This function accepts CPU pointers and copies
+// its data to the GPU. 
 void equivariant_spmm_cpu(
         uint64_t node_count,
         uint64_t edge_count,
