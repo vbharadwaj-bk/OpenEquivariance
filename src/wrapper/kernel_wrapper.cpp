@@ -26,7 +26,7 @@ void equivariant_spmm_cpu_wrapped(
     equivariant_spmm_cpu(
         context,
         edge_features.shape[0],
-        row_ptr.ptr,
+        rows.ptr,
         cols.ptr,
         X_in.ptr,
         X_out.ptr,
