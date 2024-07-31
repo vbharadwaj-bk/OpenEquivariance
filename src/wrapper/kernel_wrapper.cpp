@@ -9,10 +9,8 @@
 using namespace std;
 namespace py = pybind11;
 
-void equivariant_spmm_cpu_wrapped( 
-        uint64_t L1, 
-        uint64_t L2,
-        uint64_t L3,
+void equivariant_spmm_cpu_wrapped(
+        ESPMM_Context &context, 
         py::array_t<uint64_t> row_ptr_py,
         py::array_t<uint64_t> cols_py,
         py::array_t<double> X_in_py,
@@ -26,9 +24,8 @@ void equivariant_spmm_cpu_wrapped(
     Buffer<double> X_out(X_out_py);
 
     equivariant_spmm_cpu(
-        X_in_py.shape[0],
-        edge_features_py.shape[0],
-        L1, L2, L3,
+        context,
+        edge_features.shape[0],
         row_ptr.ptr,
         cols.ptr,
         X_in.ptr,
@@ -37,7 +34,9 @@ void equivariant_spmm_cpu_wrapped(
 }
 
 PYBIND11_MODULE(kernel_wrapper, m) {
-    m.def("equivariant_spmm_cpu", &equivariant_spmm_wrapped);
+    py::class_<ESPMM_Context>(m, "ESPMM_Context")
+    .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t>());
+    m.def("equivariant_spmm_cpu", &equivariant_spmm_cpu_wrapped);
 }
 
 /*

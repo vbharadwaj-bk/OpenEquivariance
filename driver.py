@@ -2,6 +2,7 @@ import json
 import cppimport
 import cppimport.import_hook
 from scipy.sparse import csr_matrix
+import numpy as np
 
 from src.wrapper.kernel_wrapper import *
 
@@ -20,7 +21,8 @@ if __name__=='__main__':
     edge_features = np.array(rng.uniform(size=(sparse_mat.nnz, 2 * L2 + 1)), dtype=np.double)
     X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], 2 * L2 + 1), dtype=np.double)
 
-    equivariant_spmm(L1, L2, L3,
+    espmm_context = ESPMM_Context(sparse_mat.shape[0], L1, L2, L3)
+    equivariant_spmm_cpu(espmm_context,
                     sparse_mat.indptr,
                     sparse_mat.indices,
                     X_in,
