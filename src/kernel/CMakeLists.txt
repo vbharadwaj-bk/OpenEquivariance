@@ -1,8 +1,7 @@
 # Add library
 add_library(espmm SHARED 
-  test.cu
   espmm.hpp
-  espmm.cpp
+  espmm.cu
 )
 
 set(ESPMM_PUBLIC_HEADERS

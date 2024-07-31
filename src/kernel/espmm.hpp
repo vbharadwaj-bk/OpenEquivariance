@@ -19,7 +19,7 @@ public:
 void equivariant_spmm_cpu(
         ESPMM_Context &context,
         uint64_t edge_count,
-        uint64_t* row_ptr,
+        uint64_t* rows,
         uint64_t* cols,
         double* X_in,
         double* X_out,
