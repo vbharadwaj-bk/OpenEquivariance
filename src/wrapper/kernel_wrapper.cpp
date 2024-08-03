@@ -13,15 +13,15 @@ void equivariant_spmm_cpu_wrapped(
         ESPMM_Context &context, 
         py::array_t<uint64_t> rows_py,
         py::array_t<uint64_t> cols_py,
-        py::array_t<double> X_in_py,
-        py::array_t<double> edge_features_py,
-        py::array_t<double> X_out_py) {
+        py::array_t<float> X_in_py,
+        py::array_t<float> edge_features_py,
+        py::array_t<float> X_out_py) {
 
     Buffer<uint64_t> rows(rows_py);
     Buffer<uint64_t> cols(cols_py);
-    Buffer<double> X_in(X_in_py);
-    Buffer<double> edge_features(edge_features_py);
-    Buffer<double> X_out(X_out_py);
+    Buffer<float> X_in(X_in_py);
+    Buffer<float> edge_features(edge_features_py);
+    Buffer<float> X_out(X_out_py);
 
     equivariant_spmm_cpu(
         context,

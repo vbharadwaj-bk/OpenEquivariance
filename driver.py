@@ -17,9 +17,9 @@ if __name__=='__main__':
     col = np.array([0, 2, 2, 0, 1, 2])
     data = np.array([1, 2, 3, 4, 5, 6])
     sparse_mat = csr_matrix((data, (row, col)), shape=(3, 3))
-    X_in = rng.uniform(size=(sparse_mat.shape[0], 2 * L1 + 1)) 
-    edge_features = np.array(rng.uniform(size=(sparse_mat.nnz, 2 * L2 + 1)), dtype=np.double)
-    X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], 2 * L2 + 1), dtype=np.double)
+    X_in = np.array(rng.uniform(size=(sparse_mat.shape[0], 2 * L1 + 1)), dtype=np.float) 
+    edge_features = np.array(rng.uniform(size=(sparse_mat.nnz, 2 * L2 + 1)), dtype=np.float)
+    X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], 2 * L2 + 1), dtype=np.float)
 
     espmm_context = ESPMM_Context(sparse_mat.shape[0], L1, L2, L3)
     equivariant_spmm_cpu(espmm_context,

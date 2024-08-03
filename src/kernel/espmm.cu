@@ -5,21 +5,15 @@
 
 using namespace std;
 
-// This function accepts CPU pointers and copies
-// its data to the GPU. 
-/*void equivariant_spmm_cpu(
-uint64_t node_count,
-uint64_t edge_count,
-uint64_t L1, 
-uint64_t L2,
-uint64_t L3,
-uint64_t* row_ptr,
-uint64_t* cols,
-double* X_in,
-double* X_out,
-double* edge_features) {
+__global__ void espmm(
+    uint64_t edge_count,
+    uint64_t* rows,
+    uint64_t* cols,
+    float* X_in,
+    float* X_out) {
 
-}*/
+}
+
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -30,7 +24,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
       if (abort) exit(code);
    }
 }
-
 
 uint64_t feature_length(uint64_t L) {
     return 2 * L + 1;
@@ -50,9 +43,9 @@ void equivariant_spmm_cpu(
         uint64_t edge_count,
         uint64_t* rows,
         uint64_t* cols,
-        double* X_in,
-        double* X_out,
-        double* edge_features) {
+        float* X_in,
+        float* X_out,
+        float* edge_features) {
 
     check_cuda_device();
 
@@ -61,18 +54,18 @@ void equivariant_spmm_cpu(
 
     gpuErrchk( cudaMalloc((void**)&d_rows, edge_count * sizeof(uint64_t)))
     gpuErrchk( cudaMalloc((void**)&d_cols, edge_count * sizeof(uint64_t)))
-    gpuErrchk( cudaMalloc((void**)&d_X_in, context.node_count * feature_length(context.L1) * sizeof(double)))
-    gpuErrchk( cudaMalloc((void**)&d_edge_features, edge_count * feature_length(context.L2) * sizeof(double)))
-    gpuErrchk( cudaMalloc((void**)&d_X_out, context.node_count * feature_length(context.L3) * sizeof(double))) 
+    gpuErrchk( cudaMalloc((void**)&d_X_in, context.node_count * feature_length(context.L1) * sizeof(float)))
+    gpuErrchk( cudaMalloc((void**)&d_edge_features, edge_count * feature_length(context.L2) * sizeof(float)))
+    gpuErrchk( cudaMalloc((void**)&d_X_out, context.node_count * feature_length(context.L3) * sizeof(float))) 
 
     gpuErrchk( cudaMemcpy(d_rows, rows, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
     gpuErrchk( cudaMemcpy(d_cols, cols, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
-    gpuErrchk( cudaMemcpy(d_X_in, X_in, context.node_count * feature_length(context.L1) * sizeof(double), cudaMemcpyHostToDevice))
-    gpuErrchk( cudaMemcpy(d_edge_features, edge_features, edge_count * feature_length(context.L2) * sizeof(double), cudaMemcpyHostToDevice))
+    gpuErrchk( cudaMemcpy(d_X_in, X_in, context.node_count * feature_length(context.L1) * sizeof(float), cudaMemcpyHostToDevice))
+    gpuErrchk( cudaMemcpy(d_edge_features, edge_features, edge_count * feature_length(context.L2) * sizeof(float), cudaMemcpyHostToDevice))
 
     cout << "Computation goes here!" << endl;
 
-    cudaMemcpy(X_out, d_X_out, context.node_count * feature_length(context.L3) * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(X_out, d_X_out, context.node_count * feature_length(context.L3) * sizeof(float), cudaMemcpyDeviceToHost);
 
     gpuErrchk( cudaFree(d_rows))
     gpuErrchk( cudaFree(d_cols))
