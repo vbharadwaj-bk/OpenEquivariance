@@ -1,6 +1,7 @@
 import json
 import cppimport
 import cppimport.import_hook
+cppimport.settings["use_filelock"] = False
 from scipy.sparse import csr_matrix
 import numpy as np
 
@@ -20,9 +21,9 @@ if __name__=='__main__':
 
     ctx = ESPMM_Context(sparse_mat.shape[0], L1, L2, L3)
 
-    X_in = np.array(rng.uniform(size=(sparse_mat.shape[0], ctx.get_X_in_rowlen())), dtype=np.float) 
-    edge_features = np.array(rng.uniform(size=(sparse_mat.nnz, ctx.get_edge_rowlen())), dtype=np.float)
-    X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], ctx.get_X_out_rowlen()), dtype=np.float)
+    X_in = np.array(rng.uniform(size=(sparse_mat.shape[0], ctx.get_X_in_rowlen())), dtype=np.float32) 
+    edge_features = np.array(rng.uniform(size=(sparse_mat.nnz, ctx.get_edge_rowlen())), dtype=np.float32)
+    X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], ctx.get_X_out_rowlen()), dtype=np.float32)
 
     equivariant_spmm_cpu(ctx,
                     sparse_mat.indptr,

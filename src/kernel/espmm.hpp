@@ -5,11 +5,11 @@ size_t round_up(size_t in, size_t multiple) {
     if (multiple == 0)
         return in;
 
-    int remainder = numToRound % multiple;
+    int remainder = in % multiple;
     if (remainder == 0)
-        return numToRound;
+        return in ;
 
-    return numToRound + multiple - remainder;
+    return in + multiple - remainder;
 }  
 
 
@@ -36,7 +36,7 @@ public:
         L1(L1_i), L2(L2_i), L3(L3_i),
         X_in_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
         edge_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
-        X_out_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float))),
+        X_out_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
         { }
 
     size_t get_X_in_rowlen() {

@@ -3,7 +3,7 @@
 #include "espmm.hpp"
 #include <cassert>
 
-#DEFINE THREADS_PER_WARP 32
+#define THREADS_PER_WARP 32
 
 using namespace std;
 
@@ -31,13 +31,9 @@ __global__ void espmm_v1(
         uint64_t row = rows[global_warp_idx];
         uint64_t col = cols[global_warp_idx];
 
-        float X_in_val = X_in[col * ctx.X_in_row_len + lane_id]; 
-        X_out[row * ctx.X_out_row_len + lane_id] += X_in_val; 
-
-
-
+        float X_in_val = X_in[col * ctx.X_in_rowlen + lane_id];
+        atomicAdd(X_out + row * ctx.X_out_rowlen + lane_id, X_in_val); 
     }
-
 }
 
 
@@ -76,19 +72,19 @@ void equivariant_spmm_cpu(
 
     gpuErrchk( cudaMalloc((void**)&d_rows, edge_count * sizeof(uint64_t)))
     gpuErrchk( cudaMalloc((void**)&d_cols, edge_count * sizeof(uint64_t)))
-    gpuErrchk( cudaMalloc((void**)&d_X_in, context.node_count * context.X_in_row_len * sizeof(float)))
+    gpuErrchk( cudaMalloc((void**)&d_X_in, context.node_count * context.X_in_rowlen * sizeof(float)))
     gpuErrchk( cudaMalloc((void**)&d_edge_features, edge_count * context.edge_rowlen * sizeof(float)))
-    gpuErrchk( cudaMalloc((void**)&d_X_out, context.node_count * context.X_out_row_len * sizeof(float))) 
+    gpuErrchk( cudaMalloc((void**)&d_X_out, context.node_count * context.X_out_rowlen * sizeof(float))) 
 
     gpuErrchk( cudaMemcpy(d_rows, rows, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
     gpuErrchk( cudaMemcpy(d_cols, cols, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
-    gpuErrchk( cudaMemcpy(d_X_in, X_in, context.node_count * context.X_in_row_len * sizeof(float), cudaMemcpyHostToDevice))
+    gpuErrchk( cudaMemcpy(d_X_in, X_in, context.node_count * context.X_in_rowlen * sizeof(float), cudaMemcpyHostToDevice))
     gpuErrchk( cudaMemcpy(d_edge_features, edge_features, edge_count * context.edge_rowlen * sizeof(float), cudaMemcpyHostToDevice))
-    gpuErrchk( cudaMemset(d_X_out, 0, context.X_out_row_len * context.node_count * sizeof(float)))
+    gpuErrchk( cudaMemset(d_X_out, 0, context.X_out_rowlen * context.node_count * sizeof(float)))
 
     cout << "Computation goes here!" << endl;
 
-    cudaMemcpy(X_out, d_X_out, context.node_count * context.X_out_row_len * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(X_out, d_X_out, context.node_count * context.X_out_rowlen * sizeof(float), cudaMemcpyDeviceToHost);
 
     gpuErrchk( cudaFree(d_rows))
     gpuErrchk( cudaFree(d_cols))

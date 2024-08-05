@@ -40,9 +40,6 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("get_edge_rowlen", &ESPMM_Context::get_edge_rowlen)
         .def("get_X_out_rowlen", &ESPMM_Context::get_X_out_rowlen);
     m.def("equivariant_spmm_cpu", &equivariant_spmm_cpu_wrapped);
-
-    size_t get_X_in_rowlen() {
-
 }
 
 /*

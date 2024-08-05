@@ -6,7 +6,6 @@ add_library(espmm SHARED
 
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
-    "utility.hpp"
 )
 
 # Set target properties
