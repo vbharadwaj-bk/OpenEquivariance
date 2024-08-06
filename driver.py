@@ -2,22 +2,23 @@ import json
 import cppimport
 import cppimport.import_hook
 cppimport.settings["use_filelock"] = False
-from scipy.sparse import csr_matrix
+from scipy.sparse import coo_matrix
 import numpy as np
+import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
 
 if __name__=='__main__':
     rng = np.random.default_rng(12345)
 
-    L1 = 3 # Node feature representations 
-    L2 = 3 # Edge feature representations 
-    L3 = 3 # Output feature representations
+    L1 = 2 # Node feature representations 
+    L2 = 2 # Edge feature representations 
+    L3 = 2 # Output feature representations
 
-    row = np.array([0, 0, 1, 2, 2, 2])
-    col = np.array([0, 2, 2, 0, 1, 2])
-    data = np.array([1, 2, 3, 4, 5, 6])
-    sparse_mat = csr_matrix((data, (row, col)), shape=(3, 3))
+    row = np.array([0, 0, 1, 2, 2, 2], dtype=np.uint64)
+    col = np.array([0, 2, 2, 0, 1, 2], dtype=np.uint64)
+    data = np.array([1, 1, 1, 1, 1, 1], dtype=np.uint64)
+    sparse_mat = coo_matrix((data, (row, col)), shape=(3, 3))
 
     ctx = ESPMM_Context(sparse_mat.shape[0], L1, L2, L3)
 
@@ -26,14 +27,12 @@ if __name__=='__main__':
     X_out_cuda_kernel = np.zeros((sparse_mat.shape[1], ctx.get_X_out_rowlen()), dtype=np.float32)
 
     equivariant_spmm_cpu(ctx,
-                    sparse_mat.indptr,
-                    sparse_mat.indices,
+                    sparse_mat.row,
+                    sparse_mat.col,
                     X_in,
                     edge_features,
                     X_out_cuda_kernel)
 
-
-
-
-
+    ground_truth = sparse_mat @ X_in
+    print(la.norm(X_out_cuda_kernel - ground_truth))
 

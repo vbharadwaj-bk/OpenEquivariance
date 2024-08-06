@@ -4,6 +4,7 @@
 #include <cassert>
 
 #define THREADS_PER_WARP 32
+#define THREAD_BLOCK_SIZE 1024
 
 using namespace std;
 
@@ -68,13 +69,13 @@ void equivariant_spmm_cpu(
     check_cuda_device();
 
     uint64_t *d_rows, *d_cols;
-    double *d_X_in, *d_edge_features, *d_X_out;
+    float *d_X_in, *d_edge_features, *d_X_out;
 
-    gpuErrchk( cudaMalloc((void**)&d_rows, edge_count * sizeof(uint64_t)))
-    gpuErrchk( cudaMalloc((void**)&d_cols, edge_count * sizeof(uint64_t)))
-    gpuErrchk( cudaMalloc((void**)&d_X_in, context.node_count * context.X_in_rowlen * sizeof(float)))
-    gpuErrchk( cudaMalloc((void**)&d_edge_features, edge_count * context.edge_rowlen * sizeof(float)))
-    gpuErrchk( cudaMalloc((void**)&d_X_out, context.node_count * context.X_out_rowlen * sizeof(float))) 
+    gpuErrchk( cudaMalloc((void**) &d_rows, edge_count * sizeof(uint64_t)))
+    gpuErrchk( cudaMalloc((void**) &d_cols, edge_count * sizeof(uint64_t)))
+    gpuErrchk( cudaMalloc((void**) &d_X_in, context.node_count * context.X_in_rowlen * sizeof(float)))
+    gpuErrchk( cudaMalloc((void**) &d_edge_features, edge_count * context.edge_rowlen * sizeof(float)))
+    gpuErrchk( cudaMalloc((void**) &d_X_out, context.node_count * context.X_out_rowlen * sizeof(float))) 
 
     gpuErrchk( cudaMemcpy(d_rows, rows, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
     gpuErrchk( cudaMemcpy(d_cols, cols, edge_count * sizeof(uint64_t), cudaMemcpyHostToDevice));
@@ -82,7 +83,13 @@ void equivariant_spmm_cpu(
     gpuErrchk( cudaMemcpy(d_edge_features, edge_features, edge_count * context.edge_rowlen * sizeof(float), cudaMemcpyHostToDevice))
     gpuErrchk( cudaMemset(d_X_out, 0, context.X_out_rowlen * context.node_count * sizeof(float)))
 
-    cout << "Computation goes here!" << endl;
+    espmm_v1<<<round_up(edge_count, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(context, 
+            edge_count, 
+            d_rows, 
+            d_cols, 
+            d_X_in, 
+            d_edge_features, 
+            d_X_out);
 
     cudaMemcpy(X_out, d_X_out, context.node_count * context.X_out_rowlen * sizeof(float), cudaMemcpyDeviceToHost);
 
