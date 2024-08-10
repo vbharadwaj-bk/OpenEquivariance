@@ -4,3 +4,5 @@ build/*
 *.so
 *.ipynb
 .DS_Store
+data/*
+experimental/*
