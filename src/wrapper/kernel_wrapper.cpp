@@ -33,6 +33,25 @@ void equivariant_spmm_cpu_wrapped(
         edge_features.ptr);
 }
 
+void exec_tensor_product_cpu_wrapped(
+        TensorProduct &context, 
+        py::array_t<float> L1_in_py,
+        py::array_t<float> L2_in_py,
+        py::array_t<float> L3_out_py) {
+
+    Buffer<float> L1_in(L1_in_py);
+    Buffer<float> L2_in(L2_in_py);
+    Buffer<float> L3_out(L3_out_py);
+
+    exec_tensor_product_cpu(
+        context,
+        L1_in.shape[0],
+        L1_in.ptr,
+        L2_in.ptr,
+        L3_out.ptr);
+}
+
+
 PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<ESPMM_Context>(m, "ESPMM_Context")
         .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t>())
@@ -47,6 +66,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("get_L3_rowlen", &TensorProduct::get_L3_rowlen);
 
     m.def("equivariant_spmm_cpu", &equivariant_spmm_cpu_wrapped);
+    m.def("exec_tensor_product_cpu", &exec_tensor_product_cpu_wrapped);
 }
 
 /*

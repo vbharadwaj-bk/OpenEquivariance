@@ -86,8 +86,7 @@ public:
         { }
 };
 
-
-
+// Inputs need to be resident on the CPU
 void equivariant_spmm_cpu(
         ESPMM_Context &context,
         uint64_t edge_count,
@@ -97,3 +96,9 @@ void equivariant_spmm_cpu(
         float* X_out,
         float* edge_features);
 
+void exec_tensor_product_cpu(
+        TensorProduct &context,
+        uint64_t num_products,
+        float* X_in,
+        float* X_out,
+        float* edge_features);
