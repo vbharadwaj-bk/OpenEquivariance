@@ -17,6 +17,6 @@ if __name__=='__main__':
     ctx = TensorProduct(L1, L2, L3)
     batch_size = 100
 
-    X_in = np.array(rng.uniform(size=(batch_size, ctx.get_X_in_rowlen())), dtype=np.float32) 
-    edge_features = np.array(rng.uniform(size=(batch_size, ctx.get_edge_rowlen())), dtype=np.float32)
-    X_out_cuda_kernel = np.zeros((batch_size, ctx.get_X_out_rowlen()), dtype=np.float32)
+    X_in = np.array(rng.uniform(size=(batch_size, ctx.get_L1_rowlen())), dtype=np.float32) 
+    edge_features = np.array(rng.uniform(size=(batch_size, ctx.get_L2_rowlen())), dtype=np.float32)
+    X_out_cuda_kernel = np.zeros((batch_size, ctx.get_L3_rowlen()), dtype=np.float32)

@@ -80,9 +80,9 @@ public:
         uint64_t L2_i, 
         uint64_t L3_i) :
         L1(L1_i), L2(L2_i), L3(L3_i),
-        X_in_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
-        edge_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
-        X_out_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
+        L1_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
+        L2_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
+        L3_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
         { }
 };
 

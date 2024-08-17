@@ -21,8 +21,7 @@ __global__ void espmm_v1(
     uint64_t* cols,
     float* X_in,
     float* edge_features,
-    float* X_out
-    ) {
+    float* X_out) {
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int global_warp_idx  = idx / THREADS_PER_WARP;
