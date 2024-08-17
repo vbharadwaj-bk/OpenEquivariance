@@ -19,6 +19,7 @@ def fill_diagonal(slice, offset, direction):
 
 
 def create_nonzero_pattern(L1, L2, L3, slice_dim):
+    L = [L1, L2, L3]
     tensor = np.zeros((2 * L1 + 1, 2 * L2 + 1, 2 * L3 + 1))
 
     for slice_idx in range(tensor.shape[slice_dim]):
@@ -29,13 +30,16 @@ def create_nonzero_pattern(L1, L2, L3, slice_dim):
         else:
             slice = tensor[:, :, slice_idx]
 
-        fill_diagonal(slice, 5, -1)
+        m = slice_idx - L[slice_dim]
+        fill_diagonal(slice, m, 1)
+        fill_diagonal(slice, -m, 1)
+
 
     return tensor
 
 if __name__=='__main__':
     slice_dim = 0
-    slice_idx = 2
+    slice_idx = 3
 
     pattern_tensor = create_nonzero_pattern(L1=5, L2=5, L3=2, slice_dim=slice_dim)
 

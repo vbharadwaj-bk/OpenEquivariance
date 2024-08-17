@@ -39,6 +39,13 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("get_X_in_rowlen", &ESPMM_Context::get_X_in_rowlen)
         .def("get_edge_rowlen", &ESPMM_Context::get_edge_rowlen)
         .def("get_X_out_rowlen", &ESPMM_Context::get_X_out_rowlen);
+
+    py::class_<TensorProduct>(m, "TensorProduct")
+        .def(py::init<uint64_t, uint64_t, uint64_t>())
+        .def("get_X_in_rowlen", &ESPMM_Context::get_X_in_rowlen)
+        .def("get_edge_rowlen", &ESPMM_Context::get_edge_rowlen)
+        .def("get_X_out_rowlen", &ESPMM_Context::get_X_out_rowlen);
+
     m.def("equivariant_spmm_cpu", &equivariant_spmm_cpu_wrapped);
 }
 

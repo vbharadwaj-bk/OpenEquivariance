@@ -52,6 +52,42 @@ public:
     }
 };
 
+
+struct TensorProduct {
+public:
+    uint64_t L1; // X_in representation
+    uint64_t L2; // Edge feature representation
+    uint64_t L3; // X_out representation
+
+    size_t L1_rowlen;
+    size_t L2_rowlen;
+    size_t L3_rowlen;
+
+    size_t get_L1_rowlen() {
+        return L1_rowlen;
+    }
+
+    size_t get_L2_rowlen() {
+        return L2_rowlen;
+    }
+
+    size_t get_L3_rowlen() {
+        return L3_rowlen;
+    }
+
+    TensorProduct(
+        uint64_t L1_i, 
+        uint64_t L2_i, 
+        uint64_t L3_i) :
+        L1(L1_i), L2(L2_i), L3(L3_i),
+        X_in_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
+        edge_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
+        X_out_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
+        { }
+};
+
+
+
 void equivariant_spmm_cpu(
         ESPMM_Context &context,
         uint64_t edge_count,
