@@ -108,5 +108,6 @@ void exec_tensor_product_cpu(
         float* edge_features) {
 
     cout << "Hello world!" << endl;
+
 }
 
