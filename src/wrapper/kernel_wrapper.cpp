@@ -9,30 +9,6 @@
 using namespace std;
 namespace py = pybind11;
 
-void equivariant_spmm_cpu_wrapped(
-        ESPMM_Context &context, 
-        py::array_t<uint64_t> rows_py,
-        py::array_t<uint64_t> cols_py,
-        py::array_t<float> X_in_py,
-        py::array_t<float> edge_features_py,
-        py::array_t<float> X_out_py) {
-
-    Buffer<uint64_t> rows(rows_py);
-    Buffer<uint64_t> cols(cols_py);
-    Buffer<float> X_in(X_in_py);
-    Buffer<float> edge_features(edge_features_py);
-    Buffer<float> X_out(X_out_py);
-
-    equivariant_spmm_cpu(
-        context,
-        cols.shape[0],
-        rows.ptr,
-        cols.ptr,
-        X_in.ptr,
-        X_out.ptr,
-        edge_features.ptr);
-}
-
 void exec_tensor_product_cpu_wrapped(
         TensorProduct &context, 
         py::array_t<float> L1_in_py,
@@ -43,29 +19,20 @@ void exec_tensor_product_cpu_wrapped(
     Buffer<float> L2_in(L2_in_py);
     Buffer<float> L3_out(L3_out_py);
 
-    exec_tensor_product_cpu(
-        context,
+    context.exec_tensor_product_cpu(
         L1_in.shape[0],
         L1_in.ptr,
         L2_in.ptr,
         L3_out.ptr);
 }
 
-
 PYBIND11_MODULE(kernel_wrapper, m) {
-    py::class_<ESPMM_Context>(m, "ESPMM_Context")
-        .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t>())
-        .def("get_X_in_rowlen", &ESPMM_Context::get_X_in_rowlen)
-        .def("get_edge_rowlen", &ESPMM_Context::get_edge_rowlen)
-        .def("get_X_out_rowlen", &ESPMM_Context::get_X_out_rowlen);
-
     py::class_<TensorProduct>(m, "TensorProduct")
-        .def(py::init<uint64_t, uint64_t, uint64_t>())
-        .def("get_L1_rowlen", &TensorProduct::get_L1_rowlen)
-        .def("get_L2_rowlen", &TensorProduct::get_L2_rowlen)
-        .def("get_L3_rowlen", &TensorProduct::get_L3_rowlen);
+        .def("get_row_length", &TensorProduct::get_row_length);
 
-    m.def("equivariant_spmm_cpu", &equivariant_spmm_cpu_wrapped);
+    py::class_<ThreadTensorProduct>(m, "TensorProduct")
+        .def("get_row_length", &TensorProduct::get_row_length);
+
     m.def("exec_tensor_product_cpu", &exec_tensor_product_cpu_wrapped);
 }
 

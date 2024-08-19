@@ -1,4 +1,7 @@
 #pragma once
+#include <stdexcept>
+//#include <pybind11/pybind11.h>
+//#include <pybind11/numpy.h>
 
 // Taken from Stack Overflow
 size_t round_up(size_t in, size_t multiple) {
@@ -12,8 +15,11 @@ size_t round_up(size_t in, size_t multiple) {
     return in + multiple - remainder;
 }  
 
+/*
+* Graph convolution that combines node / edge features 
+*/
 
-struct ESPMM_Context {
+class ESPMM_Context {  
 public:
     // TODO: have this work for a sum of reps, not just one. 
     uint64_t node_count;
@@ -24,8 +30,6 @@ public:
     size_t X_in_rowlen;
     size_t edge_rowlen;
     size_t X_out_rowlen; 
-
-    ESPMM_Context() { };
 
     ESPMM_Context(
         uint64_t node_count_i,
@@ -52,8 +56,7 @@ public:
     }
 };
 
-
-struct TensorProduct {
+class TensorProduct {
 public:
     uint64_t L1; // X_in representation
     uint64_t L2; // Edge feature representation
@@ -62,18 +65,6 @@ public:
     size_t L1_rowlen;
     size_t L2_rowlen;
     size_t L3_rowlen;
-
-    size_t get_L1_rowlen() {
-        return L1_rowlen;
-    }
-
-    size_t get_L2_rowlen() {
-        return L2_rowlen;
-    }
-
-    size_t get_L3_rowlen() {
-        return L3_rowlen;
-    }
 
     TensorProduct(
         uint64_t L1_i, 
@@ -84,21 +75,43 @@ public:
         L2_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
         L3_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
         { }
+
+    size_t get_row_length(int mode) {
+        switch(mode) {
+            case 1:
+                return L1_rowlen;
+            case 2:
+                return L2_rowlen;
+            case 3:
+                return L3_rowlen;
+            default:
+                throw std::invalid_argument( "Invalid mode!" );
+
+        }
+    }
+
+    virtual void exec_tensor_product_cpu(
+            uint64_t num_products,
+            float* X_in,
+            float* X_out,
+            float* edge_features) = 0;
 };
 
-// Inputs need to be resident on the CPU
-void equivariant_spmm_cpu(
-        ESPMM_Context &context,
-        uint64_t edge_count,
-        uint64_t* rows,
-        uint64_t* cols,
-        float* X_in,
-        float* X_out,
-        float* edge_features);
+/*
+* A simple implementation that gets each thread 
+* to handle each tensor product based on a coordinate format. 
+*/
+class ThreadTensorProduct : public TensorProduct {
+    using TensorProduct::TensorProduct;
 
-void exec_tensor_product_cpu(
-        TensorProduct &context,
-        uint64_t num_products,
-        float* X_in,
-        float* X_out,
-        float* edge_features);
+    void exec_tensor_product_cpu(
+            uint64_t num_products,
+            float* X_in,
+            float* X_out,
+            float* edge_features) {
+        
+        cout << "Executed successfully!" << endl;
+
+    } 
+};
+

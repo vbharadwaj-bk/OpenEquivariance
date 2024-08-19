@@ -14,7 +14,7 @@ if __name__=='__main__':
     L3 = 2 # Output feature representations
 
     rng = np.random.default_rng(12345)
-    ctx = TensorProduct(L1, L2, L3)
+    ctx = ThreadTensorProduct(L1, L2, L3)
     batch_size = 100
 
     L1_in  = np.array(rng.uniform(size=(batch_size, ctx.get_L1_rowlen())), dtype=np.float32) 
