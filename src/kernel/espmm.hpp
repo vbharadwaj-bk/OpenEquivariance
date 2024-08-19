@@ -1,6 +1,9 @@
 #pragma once
 #include <stdexcept>
 #include <iostream>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -19,7 +22,12 @@ size_t round_up(size_t in, size_t multiple) {
         return in ;
 
     return in + multiple - remainder;
-}  
+}
+
+template<typename T> 
+T* ptr(thrust::device_vector<T> &d_vec) {
+    return thrust::raw_pointer_cast(&d_vec[0]);
+}
 
 /*
 * Graph convolution that combines node / edge features 
@@ -113,12 +121,13 @@ public:
         Buffer<float> L2_in(L2_in_py);
         Buffer<float> L3_out(L3_out_py);
 
-        exec_tensor_product(
-            L1_in.shape[0],
-            L1_in.ptr,
-            L2_in.ptr,
-            L3_out.ptr
-        );
+        thrust::device_vector<float> L1(L1_in.ptr, L1_in.ptr + L1_in.shape[0] * L1_in.shape[1]);
+        thrust::device_vector<float> L2(L2_in.ptr, L2_in.ptr + L2_in.shape[0] * L2_in.shape[1]);
+        thrust::device_vector<float> L3(L3_out.ptr, L3_out.ptr + L3_out.shape[0] * L3_out.shape[1]);
+
+        exec_tensor_product(L1_in.shape[0], ptr(L1), ptr(L2), ptr(L3));
+
+        // To-do: need to copy back to host! 
     }
 };
 
@@ -139,10 +148,6 @@ public:
             uint64_t num_products,
             float* X_in,
             float* X_out,
-            float* edge_features) {
-        
-        cout << "Executed successfully!" << endl;
-
-    } 
+            float* edge_features);
 };
 
