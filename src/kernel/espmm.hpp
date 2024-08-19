@@ -1,7 +1,13 @@
 #pragma once
 #include <stdexcept>
-//#include <pybind11/pybind11.h>
-//#include <pybind11/numpy.h>
+#include <iostream>
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
+#include "utility.hpp"
+
+using namespace std;
+namespace py = pybind11;
 
 // Taken from Stack Overflow
 size_t round_up(size_t in, size_t multiple) {
@@ -56,7 +62,7 @@ public:
     }
 };
 
-class TensorProduct {
+class GenericTensorProduct {
 public:
     uint64_t L1; // X_in representation
     uint64_t L2; // Edge feature representation
@@ -66,7 +72,7 @@ public:
     size_t L2_rowlen;
     size_t L3_rowlen;
 
-    TensorProduct(
+    GenericTensorProduct(
         uint64_t L1_i, 
         uint64_t L2_i, 
         uint64_t L3_i) :
@@ -90,21 +96,46 @@ public:
         }
     }
 
-    virtual void exec_tensor_product_cpu(
+    virtual void exec_tensor_product(
             uint64_t num_products,
-            float* X_in,
-            float* X_out,
-            float* edge_features) = 0;
+            float* L1_in,
+            float* L2_in,
+            float* L3_out) = 0;
+
+    // Executes function with CPU inputs from Python. Issues
+    // memcpy to / from device. 
+    void exec_tensor_product_cpu(
+            py::array_t<float> L1_in_py,
+            py::array_t<float> L2_in_py,
+            py::array_t<float> L3_out_py) {
+
+        Buffer<float> L1_in(L1_in_py);
+        Buffer<float> L2_in(L2_in_py);
+        Buffer<float> L3_out(L3_out_py);
+
+        exec_tensor_product(
+            L1_in.shape[0],
+            L1_in.ptr,
+            L2_in.ptr,
+            L3_out.ptr
+        );
+    }
 };
 
 /*
 * A simple implementation that gets each thread 
 * to handle each tensor product based on a coordinate format. 
 */
-class ThreadTensorProduct : public TensorProduct {
-    using TensorProduct::TensorProduct;
+class ThreadTensorProduct : public GenericTensorProduct {
+public:
+    ThreadTensorProduct(
+        uint64_t L1_i, 
+        uint64_t L2_i, 
+        uint64_t L3_i) :
+        GenericTensorProduct(L1_i, L2_i, L3_i)   
+        { }
 
-    void exec_tensor_product_cpu(
+    void exec_tensor_product(
             uint64_t num_products,
             float* X_in,
             float* X_out,

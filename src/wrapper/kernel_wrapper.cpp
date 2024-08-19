@@ -9,31 +9,12 @@
 using namespace std;
 namespace py = pybind11;
 
-void exec_tensor_product_cpu_wrapped(
-        TensorProduct &context, 
-        py::array_t<float> L1_in_py,
-        py::array_t<float> L2_in_py,
-        py::array_t<float> L3_out_py) {
-
-    Buffer<float> L1_in(L1_in_py);
-    Buffer<float> L2_in(L2_in_py);
-    Buffer<float> L3_out(L3_out_py);
-
-    context.exec_tensor_product_cpu(
-        L1_in.shape[0],
-        L1_in.ptr,
-        L2_in.ptr,
-        L3_out.ptr);
-}
-
 PYBIND11_MODULE(kernel_wrapper, m) {
-    py::class_<TensorProduct>(m, "TensorProduct")
-        .def("get_row_length", &TensorProduct::get_row_length);
-
-    py::class_<ThreadTensorProduct>(m, "TensorProduct")
-        .def("get_row_length", &TensorProduct::get_row_length);
-
-    m.def("exec_tensor_product_cpu", &exec_tensor_product_cpu_wrapped);
+    py::class_<GenericTensorProduct>(m, "GenericTensorProduct")
+        .def("get_row_length", &GenericTensorProduct::get_row_length)
+        .def("exec_tensor_product_cpu", &GenericTensorProduct::exec_tensor_product_cpu);
+    py::class_<ThreadTensorProduct, GenericTensorProduct>(m, "ThreadTensorProduct")
+        .def(py::init<uint64_t, uint64_t, uint64_t>());
 }
 
 /*

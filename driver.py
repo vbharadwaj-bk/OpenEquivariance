@@ -14,11 +14,11 @@ if __name__=='__main__':
     L3 = 2 # Output feature representations
 
     rng = np.random.default_rng(12345)
-    ctx = ThreadTensorProduct(L1, L2, L3)
+    tp = ThreadTensorProduct(L1, L2, L3)
     batch_size = 100
 
-    L1_in  = np.array(rng.uniform(size=(batch_size, ctx.get_L1_rowlen())), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, ctx.get_L2_rowlen())), dtype=np.float32)
-    L3_out = np.zeros((batch_size, ctx.get_L3_rowlen()), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(1))), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(2))), dtype=np.float32)
+    L3_out = np.zeros((batch_size, tp.get_row_length(3)), dtype=np.float32)
 
-    exec_tensor_product_cpu(ctx, L1_in, L2_in, L3_out) 
+    tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 

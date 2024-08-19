@@ -4,8 +4,12 @@ add_library(espmm SHARED
   espmm.cu
 )
 
+find_package(PythonLibs REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
+
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
+    "utility.hpp"
 )
 
 # Set target properties
@@ -15,7 +19,6 @@ set_target_properties(espmm PROPERTIES
 
 set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(espmm PROPERTIES PUBLIC_HEADER "${ESPMM_PUBLIC_HEADERS}")
-
 
 # Link against CUDA
 target_link_libraries(espmm ${CUDA_LIBRARIES})
