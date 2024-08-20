@@ -1,8 +1,11 @@
 # Add library
 add_library(espmm SHARED 
   espmm.hpp
+  thread_tensor_product.cu
   espmm.cu
 )
+
+set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})

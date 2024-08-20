@@ -99,14 +99,3 @@ void equivariant_spmm_cpu(
     gpuErrchk( cudaFree(d_X_out))
 }
 
-
-void exec_tensor_product_cpu(
-        GenericTensorProduct &context,
-        uint64_t num_products,
-        float* X_in,
-        float* X_out,
-        float* edge_features) {
-
-    cout << "Hello world!" << endl;
-}
-

@@ -1,9 +1,7 @@
 #pragma once
+
 #include <stdexcept>
 #include <iostream>
-#include <thrust/host_vector.h>
-#include <thrust/device_vector.h>
-
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -13,7 +11,7 @@ using namespace std;
 namespace py = pybind11;
 
 // Taken from Stack Overflow
-size_t round_up(size_t in, size_t multiple) {
+inline size_t round_up(size_t in, size_t multiple) {
     if (multiple == 0)
         return in;
 
@@ -22,11 +20,6 @@ size_t round_up(size_t in, size_t multiple) {
         return in ;
 
     return in + multiple - remainder;
-}
-
-template<typename T> 
-T* ptr(thrust::device_vector<T> &d_vec) {
-    return thrust::raw_pointer_cast(&d_vec[0]);
 }
 
 /*
@@ -70,7 +63,7 @@ public:
     }
 };
 
-class GenericTensorProduct {
+class __attribute__ ((visibility ("default"))) GenericTensorProduct {
 public:
     uint64_t L1; // X_in representation
     uint64_t L2; // Edge feature representation
@@ -121,21 +114,23 @@ public:
         Buffer<float> L2_in(L2_in_py);
         Buffer<float> L3_out(L3_out_py);
 
-        thrust::device_vector<float> L1(L1_in.ptr, L1_in.ptr + L1_in.shape[0] * L1_in.shape[1]);
+        /*thrust::device_vector<float> L1(L1_in.ptr, L1_in.ptr + L1_in.shape[0] * L1_in.shape[1]);
         thrust::device_vector<float> L2(L2_in.ptr, L2_in.ptr + L2_in.shape[0] * L2_in.shape[1]);
-        thrust::device_vector<float> L3(L3_out.ptr, L3_out.ptr + L3_out.shape[0] * L3_out.shape[1]);
+        thrust::device_vector<float> L3(L3_out.ptr, L3_out.ptr + L3_out.shape[0] * L3_out.shape[1]);*/
 
-        exec_tensor_product(L1_in.shape[0], ptr(L1), ptr(L2), ptr(L3));
+        exec_tensor_product(L1_in.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
 
         // To-do: need to copy back to host! 
     }
+
+    virtual ~GenericTensorProduct() {};
 };
 
 /*
 * A simple implementation that gets each thread 
 * to handle each tensor product based on a coordinate format. 
 */
-class ThreadTensorProduct : public GenericTensorProduct {
+class __attribute__ ((visibility ("default"))) ThreadTensorProduct : public GenericTensorProduct {
 public:
     ThreadTensorProduct(
         uint64_t L1_i, 
@@ -149,5 +144,8 @@ public:
             float* X_in,
             float* X_out,
             float* edge_features);
+
+
+    ~ThreadTensorProduct() = default;
 };
 
