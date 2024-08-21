@@ -10,10 +10,10 @@ using namespace std;
 namespace py = pybind11;
 
 PYBIND11_MODULE(kernel_wrapper, m) {
-    py::class_<GenericTensorProduct>(m, "GenericTensorProduct")
+    py::class_<GenericTensorProduct>(m, "GenericTensorProductInternal")
         .def("get_row_length", &GenericTensorProduct::get_row_length)
         .def("exec_tensor_product_cpu", &GenericTensorProduct::exec_tensor_product_cpu);
-    py::class_<ThreadTensorProduct, GenericTensorProduct>(m, "ThreadTensorProduct")
+    py::class_<ThreadTensorProduct, GenericTensorProduct>(m, "ThreadTensorProductInternal")
         .def(py::init<uint64_t, uint64_t, uint64_t>());
 }
 

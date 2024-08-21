@@ -7,6 +7,7 @@ import numpy as np
 import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
+from src.implementations.ThreadTensorProduct import *
 
 if __name__=='__main__':
     L1 = 2 # Node feature representations 
