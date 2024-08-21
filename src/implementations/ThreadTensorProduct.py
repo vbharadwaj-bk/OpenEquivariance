@@ -9,3 +9,4 @@ class ThreadTensorProduct(TensorProduct):
         super().__init__(L1, L2, L3)
         self.internal = ThreadTensorProductImpl(L1, L2, L3)
 
+        tensor = e3nn.o3.wigner_3j(l1, l2, l3).numpy()
