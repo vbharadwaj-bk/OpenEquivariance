@@ -1,9 +1,11 @@
 import numpy as np
+import cppimport
+import cppimport.import_hook
+from src.wrapper.kernel_wrapper import *
+from src.implementations.TensorProduct import TensorProduct
 
-class ThreadTensorProduct:
+class ThreadTensorProduct(TensorProduct):
     def __init__(self, L1, L2, L3):
-        self.internal = TensorProductInternal(L1, L2, L3)
-
-    def execute_tensor_product(self, L1_in, L2_in, L3_out):
-        self..exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        super().__init__(L1, L2, L3)
+        self.internal = ThreadTensorProductImpl(L1, L2, L3)
 

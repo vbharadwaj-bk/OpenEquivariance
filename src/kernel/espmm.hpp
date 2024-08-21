@@ -63,7 +63,7 @@ public:
     }
 };
 
-class __attribute__ ((visibility ("default"))) GenericTensorProduct {
+class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
     uint64_t L1; // X_in representation
     uint64_t L2; // Edge feature representation
@@ -73,7 +73,7 @@ public:
     size_t L2_rowlen;
     size_t L3_rowlen;
 
-    GenericTensorProduct(
+    GenericTensorProductImpl(
         uint64_t L1_i, 
         uint64_t L2_i, 
         uint64_t L3_i) :
@@ -123,20 +123,20 @@ public:
         // To-do: need to copy back to host! 
     }
 
-    virtual ~GenericTensorProduct() {};
+    virtual ~GenericTensorProductImpl() {};
 };
 
 /*
 * A simple implementation that gets each thread 
 * to handle each tensor product based on a coordinate format. 
 */
-class __attribute__ ((visibility ("default"))) ThreadTensorProduct : public GenericTensorProduct {
+class __attribute__ ((visibility ("default"))) ThreadTensorProductImpl : public GenericTensorProductImpl {
 public:
-    ThreadTensorProduct(
+    ThreadTensorProductImpl(
         uint64_t L1_i, 
         uint64_t L2_i, 
         uint64_t L3_i) :
-        GenericTensorProduct(L1_i, L2_i, L3_i)   
+        GenericTensorProductImpl(L1_i, L2_i, L3_i)   
         { }
 
     void exec_tensor_product(
@@ -146,6 +146,6 @@ public:
             float* edge_features);
 
 
-    ~ThreadTensorProduct() = default;
+    ~ThreadTensorProductImpl() = default;
 };
 

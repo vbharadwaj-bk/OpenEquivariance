@@ -3,7 +3,7 @@
 
 using namespace std;
 
-void ThreadTensorProduct::exec_tensor_product(
+void ThreadTensorProductImpl::exec_tensor_product(
         uint64_t num_products,
         float* X_in,
         float* X_out,
