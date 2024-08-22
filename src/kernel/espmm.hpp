@@ -4,6 +4,7 @@
 #include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <cstdint>
 
 #include "utility.hpp"
 
@@ -132,11 +133,25 @@ public:
 */
 class __attribute__ ((visibility ("default"))) ThreadTensorProductImpl : public GenericTensorProductImpl {
 public:
+    Buffer<uint8_t> coord1; 
+    Buffer<uint8_t> coord2; 
+    Buffer<uint8_t> coord3; 
+    Buffer<float> values; 
+
     ThreadTensorProductImpl(
         uint64_t L1_i, 
         uint64_t L2_i, 
-        uint64_t L3_i) :
-        GenericTensorProductImpl(L1_i, L2_i, L3_i)   
+        uint64_t L3_i,
+        py::array_t<uint8_t> coord1_py, 
+        py::array_t<uint8_t> coord2_py,
+        py::array_t<uint8_t> coord3_py,
+        py::array_t<float> values_py 
+        ) :
+        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        coord1(coord1_py),
+        coord2(coord2_py),
+        coord3(coord3_py),
+        values(values_py)
         { }
 
     void exec_tensor_product(
@@ -144,7 +159,6 @@ public:
             float* X_in,
             float* X_out,
             float* edge_features);
-
 
     ~ThreadTensorProductImpl() = default;
 };

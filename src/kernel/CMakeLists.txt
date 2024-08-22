@@ -2,7 +2,7 @@
 add_library(espmm SHARED 
   espmm.hpp
   thread_tensor_product.cu
-  espmm.cu
+  equivariant_convolution.cu
 )
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
