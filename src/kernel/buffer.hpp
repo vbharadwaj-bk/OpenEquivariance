@@ -264,6 +264,14 @@ public:
         return ptr[offset];
     }
 
+    uint64_t size() {
+        uint64_t buffer_size = 1;
+        for(uint64_t i : shape) {
+            buffer_size *= i;
+        }
+        return buffer_size;
+    }
+
     void print() {
         cout << "------------------------" << endl;
         if(shape.size() == 1) {
@@ -294,4 +302,17 @@ public:
     }
 
     ~Buffer() {}
+};
+
+template<typename T>
+class DeviceBuffer {
+public:
+    T* ptr;
+    uint64_t size;
+
+    DeviceBuffer(uint64_t size);
+    ~DeviceBuffer();
+
+    void copy_from_host_buffer(Buffer<T> &host);
+    void copy_to_host_buffer(Buffer<T> &host);
 };

@@ -6,7 +6,7 @@
 #include <pybind11/numpy.h>
 #include <cstdint>
 
-#include "utility.hpp"
+#include "buffer.hpp"
 
 using namespace std;
 namespace py = pybind11;

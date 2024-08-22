@@ -4,7 +4,6 @@
 #include <pybind11/numpy.h>
 
 #include "espmm.hpp"
-#include "utility.hpp"
 
 using namespace std;
 namespace py = pybind11;

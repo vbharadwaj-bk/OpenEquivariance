@@ -1,7 +1,9 @@
 #include <iostream>
 #include <cuda_runtime.h>
-#include "espmm.hpp"
 #include <cassert>
+
+#include "espmm.hpp"
+#include "gpu_util.hpp"
 
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 1024
@@ -33,26 +35,6 @@ __global__ void espmm_v1(
 
         float X_in_val = X_in[col * ctx.X_in_rowlen + lane_id];
         atomicAdd(X_out + row * ctx.X_out_rowlen + lane_id, X_in_val); 
-    }
-}
-
-
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-
-void check_cuda_device() {
-    int nDevices;
-    cudaGetDeviceCount(&nDevices);
-    if(nDevices == 0) {
-        cout << "Error, no CUDA-capable device detected!" << endl;
-        exit(1);
     }
 }
 

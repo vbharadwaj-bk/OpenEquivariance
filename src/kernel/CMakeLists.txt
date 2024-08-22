@@ -1,6 +1,9 @@
 # Add library
 add_library(espmm SHARED 
   espmm.hpp
+  gpu_util.hpp
+  buffer.hpp
+  buffer.cpp
   thread_tensor_product.cu
   equivariant_convolution.cu
 )
@@ -12,7 +15,7 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
-    "utility.hpp"
+    "buffer.hpp"
 )
 
 # Set target properties
