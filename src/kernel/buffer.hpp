@@ -304,15 +304,44 @@ public:
     ~Buffer() {}
 };
 
+__attribute__ ((visibility("default")))
+void* gpu_alloc (size_t size);
+
+__attribute__ ((visibility("default")))
+void gpu_free (void* ptr);
+
+__attribute__ ((visibility("default")))
+void copy_host_to_device (void* host, void* device, size_t size);
+
+__attribute__ ((visibility("default")))
+void copy_device_to_device (void* host, void* device, size_t size);
+
 template<typename T>
 class DeviceBuffer {
 public:
     T* ptr;
     uint64_t size;
 
-    DeviceBuffer(uint64_t size);
-    ~DeviceBuffer();
+    DeviceBuffer(uint64_t size) {
+        ptr = static_cast<T*>(gpu_alloc(size * sizeof(T)));
+    }
 
-    void copy_from_host_buffer(Buffer<T> &host);
-    void copy_to_host_buffer(Buffer<T> &host);
+    DeviceBuffer(py::array_t<T> &host_py) {
+        Buffer<T> host(host_py);
+        size = host.size();
+        ptr = static_cast<T*>(gpu_alloc(size * sizeof(T)));
+        copy_from_host_buffer(host);
+    }
+
+    ~DeviceBuffer() {
+        gpu_free(static_cast<void*>(ptr));
+    }
+
+    void copy_from_host_buffer(Buffer<T> &host) {
+        copy_host_to_device(host.ptr, ptr, sizeof(T) * size);
+    }
+
+    void copy_to_host_buffer(Buffer<T> &host) {
+        copy_device_to_host(host.ptr, ptr, sizeof(T) * size);
+    }
 };

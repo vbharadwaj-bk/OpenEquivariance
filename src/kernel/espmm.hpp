@@ -133,10 +133,10 @@ public:
 */
 class __attribute__ ((visibility ("default"))) ThreadTensorProductImpl : public GenericTensorProductImpl {
 public:
-    Buffer<uint8_t> coord1; 
-    Buffer<uint8_t> coord2; 
-    Buffer<uint8_t> coord3; 
-    Buffer<float> values; 
+    DeviceBuffer<uint8_t> coord1; 
+    DeviceBuffer<uint8_t> coord2; 
+    DeviceBuffer<uint8_t> coord3; 
+    DeviceBuffer<float> values;
 
     ThreadTensorProductImpl(
         uint64_t L1_i, 

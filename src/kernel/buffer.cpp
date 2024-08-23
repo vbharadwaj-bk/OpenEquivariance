@@ -2,23 +2,21 @@
 #include "gpu_util.hpp"
 #include "buffer.hpp"
 
-template<typename T>
-DeviceBuffer<T>::DeviceBuffer(uint64_t size) {
-    this->size = size;
-    gpuErrchk( cudaMalloc((void**) &ptr, size * sizeof(T)))
+
+void* gpu_alloc (size_t size) {
+    void* ptr;
+    gpuErrchk( cudaMalloc((void**) &ptr, size ))
+    return ptr;
 }
 
-template<typename T>
-DeviceBuffer<T>::~DeviceBuffer() {
+void gpu_free (void* ptr) {
     gpuErrchk( cudaFree(ptr))
 }
 
-template<typename T>
-void DeviceBuffer<T>::copy_from_host_buffer(Buffer<T> &host) {
-    // pass
+void copy_host_to_device (void* host, void* device, size_t size) {
+    gpuErrchk( cudaMemcpy(device, host, size, cudaMemcpyHostToDevice));
 }
 
-template<typename T>
-void DeviceBuffer<T>::copy_to_host_buffer(Buffer<T> &host) {
-    // pass
+void copy_device_to_host (void* host, void* device, size_t size) {
+    gpuErrchk( cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost));
 }
