@@ -2,9 +2,13 @@
 #include "espmm.hpp"
 #include "gpu_util.hpp"
 
+#define THREADS_PER_WARP 32
+#define THREAD_BLOCK_SIZE 1024
+
 using namespace std;
 
 __global__ void thread_tp_kernel(
+        size_t num_products,
         float* L1_in,
         size_t L1_stride,
         float* L2_in,
@@ -16,16 +20,18 @@ __global__ void thread_tp_kernel(
         uint8_t* coord1, 
         uint8_t* coord2, 
         uint8_t* coord3,
-        float* values, 
-        ) {
- 
+        float* values) {
+    
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    float* L1_vec = L1_in + (idx * L1_stride);
-    float* L2_vec = L2_in + (idx * L2_stride);
-    float* L3_vec = L3_out + (idx * L3_stride);
 
-    for(int i = 0; i < nnz; i++) {
-        L3_vec[coord3[i]] += L1_vec[coord1[i]] * L2_vec[coord2[i]] * values[i];
+    if(idx < num_products) {
+        float* L1_vec = L1_in + (idx * L1_stride);
+        float* L2_vec = L2_in + (idx * L2_stride);
+        float* L3_vec = L3_out + (idx * L3_stride);
+
+        for(int i = 0; i < nnz; i++) {
+            L3_vec[coord3[i]] += L1_vec[coord1[i]] * L2_vec[coord2[i]] * values[i];
+        }
     }
 }
 
@@ -40,8 +46,22 @@ void ThreadTensorProductImpl::exec_tensor_product(
     size_t L3_stride = get_row_length(3);
 
     gpuErrchk( cudaMemset(L3_out, 0, L3_stride * num_products) ) 
-
     size_t nnz = values.size;
+
+    espmm_v1<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
+            num_products, 
+            L1_in,
+            L1_stride,
+            L2_in,
+            L2_stride,
+            L3_out,
+            L3_stride,
+
+            nnz,
+            coord1.ptr,
+            coord2.ptr,
+            coord3.ptr,
+            values.ptr); 
 
     cout << "Success!" << endl; 
 }
