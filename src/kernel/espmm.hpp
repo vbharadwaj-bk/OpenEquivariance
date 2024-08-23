@@ -110,18 +110,18 @@ public:
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py) {
+        
+        // To get batch dimension 
+        Buffer<float> L3_out_host(L1_in_py);
 
-        Buffer<float> L1_in(L1_in_py);
-        Buffer<float> L2_in(L2_in_py);
-        Buffer<float> L3_out(L3_out_py);
+        // Copies data to device 
+        DeviceBuffer<float> L1_in(L1_in_py);
+        DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> L3_out(L3_out_host.size());
 
-        /*thrust::device_vector<float> L1(L1_in.ptr, L1_in.ptr + L1_in.shape[0] * L1_in.shape[1]);
-        thrust::device_vector<float> L2(L2_in.ptr, L2_in.ptr + L2_in.shape[0] * L2_in.shape[1]);
-        thrust::device_vector<float> L3(L3_out.ptr, L3_out.ptr + L3_out.shape[0] * L3_out.shape[1]);*/
+        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
 
-        exec_tensor_product(L1_in.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
-
-        // To-do: need to copy back to host! 
+        L3_out.copy_to_host_buffer(L3_out_host);
     }
 
     virtual ~GenericTensorProductImpl() {};

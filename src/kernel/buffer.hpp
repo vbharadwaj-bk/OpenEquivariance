@@ -314,7 +314,7 @@ __attribute__ ((visibility("default")))
 void copy_host_to_device (void* host, void* device, size_t size);
 
 __attribute__ ((visibility("default")))
-void copy_device_to_device (void* host, void* device, size_t size);
+void copy_device_to_host (void* host, void* device, size_t size);
 
 template<typename T>
 class DeviceBuffer {
