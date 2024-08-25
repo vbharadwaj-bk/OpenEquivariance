@@ -112,7 +112,7 @@ public:
             py::array_t<float> L3_out_py) {
         
         // To get batch dimension 
-        Buffer<float> L3_out_host(L1_in_py);
+        Buffer<float> L3_out_host(L3_out_py);
 
         // Copies data to device 
         DeviceBuffer<float> L1_in(L1_in_py);
@@ -120,7 +120,6 @@ public:
         DeviceBuffer<float> L3_out(L3_out_host.size());
 
         exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
-
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 

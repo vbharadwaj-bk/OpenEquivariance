@@ -2,7 +2,6 @@
 #include "gpu_util.hpp"
 #include "buffer.hpp"
 
-
 void* gpu_alloc (size_t size) {
     void* ptr;
     gpuErrchk( cudaMalloc((void**) &ptr, size ))

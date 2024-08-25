@@ -324,6 +324,7 @@ public:
 
     DeviceBuffer(uint64_t size) {
         ptr = static_cast<T*>(gpu_alloc(size * sizeof(T)));
+        this->size = size;
     }
 
     DeviceBuffer(py::array_t<T> &host_py) {
@@ -338,10 +339,12 @@ public:
     }
 
     void copy_from_host_buffer(Buffer<T> &host) {
-        copy_host_to_device(host.ptr, ptr, sizeof(T) * size);
+        copy_host_to_device(static_cast<void*>(host.ptr), 
+            static_cast<void*>(ptr), sizeof(T) * size);
     }
 
     void copy_to_host_buffer(Buffer<T> &host) {
-        copy_device_to_host(host.ptr, ptr, sizeof(T) * size);
+        copy_device_to_host(static_cast<void*>(host.ptr), 
+            static_cast<void*>(ptr), sizeof(T) * size);
     }
 };
