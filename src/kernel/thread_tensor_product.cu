@@ -46,7 +46,7 @@ void ThreadTensorProductImpl::exec_tensor_product(
     size_t L2_stride = get_row_length(2);
     size_t L3_stride = get_row_length(3);
 
-    gpuErrchk( cudaMemset(L3_out, 1.0, L3_stride * num_products) ) 
+    gpuErrchk( cudaMemset(L3_out, 0.0, L3_stride * num_products) ) 
     size_t nnz = values.size;
 
     thread_tp_kernel<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
