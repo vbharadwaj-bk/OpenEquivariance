@@ -1,3 +1,5 @@
+import pickle
+
 class TensorProduct:
     '''
     Each class implementation of a TensorProduct uses
@@ -11,7 +13,18 @@ class TensorProduct:
         self.L3 = L3
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
+        '''
+        All state initialization must occur inside the constructor.
+        '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
     def get_row_length(self, mode):
         return self.internal.get_row_length(mode)
+
+    def load_cg_tensor(self, l1, l2, l3):
+        with open("data/CG_tensors.pickle", 'rb') as f:
+            tensors = pickle.load(f) 
+            return tensors[(l1, l2, l3)]
+
+    def test_correctness(self, L1_in, L2_in, L3_out_comp):
+        pass        

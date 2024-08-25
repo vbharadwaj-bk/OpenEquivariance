@@ -24,6 +24,5 @@ if __name__=='__main__':
 
     print("Starting tensor product execution!")
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
-    print(la.norm(L1_in * L2_in - L3_out))
 
     print("Finished tensor product execution!")
