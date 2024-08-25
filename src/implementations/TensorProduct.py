@@ -1,4 +1,6 @@
 import pickle
+import numpy as np
+import numpy.linalg as la
 
 class TensorProduct:
     '''
@@ -14,7 +16,8 @@ class TensorProduct:
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         '''
-        All state initialization must occur inside the constructor.
+        All state initialization for the internal class occurs inside the
+        constructor. 
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
@@ -27,4 +30,27 @@ class TensorProduct:
             return tensors[(l1, l2, l3)]
 
     def test_correctness(self, L1_in, L2_in, L3_out_comp):
-        pass        
+        '''
+        ATM, this only works for a single multiplicity in each dimension. 
+        '''
+        result = {
+            "shape_match": False,
+            "diff_Linf_norm": np.inf,
+            "thresh": 2e-7,
+            "pass": False
+        }
+
+        cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
+        ground_truth = np.einsum('bi,bj,ijk->bk', L1_in, L2_in, cg_tensor)
+
+        if L3_out_comp.shape != ground_truth.shape:
+            result["shape_match"] = False
+        else:
+            result["shape_match"] = True 
+            diff_norm = la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf)
+            result["diff_Linf_norm"] = diff_norm
+            result["pass"] = diff_norm < result["thresh"]
+
+        return result, ground_truth
+
+
