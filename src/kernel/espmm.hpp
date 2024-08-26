@@ -123,6 +123,17 @@ public:
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
+    /*
+    * This benchmarking function does not clear cache, etc. between runs. It copies
+    * data from the CPU to the GPU, but only once. This time is not included in benchmarking.
+    */
+    void benchmark_cpu(
+            py::array_t<float> L1_in_py,
+            py::array_t<float> L2_in_py,
+            py::array_t<float> L3_out_py,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis); 
+
     virtual ~GenericTensorProductImpl() {};
 };
 

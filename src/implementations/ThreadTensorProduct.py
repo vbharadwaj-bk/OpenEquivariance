@@ -11,7 +11,7 @@ class ThreadTensorProduct(TensorProduct):
         # Define the sparse tensor in COO format. Coordinate arrays MUST have uint8 datatypes,
         # values must be floats. 
 
-        tensor = self.load_cg_tensor(L1, L2, L3)
+        tensor = self.cg_tensor
         self.coord= [arr.astype(np.uint8).copy() for arr in np.nonzero(tensor)]
         self.values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
         self.internal = ThreadTensorProductImpl(L1, L2, L3, self.coord[0], self.coord[1], self.coord[2], self.values)

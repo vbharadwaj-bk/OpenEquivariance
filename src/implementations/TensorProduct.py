@@ -14,6 +14,8 @@ class TensorProduct:
         self.L2 = L2
         self.L3 = L3
 
+        self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
+
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         '''
         All state initialization for the internal class occurs inside the
@@ -36,12 +38,11 @@ class TensorProduct:
         result = {
             "shape_match": False,
             "diff_Linf_norm": np.inf,
-            "thresh": 1e-7,
+            "thresh": 5e-7, # Above floating point interval machine epsilon 
             "pass": False
         }
 
-        cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
-        ground_truth = np.einsum('bi,bj,ijk->bk', L1_in, L2_in, cg_tensor)
+        ground_truth = np.einsum('bi,bj,ijk->bk', L1_in, L2_in, self.cg_tensor)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
@@ -53,4 +54,36 @@ class TensorProduct:
 
         return result, ground_truth
 
+    def benchmark_internal(self, num_warmup, num_iter, batch_size):
+        '''
+        Implement to return the total time for num_iter iterations of the core inner loop
+        after num_warmup warmup iterations. 
+        '''
+        raise NotImplementedError()
+
+    def benchmark(self, num_warmup, num_iter, batch_size, prng_seed):
+        '''
+        This function only works for scalar L-values right now, need to change
+        to handle any multiplicity.
+        '''
+        assert(isinstance(self.L1, int)) 
+
+        nnz = len(np.nonzero(self.cg_tensor)[0])
+        times = self.benchmark_internal(num_warmup, num_iter, batch_size)
+        throughputs = batch_size * num_iter * nnz / times        
+
+        result = {
+            "cg tensor nnz": nnz,
+            "batch size": batch_size,
+            "L1": self.L1,
+            "L2": self.L2,
+            "L3": self.L3,
+            "num_warmup": num_warmup,
+            "num_iter": num_iter,
+            "prng_seed": prng_seed,
+            "times": times,
+            "throughputs": throughputs 
+        }
+
+        return result
 
