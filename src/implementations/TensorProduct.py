@@ -54,22 +54,37 @@ class TensorProduct:
 
         return result, ground_truth
 
-    def benchmark_internal(self, num_warmup, num_iter, batch_size):
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_out):
         '''
-        Implement to return the total time for num_iter iterations of the core inner loop
-        after num_warmup warmup iterations. 
+        Returns the total time for num_iter iterations of the core inner loop
+        after num_warmup warmup iterations. Can override for other implementations
         '''
-        raise NotImplementedError()
+        time_millis = np.zeros(num_iter, dtype=np.float)
+        self.internal.benchmark_cpu(
+                L1_in,
+                L2_in,
+                L3_out,
+                num_warmup,
+                time_millis)
 
-    def benchmark(self, num_warmup, num_iter, batch_size, prng_seed):
+        return time_millis
+
+
+    def benchmark(self, num_warmup, num_iter, batch_size, prng_seed=12345):
         '''
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
         assert(isinstance(self.L1, int)) 
 
+        rng = np.random.default_rng(prng_seed)
+
+        L1_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(1))), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(2))), dtype=np.float32)
+        L3_out = np.zeros((batch_size, self.get_row_length(3)), dtype=np.float32)
+
         nnz = len(np.nonzero(self.cg_tensor)[0])
-        times = self.benchmark_internal(num_warmup, num_iter, batch_size)
+        times = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
         throughputs = batch_size * num_iter * nnz / times        
 
         result = {
@@ -86,4 +101,3 @@ class TensorProduct:
         }
 
         return result
-

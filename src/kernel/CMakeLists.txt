@@ -1,6 +1,7 @@
 # Add library
 add_library(espmm SHARED 
   espmm.hpp
+  espmm.cpp
   gpu_util.hpp
   buffer.hpp
   buffer.cpp

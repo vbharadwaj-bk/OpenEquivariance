@@ -132,7 +132,7 @@ public:
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
             uint64_t num_warmup,
-            py::array_t<float> time_millis); 
+            py::array_t<float> time_millis_py); 
 
     virtual ~GenericTensorProductImpl() {};
 };
