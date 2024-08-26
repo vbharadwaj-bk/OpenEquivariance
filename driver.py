@@ -26,5 +26,6 @@ if __name__=='__main__':
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     result, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
-    print(L3_out)
-    print(ground_truth)
+    #print(L3_out)
+    #print(ground_truth)
+    print(result)

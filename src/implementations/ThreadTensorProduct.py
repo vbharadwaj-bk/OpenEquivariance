@@ -13,5 +13,5 @@ class ThreadTensorProduct(TensorProduct):
 
         tensor = self.load_cg_tensor(L1, L2, L3)
         self.coord= [arr.astype(np.uint8).copy() for arr in np.nonzero(tensor)]
-        self.values = tensor[self.coord].astype(np.float32).copy()
+        self.values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
         self.internal = ThreadTensorProductImpl(L1, L2, L3, self.coord[0], self.coord[1], self.coord[2], self.values)

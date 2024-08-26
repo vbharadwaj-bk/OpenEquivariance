@@ -36,7 +36,7 @@ class TensorProduct:
         result = {
             "shape_match": False,
             "diff_Linf_norm": np.inf,
-            "thresh": 2e-7,
+            "thresh": 1e-7,
             "pass": False
         }
 
