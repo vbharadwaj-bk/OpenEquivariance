@@ -37,9 +37,11 @@ void GenericTensorProductImpl::benchmark_cpu(
         exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&time, start, stop);
+        cudaEventElapsedTime(&millis, start, stop);
         time_millis[i] = millis;
     }
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     L3_out.copy_to_host_buffer(L3_out_host);
 }

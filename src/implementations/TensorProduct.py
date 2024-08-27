@@ -59,7 +59,7 @@ class TensorProduct:
         Returns the total time for num_iter iterations of the core inner loop
         after num_warmup warmup iterations. Can override for other implementations
         '''
-        time_millis = np.zeros(num_iter, dtype=np.float)
+        time_millis = np.zeros(num_iter, dtype=np.float32)
         self.internal.benchmark_cpu(
                 L1_in,
                 L2_in,
@@ -85,7 +85,12 @@ class TensorProduct:
 
         nnz = len(np.nonzero(self.cg_tensor)[0])
         times = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
-        throughputs = batch_size * num_iter * nnz / times        
+
+        # Each multiplication requires two multiplications and one addition --> 3 
+        ops_per_nz = 3
+
+        throughputs_gflops = ops_per_nz * batch_size * num_iter * nnz / (times * 1e9)
+        print(nnz)
 
         result = {
             "cg tensor nnz": nnz,
@@ -97,7 +102,7 @@ class TensorProduct:
             "num_iter": num_iter,
             "prng_seed": prng_seed,
             "times": times,
-            "throughputs": throughputs 
+            "throughputs_gflops": throughputs_gflops
         }
 
         return result

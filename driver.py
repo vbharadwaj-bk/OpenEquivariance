@@ -27,6 +27,7 @@ if __name__=='__main__':
     print("Finished GPU Execution")
     result, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
-    #print(L3_out)
-    #print(ground_truth)
+    benchmark = tp.benchmark(10, 30, 10000000, prng_seed=12345) 
+    
     print(result)
+    print(benchmark)
