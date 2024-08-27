@@ -8,3 +8,4 @@ data/*
 experimental/*
 *.code-workspace
 __pycache__
+outputs/*

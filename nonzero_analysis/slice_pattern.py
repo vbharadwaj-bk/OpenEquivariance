@@ -17,7 +17,6 @@ def fill_diagonal(slice, offset, direction):
         cur = cur[0] - 1, cur[1] - direction 
 
 
-
 def create_nonzero_pattern(L1, L2, L3, slice_dim):
     L = [L1, L2, L3]
     tensor = np.zeros((2 * L1 + 1, 2 * L2 + 1, 2 * L3 + 1))

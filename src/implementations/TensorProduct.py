@@ -15,10 +15,10 @@ class TensorProduct:
         self.L3 = L3
 
         self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
-        self.name = None
 
-    def name(self):
-        return self.name
+    @staticmethod
+    def name():
+        raise NotImplementedError() 
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         '''
@@ -53,8 +53,8 @@ class TensorProduct:
         else:
             result["shape_match"] = True 
             diff_norm = la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf)
-            result["diff_Linf_norm"] = diff_norm
-            result["pass"] = diff_norm < result["thresh"]
+            result["diff_Linf_norm"] = float(diff_norm)
+            result["pass"] = bool(diff_norm < result["thresh"])
 
         return result, ground_truth
 
@@ -93,8 +93,9 @@ class TensorProduct:
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
-        throughputs_gflops = ops_per_nz * batch_size * nnz / (time_millis * 1e6)
-        bandwidth_gbps_rough = (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)
+        throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+        bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
+        time_millis = [float(el) for el in time_millis] 
 
         result = {
             "cg tensor nnz": nnz,

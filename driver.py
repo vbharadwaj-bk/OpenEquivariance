@@ -10,8 +10,8 @@ from src.wrapper.kernel_wrapper import *
 from src.implementations.ThreadTensorProduct import *
 
 class TestBenchmarkSuite:
-    def __init__(self);
-        self.configs =
+    def __init__(self):
+        self.configs = \
             [(5, 5, 3) # ,
              #(2, 2, 2),
              #(4, 3, 1),
@@ -20,7 +20,7 @@ class TestBenchmarkSuite:
 
         self.num_warmup = 10
         self.num_iter = 30
-        self.correctness_batch_size = 1000000
+        self.correctness_batch_size = 100000
         self.bench_batch_size = 10000000
         self.prng_seed = 12345
 
@@ -63,8 +63,10 @@ class TestBenchmarkSuite:
                     "benchmark": benchmark
                 }
                 fname = f"{output_folder}/{L1}_{L2}_{L3}_{impl.name()}.json"
+
                 with open(fname, 'w') as f:
-                    json.dump(result, f)
+                    json.dump(result, f, indent=2)
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
+    bench_suite.run([ThreadTensorProduct])
