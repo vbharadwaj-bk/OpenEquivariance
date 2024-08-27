@@ -84,12 +84,12 @@ class TensorProduct:
         L3_out = np.zeros((batch_size, self.get_row_length(3)), dtype=np.float32)
 
         nnz = len(np.nonzero(self.cg_tensor)[0])
-        times = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
 
+        # We don't multiply by num_iters since we benchmark each kernel run separately 
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
-
-        throughputs_gflops = ops_per_nz * batch_size * num_iter * nnz / (times * 1e9)
+        throughputs_gflops = ops_per_nz * batch_size * nnz / (time_millis * 1e6)
         print(nnz)
 
         result = {
@@ -101,7 +101,7 @@ class TensorProduct:
             "num_warmup": num_warmup,
             "num_iter": num_iter,
             "prng_seed": prng_seed,
-            "times": times,
+            "time_millis": time_millis,
             "throughputs_gflops": throughputs_gflops
         }
 
