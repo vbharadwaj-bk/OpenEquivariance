@@ -90,7 +90,7 @@ class TensorProduct:
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
         throughputs_gflops = ops_per_nz * batch_size * nnz / (time_millis * 1e6)
-        print(nnz)
+        bandwidth_gbps_rough = (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)
 
         result = {
             "cg tensor nnz": nnz,
@@ -102,7 +102,8 @@ class TensorProduct:
             "num_iter": num_iter,
             "prng_seed": prng_seed,
             "time_millis": time_millis,
-            "throughputs_gflops": throughputs_gflops
+            "throughputs_gflops": throughputs_gflops,
+            "bandwidth_gbps_rough": bandwidth_gbps_rough
         }
 
         return result
