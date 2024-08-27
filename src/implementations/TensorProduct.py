@@ -15,6 +15,10 @@ class TensorProduct:
         self.L3 = L3
 
         self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
+        self.name = None
+
+    def name(self):
+        return self.name
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         '''
