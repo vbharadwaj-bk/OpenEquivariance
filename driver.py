@@ -12,10 +12,10 @@ from src.implementations.ThreadTensorProduct import *
 class TestBenchmarkSuite:
     def __init__(self):
         self.configs = \
-            [(5, 5, 3) # ,
-             #(2, 2, 2),
-             #(4, 3, 1),
-             #(4, 3, 5)
+            [(5, 5, 3),
+             (2, 2, 2),
+             (4, 3, 1),
+             (4, 3, 5)
             ]
 
         self.num_warmup = 10
@@ -24,7 +24,7 @@ class TestBenchmarkSuite:
         self.bench_batch_size = 10000000
         self.prng_seed = 12345
 
-    def run(self, tp_implementations):
+    def run(self, tp_implementations, correctness=True):
         millis_since_epoch = round(time.time() * 1000)
         output_folder = f'outputs/{millis_since_epoch}'
         os.mkdir(output_folder)
@@ -67,6 +67,23 @@ class TestBenchmarkSuite:
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
 
+def debug(tp_impl, config):
+    L1, L2, L3 = config
+    tp = tp_impl(L1, L2, L3)
+    batch_size = 2
+
+    rng = np.random.default_rng(12345)
+    L1_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(1))), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(2))), dtype=np.float32)
+    L3_out = np.zeros((batch_size, tp.get_row_length(3)), dtype=np.float32)
+
+    tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
+    correctness, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+
+    print(L3_out)
+    print(ground_truth)
+
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct])
+    #bench_suite = TestBenchmarkSuite()
+    #bench_suite.run([ThreadTensorProduct])
+    debug(ThreadTensorProduct, (4, 3, 1))

@@ -9,3 +9,4 @@ experimental/*
 *.code-workspace
 __pycache__
 outputs/*
+visualization/*
