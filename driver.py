@@ -84,6 +84,6 @@ def debug(tp_impl, config):
     print(ground_truth)
 
 if __name__=='__main__':
-    #bench_suite = TestBenchmarkSuite()
-    #bench_suite.run([ThreadTensorProduct])
-    debug(ThreadTensorProduct, (4, 3, 1))
+    bench_suite = TestBenchmarkSuite()
+    bench_suite.run([ThreadTensorProduct])
+    #debug(ThreadTensorProduct, (4, 3, 1))
