@@ -1,8 +1,9 @@
+#include "tensorproducts.hpp"
+
 #include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cuda_runtime.h>
-#include "espmm.hpp"
 
 using namespace std;
 namespace py = pybind11;

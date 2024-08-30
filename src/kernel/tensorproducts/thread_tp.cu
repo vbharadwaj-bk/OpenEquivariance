@@ -1,6 +1,8 @@
+#include "tensorproducts.hpp"
+
 #include <iostream>
 #include "cuda_runtime.h"
-#include "espmm.hpp"
+#include "util.hpp"     // round_up
 #include "gpu_util.hpp"
 
 #define THREADS_PER_WARP 32

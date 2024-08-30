@@ -2,7 +2,7 @@
 #include <cuda_runtime.h>
 #include <cassert>
 
-#include "espmm.hpp"
+#include "convolution.hpp"
 #include "gpu_util.hpp"
 
 #define THREADS_PER_WARP 32
