@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <bits/stdc++.h>
-//#include "json.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -124,11 +123,11 @@ public:
 
 typedef chrono::time_point<std::chrono::steady_clock> my_timer_t; 
 
-my_timer_t start_clock() {
+inline my_timer_t start_clock() {
     return std::chrono::steady_clock::now();
 }
 
-double stop_clock_get_elapsed(my_timer_t &start) {
+inline double stop_clock_get_elapsed(my_timer_t &start) {
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> diff = end - start;
     return diff.count();
@@ -136,7 +135,7 @@ double stop_clock_get_elapsed(my_timer_t &start) {
 
 //#pragma GCC visibility push(hidden)
 template<typename T>
-class __attribute__((visibility("hidden"))) Buffer {
+class Buffer {
 public:
     py::buffer_info info;
     unique_ptr<T[]> managed_ptr;
@@ -265,6 +264,14 @@ public:
         return ptr[offset];
     }
 
+    uint64_t size() {
+        uint64_t buffer_size = 1;
+        for(uint64_t i : shape) {
+            buffer_size *= i;
+        }
+        return buffer_size;
+    }
+
     void print() {
         cout << "------------------------" << endl;
         if(shape.size() == 1) {
@@ -295,4 +302,49 @@ public:
     }
 
     ~Buffer() {}
+};
+
+__attribute__ ((visibility("default")))
+void* gpu_alloc (size_t size);
+
+__attribute__ ((visibility("default")))
+void gpu_free (void* ptr);
+
+__attribute__ ((visibility("default")))
+void copy_host_to_device (void* host, void* device, size_t size);
+
+__attribute__ ((visibility("default")))
+void copy_device_to_host (void* host, void* device, size_t size);
+
+template<typename T>
+class DeviceBuffer {
+public:
+    T* ptr;
+    uint64_t size;
+
+    DeviceBuffer(uint64_t size) {
+        ptr = static_cast<T*>(gpu_alloc(size * sizeof(T)));
+        this->size = size;
+    }
+
+    DeviceBuffer(py::array_t<T> &host_py) {
+        Buffer<T> host(host_py);
+        size = host.size();
+        ptr = static_cast<T*>(gpu_alloc(size * sizeof(T)));
+        copy_from_host_buffer(host);
+    }
+
+    ~DeviceBuffer() {
+        gpu_free(static_cast<void*>(ptr));
+    }
+
+    void copy_from_host_buffer(Buffer<T> &host) {
+        copy_host_to_device(static_cast<void*>(host.ptr), 
+            static_cast<void*>(ptr), sizeof(T) * size);
+    }
+
+    void copy_to_host_buffer(Buffer<T> &host) {
+        copy_device_to_host(static_cast<void*>(host.ptr), 
+            static_cast<void*>(ptr), sizeof(T) * size);
+    }
 };

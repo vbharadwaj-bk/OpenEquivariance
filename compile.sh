@@ -1,4 +1,4 @@
 pushd build
-make
+make -j
 make install
 popd

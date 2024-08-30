@@ -1,0 +1,49 @@
+import json, os
+
+BENCHMARK_FOLDER="/global/cfs/projectdirs/m1982/vbharadw/equivariant_spmm/outputs"
+
+def load_benchmarks(subfolder=None):
+    if subfolder is None:
+        folders = os.listdir(BENCHMARK_FOLDER)
+        subfolder = sorted(folders)[-1]
+        
+    benchmarks = []
+    metadata = None
+    
+    files = os.listdir(f'{BENCHMARK_FOLDER}/{subfolder}')
+    for file in files:
+        with open(f"{BENCHMARK_FOLDER}/{subfolder}/{file}", "r") as f:
+            if file != "metadata.json":
+                benchmarks.append(json.load(f))
+                benchmarks[-1]["filename"] = file
+            else:
+                metadata = json.load(f)
+                metadata["folder"] = subfolder
+                
+    return benchmarks, metadata
+
+def filter(benchmarks, base, match_one=True):
+    filtered_results = []
+    for benchmark in benchmarks:
+        matched = True
+        for key in base:
+            if benchmark[key] != base[key]:
+                matched = False
+        
+        if matched:
+            filtered_results.append(benchmark)
+        
+    if len(filtered_results) == 0:
+        print("WARNING: Filter matched no experiments")
+        return None
+    
+    if len(filtered_results) > 1 and match_one:
+        print("Error, matched more than one experiment:")
+        for experiment in filtered_results:
+            print(experiment["filename"])
+        assert(False)
+    
+    if match_one:
+        filtered_results = filtered_results[0]
+    
+    return filtered_results

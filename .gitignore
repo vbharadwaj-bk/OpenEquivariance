@@ -2,3 +2,11 @@ build/*
 .rendered*
 *.lock
 *.so
+*.ipynb
+.DS_Store
+data/*
+experimental/*
+*.code-workspace
+__pycache__
+outputs/*
+visualization/*
