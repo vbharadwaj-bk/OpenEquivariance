@@ -27,7 +27,7 @@ setup_pybind11(cfg)
 
 import os
 cwd = os.getcwd()
-print(cwd)
+headers = os.listdir(f'{cwd}/build/include')
 
 espmm_path = f'{cwd}/build/lib'
 rpath_options = f'-Wl,-rpath,{espmm_path}'
@@ -40,6 +40,8 @@ print(f"Linking C++ extensions with {link_args}")
 
 cfg['extra_compile_args'] = compile_args 
 cfg['extra_link_args'] = link_args
-cfg['dependencies'] = [f'{cwd}/build/include/espmm.hpp']
+cfg['dependencies'] = [f'{cwd}/build/include/{header}'
+    for header in headers
+]
 %>
 */

@@ -1,23 +1,33 @@
 # Add library
 add_library(espmm SHARED 
   espmm.hpp
-  espmm.cpp
-  gpu_util.hpp
-  buffer.hpp
-  buffer.cpp
-  thread_tensor_product.cu
-  thread_tensor_product_staged.cu
-  equivariant_convolution.cu
+
+  util/util.hpp
+  util/gpu_util.hpp
+  util/buffer.hpp
+  util/buffer.cpp
+
+  tensorproducts/tensorproducts.hpp
+  tensorproducts/generic_tp.cpp
+  tensorproducts/thread_tp.cu
+
+  convolution/convolution.hpp
+  convolution/equivariant_convolution.cu
 )
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/util)
 
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
-    "buffer.hpp"
+    "util/buffer.hpp"
+    "util/util.hpp"
+    "util/util.hpp"
+    "tensorproducts/tensorproducts.hpp"
+    "convolution/convolution.hpp"
 )
 
 # Set target properties
