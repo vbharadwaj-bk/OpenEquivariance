@@ -1,4 +1,4 @@
-import json, os, time
+import json, os, time, pathlib
 import cppimport
 import cppimport.import_hook
 cppimport.settings["use_filelock"] = False
@@ -26,13 +26,13 @@ class TestBenchmarkSuite:
 
     def run(self, tp_implementations, correctness=True):
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = f'outputs/{millis_since_epoch}'
-        os.mkdir(output_folder)
+        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+        output_folder.mkdir(parents=True)
         metadata = {
             "configs": self.configs,
             "implementations": [impl.name() for impl in tp_implementations]
         }
-        with open(f'{output_folder}/metadata.json', 'w') as f:
+        with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f) 
 
         for config in self.configs: 
@@ -62,7 +62,7 @@ class TestBenchmarkSuite:
                     "correctness": correctness,
                     "benchmark": benchmark
                 }
-                fname = f"{output_folder}/{L1}_{L2}_{L3}_{impl.name()}.json"
+                fname = pathlib.Path(f"{output_folder}/{L1}_{L2}_{L3}_{impl.name()}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
