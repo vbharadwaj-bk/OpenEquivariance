@@ -1,4 +1,4 @@
-import pickle
+import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 
@@ -31,7 +31,7 @@ class TensorProduct:
         return self.internal.get_row_length(mode)
 
     def load_cg_tensor(self, l1, l2, l3):
-        with open("data/CG_tensors.pickle", 'rb') as f:
+        with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
             tensors = pickle.load(f) 
             return tensors[(l1, l2, l3)]
 
