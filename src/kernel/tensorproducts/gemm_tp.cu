@@ -37,11 +37,28 @@ __global__ void kronecker_kernel_v1(
     }
 }
 
+inline void checkCublasStatus(cublasStatus_t status) {
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        printf("cuBLAS API failed with status %d\n", status);
+        throw std::logic_error("cuBLAS API failed");
+    }
+}
+
 void GemmTensorProductImpl::preprocess() {
     // cuBLASLt example taken from
     // https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuBLASLt/LtSgemm/sample_cublasLt_LtSgemm.cu 
+ 
+    cublasLtCreate(&ltHandle)
 
-    cublasOperation_t transa = CUBLAS_OP_N;
+    size_t m = get_row_length(3);
+    size_t n = num_products;
+    size_t k = get_row_length(1) * get_row_length(2);
+
+    // TODO: Need to set these correctly! 
+    size_t lda = m; 
+    size_t ldb = k;
+    size_t ldc = m;
+    cublasOperation_t transa = CUBLAS_OP_N; 
     cublasOperation_t transb = CUBLAS_OP_T;
 
     checkCublasStatus(cublasLtMatmulDescCreate(&operationDesc, CUBLAS_COMPUTE_32F, CUDA_R_32F));
@@ -76,7 +93,6 @@ void GemmTensorProductImpl::exec_tensor_product(
     gpuErrchk( cudaMemset(L3_out, 0.0, L3_len * num_products * sizeof(float)) )
 
     // Dynamic memory allocation here is expensive 
-    DeviceBuffer<float> kprods(num_products * get_row_length(1) * get_row_length(2));
 
     kronecker_kernel_v1<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
         num_products,
@@ -86,30 +102,35 @@ void GemmTensorProductImpl::exec_tensor_product(
         L2_len,
         kprods.ptr);
 
+    float alpha = 1.0;
+    float beta  = 0.0; 
+
     checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
-                                     alpha,
-                                     A,
+                                     &alpha,
+                                     cg_coffs.ptr,
                                      Adesc,
-                                     B,
+                                     kprods.ptr,
                                      Bdesc,
-                                     beta,
-                                     C,
+                                     &beta,
+                                     L3_out,
                                      Cdesc,
-                                     C,
+                                     L3_out,
                                      Cdesc,
                                      &heuristicResult.algo,
-                                     workspace,
+                                     workspace.ptr,
                                      workspaceSize,
                                      0));
 
     gpuErrchk( cudaGetLastError() );
 }
 
-~GemmTensorProductIMpl::GemmTensorProductImpl() {
+GemmTensorProductImpl::~GemmTensorProductImpl() {
     if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));
     if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
     if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
     if (Adesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
     if (operationDesc) checkCublasStatus(cublasLtMatmulDescDestroy(operationDesc));
+
+    checkCublasStatus(cublasLtDestroy(ltHandle));
 }

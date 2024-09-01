@@ -132,21 +132,31 @@ public:
 */
 class __attribute__ ((visibility ("default"))) GemmTensorProductImpl : public GenericTensorProductImpl {
 public:
-    DeviceBuffer<float> cg_coeffs;
+    size_t workspaceSize = 1024 * 1024 * 4;
+    DeviceBuffer<char> workspace;
 
+    uint64_t num_products;
+    DeviceBuffer<float> cg_coeffs;
+    DeviceBuffer<float> kprods;
+
+    cublasLtHandle_t     ltHandle;
     cublasLtMatmulDesc_t operationDesc = NULL; 
     cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL; 
     cublasLtMatmulPreference_t preference = NULL; 
     cublasLtMatmulHeuristicResult_t heuristicResult {};
 
     GemmTensorProductImpl(
+        uint64_t num_products1,
         uint64_t L1_i, 
         uint64_t L2_i, 
         uint64_t L3_i,
         py::array_t<float> cg_coeffs_py 
         ) :
         GenericTensorProductImpl(L1_i, L2_i, L3_i),
-        cg_coeffs(cg_coeffs_py)
+        workspace(workspaceSize)
+        num_products(num_products1),
+        cg_coeffs(cg_coeffs_py), 
+        kprods(num_products * get_row_length(1) * get_row_length(2))
         { preprocess(); }
 
     void preprocess();

@@ -41,4 +41,9 @@ set_target_properties(espmm PROPERTIES PUBLIC_HEADER "${ESPMM_PUBLIC_HEADERS}")
 
 # Link against CUDA
 target_link_libraries(espmm ${CUDA_LIBRARIES})
+
+enable_language(CUDA)
+find_package(CUDAToolkit)
+target_link_libraries(project CUDA::cublas)
+
 install(TARGETS espmm PUBLIC_HEADER)
