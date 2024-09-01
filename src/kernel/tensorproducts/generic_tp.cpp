@@ -1,9 +1,9 @@
 #include "tensorproducts.hpp"
+#include "gpu_util.hpp"
 
 #include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <cuda_runtime.h>
 
 using namespace std;
 namespace py = pybind11;
@@ -15,9 +15,7 @@ void GenericTensorProductImpl::benchmark_cpu(
         uint64_t num_warmup,
         py::array_t<float> time_millis_py) {
 
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    GPUTimer timer;
 
     Buffer<float> time_millis(time_millis_py);
     Buffer<float> L3_out_host(L3_out_py);
@@ -33,16 +31,11 @@ void GenericTensorProductImpl::benchmark_cpu(
     // TODO: Synchronization can be costly if the runtime of any given
     // kernel execution is small. 
     for(int i = 0; i < time_millis.shape[0]; i++) {
-        float millis;
-        cudaEventRecord(start);
+        timer.start();
         exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
-        cudaEventRecord(stop);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&millis, start, stop);
-        time_millis[i] = millis;
+        float elapsed = timer.stop_clock_get_elapsed();
+        time_millis[i] = elapsed;
     }
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
 
     L3_out.copy_to_host_buffer(L3_out_host);
 }
