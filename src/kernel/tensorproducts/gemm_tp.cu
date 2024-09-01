@@ -54,7 +54,6 @@ void GemmTensorProductImpl::preprocess() {
     size_t n = num_products;
     size_t k = get_row_length(1) * get_row_length(2);
 
-    // TODO: Need to set these correctly! 
     size_t lda = k; 
     size_t ldb = k;
     size_t ldc = m;
