@@ -7,6 +7,7 @@ import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
+from src.implementations.ThreadTP import *
 
 class TestBenchmarkSuite:
     def __init__(self):
@@ -43,13 +44,13 @@ class TestBenchmarkSuite:
 
                 # No need to regenerate, but this will do for now 
                 rng = np.random.default_rng(self.prng_seed)
-                L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp.get_row_length(1))), dtype=np.float32) 
-                L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp.get_row_length(2))), dtype=np.float32)
-                L3_out = np.zeros((self.correctness_batch_size, tp.get_row_length(3)), dtype=np.float32)
+                L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(1))), dtype=np.float32) 
+                L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(2))), dtype=np.float32)
+                L3_out = np.zeros((self.correctness_batch_size, tp_correctness.get_row_length(3)), dtype=np.float32)
 
                 print("Started correctness check!")
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-                correctness, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+                correctness, ground_truth = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
                 print("Finished Correctness Check!")
 
                 print("Started benchmark!")
@@ -69,7 +70,7 @@ class TestBenchmarkSuite:
 
 def debug(tp_impl, config):
     L1, L2, L3 = config
-    batch_size = 1
+    batch_size = 10
     tp = tp_impl(batch_size, L1, L2, L3)
 
     rng = np.random.default_rng(12345)
@@ -83,13 +84,7 @@ def debug(tp_impl, config):
     print(L3_out)
     print(ground_truth)
 
-    #flat_tensor = tp.cg_tensor.reshape(((2 * L1 + 1) * (2 * L2 + 1), 2 * L3 + 1)).T.copy() 
-    print("--------")
-    #print(flat_tensor @ np.kron(L1_in[0, :], L2_in[0, :]))
-    #print(np.kron(L1_in[0, :], L2_in[0, :]))
-
-
 if __name__=='__main__':
-    #bench_suite = TestBenchmarkSuite()
-    #bench_suite.run([ThreadTensorProduct])
-    debug(GemmTensorProduct, (3, 3, 4))
+    bench_suite = TestBenchmarkSuite()
+    bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
+    #debug(GemmTensorProduct, (3, 3, 4))
