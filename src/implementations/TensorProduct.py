@@ -8,11 +8,12 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely. 
     '''
-    def __init__(self, L1, L2, L3):
+    def __init__(self, batch_size, L1, L2, L3):
         self.internal = None
         self.L1 = L1
         self.L2 = L2
         self.L3 = L3
+        self.batch_size = batch_size
 
         self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
 
