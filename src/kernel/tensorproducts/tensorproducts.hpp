@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cstdint>
+#include <cublasLt.h>
 
 #include "buffer.hpp"
 
@@ -127,11 +128,16 @@ public:
 //=========================================================================
 /*
 * A tensor product that executes a dense GEMM after instantiating Kronecker 
-* products explicitly. 
+* products explicitly using cuBLASLt. 
 */
 class __attribute__ ((visibility ("default"))) GemmTensorProductImpl : public GenericTensorProductImpl {
 public:
     DeviceBuffer<float> cg_coeffs;
+
+    cublasLtMatmulDesc_t operationDesc = NULL; 
+    cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL; 
+    cublasLtMatmulPreference_t preference = NULL; 
+    cublasLtMatmulHeuristicResult_t heuristicResult {};
 
     GemmTensorProductImpl(
         uint64_t L1_i, 
@@ -141,7 +147,9 @@ public:
         ) :
         GenericTensorProductImpl(L1_i, L2_i, L3_i),
         cg_coeffs(cg_coeffs_py)
-        { }
+        { preprocess(); }
+
+    void preprocess();
 
     void exec_tensor_product(
             uint64_t num_products,
@@ -149,5 +157,5 @@ public:
             float* X_out,
             float* edge_features);
 
-    ~GemmTensorProductImpl() = default;
+    ~GemmTensorProductImpl(); 
 };

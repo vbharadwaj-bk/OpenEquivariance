@@ -5,6 +5,7 @@
 #include "util.hpp"     // round_up
 #include "gpu_util.hpp"
 #include "buffer.hpp"
+#include <cublasLt.h>
 
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 1024
@@ -24,15 +25,41 @@ __global__ void kronecker_kernel_v1(
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if(idx < num_products) { 
-        float* L1_vec = L1_in + (idx * L1_stride);
-        float* L2_vec = L2_in + (idx * L2_stride);
-        float* kprod = kprods + (idx * L1_stride * L2_stride);
+        float* L1_vec = L1_in + (idx * L1_len);
+        float* L2_vec = L2_in + (idx * L2_len);
+        float* kprod = kprods + (idx * L1_len * L2_len);
 
         for(int i = 0; i < L1_len; i++) {
             for(int j = 0; j < L2_len; j++) {
                 kprod[i * L1_len + j] = L1_vec[i] * L2_vec[j];
             }
         } 
+    }
+}
+
+void GemmTensorProductImpl::preprocess() {
+    // cuBLASLt example taken from
+    // https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuBLASLt/LtSgemm/sample_cublasLt_LtSgemm.cu 
+
+    cublasOperation_t transa = CUBLAS_OP_N;
+    cublasOperation_t transb = CUBLAS_OP_T;
+
+    checkCublasStatus(cublasLtMatmulDescCreate(&operationDesc, CUBLAS_COMPUTE_32F, CUDA_R_32F));
+    checkCublasStatus(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSA, &transa, sizeof(transa)));
+    checkCublasStatus(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSB, &transb, sizeof(transb))); 
+
+    checkCublasStatus(cublasLtMatrixLayoutCreate(&Adesc, CUDA_R_32F, transa == CUBLAS_OP_N ? m : k, transa == CUBLAS_OP_N ? k : m, lda));
+    checkCublasStatus(cublasLtMatrixLayoutCreate(&Bdesc, CUDA_R_32F, transb == CUBLAS_OP_N ? k : n, transb == CUBLAS_OP_N ? n : k, ldb));
+    checkCublasStatus(cublasLtMatrixLayoutCreate(&Cdesc, CUDA_R_32F, m, n, ldc));
+
+    checkCublasStatus(cublasLtMatmulPreferenceCreate(&preference));
+    checkCublasStatus(cublasLtMatmulPreferenceSetAttribute(preference, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &workspaceSize, sizeof(workspaceSize)));
+
+    int returnedResults                             = 0;
+    checkCublasStatus(cublasLtMatmulAlgoGetHeuristic(ltHandle, operationDesc, Adesc, Bdesc, Cdesc, Cdesc, preference, 1, &heuristicResult, &returnedResults));
+
+    if (returnedResults == 0) {
+        checkCublasStatus(CUBLAS_STATUS_NOT_SUPPORTED);
     }
 }
 
@@ -46,7 +73,9 @@ void GemmTensorProductImpl::exec_tensor_product(
     size_t L2_len = get_row_length(2);
     size_t L3_len = get_row_length(3);
 
-    gpuErrchk( cudaMemset(L3_out, 0.0, L3_stride * num_products * sizeof(float)) ) 
+    gpuErrchk( cudaMemset(L3_out, 0.0, L3_len * num_products * sizeof(float)) )
+
+    // Dynamic memory allocation here is expensive 
     DeviceBuffer<float> kprods(num_products * get_row_length(1) * get_row_length(2));
 
     kronecker_kernel_v1<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
@@ -55,8 +84,32 @@ void GemmTensorProductImpl::exec_tensor_product(
         L1_len,
         L2_in,
         L2_len,
-        kprods);
+        kprods.ptr);
+
+    checkCublasStatus(cublasLtMatmul(ltHandle,
+                                     operationDesc,
+                                     alpha,
+                                     A,
+                                     Adesc,
+                                     B,
+                                     Bdesc,
+                                     beta,
+                                     C,
+                                     Cdesc,
+                                     C,
+                                     Cdesc,
+                                     &heuristicResult.algo,
+                                     workspace,
+                                     workspaceSize,
+                                     0));
 
     gpuErrchk( cudaGetLastError() );
 }
 
+~GemmTensorProductIMpl::GemmTensorProductImpl() {
+    if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));
+    if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
+    if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
+    if (Adesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Adesc));
+    if (operationDesc) checkCublasStatus(cublasLtMatmulDescDestroy(operationDesc));
+}
