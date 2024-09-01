@@ -8,7 +8,7 @@ class GemmTensorProduct(TensorProduct):
     def __init__(self, L1, L2, L3):
         super().__init__(L1, L2, L3)
         tensor = self.cg_tensor 
-        self.flat_tensor = None
+        self.flat_tensor = tensor.reshape(((2 * L1 + 1) * (2 * L2 + 1), 2 * L3 + 1)).T.copy() 
         self.internal = GemmTensorProductImpl(L1, L2, L3, self.flat_tensor)
 
 

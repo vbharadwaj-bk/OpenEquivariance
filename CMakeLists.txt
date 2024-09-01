@@ -8,11 +8,16 @@ include_directories(/usr/include)
 # Set CUDA version
 set(CUDA_VERSION 11.0)
 
-# Find CUDA
-find_package(CUDA ${CUDA_VERSION} REQUIRED)
-find_package(PythonLibs REQUIRED)
-find_package(pybind11 REQUIRED)
-# This also doesn't fix the problem, but there might be a way to use pybind directly from cmake
+include(CheckLanguage)
+check_language(CUDA)
+
+if(CMAKE_CUDA_COMPILER)
+  enable_language(CUDA)
+  find_package(CUDAToolkit)
+else()
+  message(STATUS "No CUDA compiler found")
+endif()
+
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 80)
