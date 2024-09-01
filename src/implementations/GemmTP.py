@@ -14,4 +14,4 @@ class GemmTensorProduct(TensorProduct):
 
     @staticmethod
     def name():
-        return "ThreadTensorProduct"
+        return "GemmTensorProduct"
