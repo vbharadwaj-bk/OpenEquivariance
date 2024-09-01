@@ -2,7 +2,6 @@ import json, os, time, pathlib
 import cppimport
 import cppimport.import_hook
 cppimport.settings["use_filelock"] = False
-from scipy.sparse import coo_matrix
 import numpy as np
 import numpy.linalg as la
 
@@ -84,7 +83,13 @@ def debug(tp_impl, config):
     print(L3_out)
     print(ground_truth)
 
+    #flat_tensor = tp.cg_tensor.reshape(((2 * L1 + 1) * (2 * L2 + 1), 2 * L3 + 1)).T.copy() 
+    print("--------")
+    #print(flat_tensor @ np.kron(L1_in[0, :], L2_in[0, :]))
+    #print(np.kron(L1_in[0, :], L2_in[0, :]))
+
+
 if __name__=='__main__':
     #bench_suite = TestBenchmarkSuite()
     #bench_suite.run([ThreadTensorProduct])
-    debug(GemmTensorProduct, (3, 3, 3))
+    debug(GemmTensorProduct, (3, 3, 4))

@@ -31,7 +31,7 @@ __global__ void kronecker_kernel_v1(
 
         for(int i = 0; i < L1_len; i++) {
             for(int j = 0; j < L2_len; j++) {
-                kprod[i * L1_len + j] = L1_vec[i] * L2_vec[j];
+                kprod[i * L2_len + j] = L1_vec[i] * L2_vec[j];
             }
         } 
     }
@@ -47,7 +47,7 @@ inline void checkCublasStatus(cublasStatus_t status) {
 void GemmTensorProductImpl::preprocess() {
     // cuBLASLt example taken from
     // https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuBLASLt/LtSgemm/sample_cublasLt_LtSgemm.cu 
- 
+
     checkCublasStatus(cublasLtCreate(&ltHandle));
 
     size_t m = get_row_length(3);
@@ -55,10 +55,10 @@ void GemmTensorProductImpl::preprocess() {
     size_t k = get_row_length(1) * get_row_length(2);
 
     // TODO: Need to set these correctly! 
-    size_t lda = m; 
+    size_t lda = k; 
     size_t ldb = k;
     size_t ldc = m;
-    cublasOperation_t transa = CUBLAS_OP_N; 
+    cublasOperation_t transa = CUBLAS_OP_T; 
     cublasOperation_t transb = CUBLAS_OP_N;
 
     checkCublasStatus(cublasLtMatmulDescCreate(&operationDesc, CUBLAS_COMPUTE_32F, CUDA_R_32F));
@@ -123,6 +123,11 @@ void GemmTensorProductImpl::exec_tensor_product(
                                      0));
 
     gpuErrchk( cudaGetLastError() );
+    cudaDeviceSynchronize();
+
+    //Buffer<float> kprods_host({kprods.size});
+    //kprods.copy_to_host_buffer(kprods_host);
+    //kprods_host.print();
 }
 
 GemmTensorProductImpl::~GemmTensorProductImpl() {
