@@ -16,9 +16,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<ThreadTensorProductImpl, GenericTensorProductImpl>(m, "ThreadTensorProductImpl")
         .def(py::init<uint64_t, uint64_t, uint64_t,
             py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
-    py::class_<ThreadTensorProductStagedImpl, GenericTensorProductImpl>(m, "ThreadTensorProductStagedImpl")
-        .def(py::init<uint64_t, uint64_t, uint64_t,
-            py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
+    py::class_<GemmTensorProductImpl, GenericTensorProductImpl>(m, "GemmTensorProductImpl")
+        .def(py::init<uint64_t, uint64_t, uint64_t, py::array_t<float>>());
 }
 
 /*

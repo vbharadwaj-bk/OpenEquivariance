@@ -7,8 +7,7 @@ import numpy as np
 import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
-from src.implementations.ThreadTensorProduct import *
-from src.implementations.ThreadTensorProductStaged import *
+from src.implementations.GemmTP import *
 
 class TestBenchmarkSuite:
     def __init__(self):
@@ -71,7 +70,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config):
     L1, L2, L3 = config
     tp = tp_impl(L1, L2, L3)
-    batch_size = 2
+    batch_size = 1
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(1))), dtype=np.float32) 
@@ -85,6 +84,6 @@ def debug(tp_impl, config):
     print(ground_truth)
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct, ThreadTensorProductStaged])
-    #debug(ThreadTensorProduct, (4, 3, 1))
+    #bench_suite = TestBenchmarkSuite()
+    #bench_suite.run([ThreadTensorProduct])
+    debug(ThreadTensorProduct, (4, 3, 5))
