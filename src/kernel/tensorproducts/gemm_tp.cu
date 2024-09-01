@@ -48,7 +48,7 @@ void GemmTensorProductImpl::preprocess() {
     // cuBLASLt example taken from
     // https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuBLASLt/LtSgemm/sample_cublasLt_LtSgemm.cu 
  
-    cublasLtCreate(&ltHandle)
+    checkCublasStatus(cublasLtCreate(&ltHandle));
 
     size_t m = get_row_length(3);
     size_t n = num_products;
@@ -59,7 +59,7 @@ void GemmTensorProductImpl::preprocess() {
     size_t ldb = k;
     size_t ldc = m;
     cublasOperation_t transa = CUBLAS_OP_N; 
-    cublasOperation_t transb = CUBLAS_OP_T;
+    cublasOperation_t transb = CUBLAS_OP_N;
 
     checkCublasStatus(cublasLtMatmulDescCreate(&operationDesc, CUBLAS_COMPUTE_32F, CUDA_R_32F));
     checkCublasStatus(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSA, &transa, sizeof(transa)));
@@ -108,7 +108,7 @@ void GemmTensorProductImpl::exec_tensor_product(
     checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
                                      &alpha,
-                                     cg_coffs.ptr,
+                                     cg_coeffs.ptr,
                                      Adesc,
                                      kprods.ptr,
                                      Bdesc,

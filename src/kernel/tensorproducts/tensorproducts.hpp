@@ -153,7 +153,7 @@ public:
         py::array_t<float> cg_coeffs_py 
         ) :
         GenericTensorProductImpl(L1_i, L2_i, L3_i),
-        workspace(workspaceSize)
+        workspace(workspaceSize),
         num_products(num_products1),
         cg_coeffs(cg_coeffs_py), 
         kprods(num_products * get_row_length(1) * get_row_length(2))
