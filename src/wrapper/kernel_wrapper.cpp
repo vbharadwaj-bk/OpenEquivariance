@@ -17,7 +17,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def(py::init<uint64_t, uint64_t, uint64_t,
             py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
     py::class_<GemmTensorProductImpl, GenericTensorProductImpl>(m, "GemmTensorProductImpl")
-        .def(py::init<uint64_t, uint64_t, uint64_t, py::array_t<float>>());
+        .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t, py::array_t<float>>());
 }
 
 /*
