@@ -122,3 +122,32 @@ public:
 
     ~ThreadTensorProductImpl() = default;
 };
+
+
+//=========================================================================
+/*
+* A tensor product that executes a dense GEMM after instantiating Kronecker 
+* products explicitly. 
+*/
+class __attribute__ ((visibility ("default"))) GemmTensorProductImpl : public GenericTensorProductImpl {
+public:
+    DeviceBuffer<float> cg_coeffs;
+
+    GemmTensorProductImpl(
+        uint64_t L1_i, 
+        uint64_t L2_i, 
+        uint64_t L3_i,
+        py::array_t<float> cg_coeffs_py 
+        ) :
+        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        cg_coeffs(cg_coeffs_py)
+        { }
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* X_in,
+            float* X_out,
+            float* edge_features);
+
+    ~GemmTensorProductImpl() = default;
+};
