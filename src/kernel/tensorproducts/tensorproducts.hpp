@@ -19,6 +19,8 @@ public:
     size_t L2_rowlen;
     size_t L3_rowlen;
 
+    bool record_internal_stats = false; 
+
     GenericTensorProductImpl(
         uint64_t L1_i, 
         uint64_t L2_i, 

@@ -24,10 +24,13 @@ void GenericTensorProductImpl::benchmark_cpu(
     DeviceBuffer<float> L2_in(L2_in_py);
     DeviceBuffer<float> L3_out(L3_out_host.size());
 
+    record_internal_stats = false;
+
     for(int i = 0; i < num_warmup; i++) {
         exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
     }
 
+    record_internal_stats = true;
     // TODO: Synchronization can be costly if the runtime of any given
     // kernel execution is small. 
     for(int i = 0; i < time_millis.shape[0]; i++) {
@@ -37,5 +40,6 @@ void GenericTensorProductImpl::benchmark_cpu(
         time_millis[i] = elapsed;
     }
 
+    record_internal_stats = false;
     L3_out.copy_to_host_buffer(L3_out_host);
 }

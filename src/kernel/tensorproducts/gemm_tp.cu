@@ -91,8 +91,6 @@ void GemmTensorProductImpl::exec_tensor_product(
 
     gpuErrchk( cudaMemset(L3_out, 0.0, L3_len * num_products * sizeof(float)) )
 
-    // Dynamic memory allocation here is expensive 
-
     kronecker_kernel_v1<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
         num_products,
         L1_in,
@@ -103,7 +101,6 @@ void GemmTensorProductImpl::exec_tensor_product(
 
     float alpha = 1.0;
     float beta  = 0.0; 
-
     checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
                                      &alpha,
@@ -122,11 +119,6 @@ void GemmTensorProductImpl::exec_tensor_product(
                                      0));
 
     gpuErrchk( cudaGetLastError() );
-    cudaDeviceSynchronize();
-
-    //Buffer<float> kprods_host({kprods.size});
-    //kprods.copy_to_host_buffer(kprods_host);
-    //kprods_host.print();
 }
 
 GemmTensorProductImpl::~GemmTensorProductImpl() {
