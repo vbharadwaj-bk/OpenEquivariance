@@ -95,6 +95,7 @@ class TensorProduct:
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
         throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+
         bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
