@@ -2,12 +2,12 @@ import json, os, time, pathlib
 import cppimport
 import cppimport.import_hook
 cppimport.settings["use_filelock"] = False
-from scipy.sparse import coo_matrix
 import numpy as np
 import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
-from src.implementations.ThreadTensorProduct import *
+from src.implementations.GemmTP import *
+from src.implementations.ThreadTP import *
 
 class TestBenchmarkSuite:
     def __init__(self):
@@ -39,21 +39,22 @@ class TestBenchmarkSuite:
             L1, L2, L3 = config
 
             for impl in tp_implementations:
-                tp = impl(L1, L2, L3)
+                tp_correctness = impl(self.correctness_batch_size, L1, L2, L3)
+                tp_bench = impl(self.bench_batch_size, L1, L2, L3)
 
                 # No need to regenerate, but this will do for now 
                 rng = np.random.default_rng(self.prng_seed)
-                L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp.get_row_length(1))), dtype=np.float32) 
-                L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp.get_row_length(2))), dtype=np.float32)
-                L3_out = np.zeros((self.correctness_batch_size, tp.get_row_length(3)), dtype=np.float32)
+                L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(1))), dtype=np.float32) 
+                L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(2))), dtype=np.float32)
+                L3_out = np.zeros((self.correctness_batch_size, tp_correctness.get_row_length(3)), dtype=np.float32)
 
                 print("Started correctness check!")
-                tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-                correctness, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+                tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
+                correctness, ground_truth = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
                 print("Finished Correctness Check!")
 
                 print("Started benchmark!")
-                benchmark = tp.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
+                benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
                 print("Completed benchmark!")
 
                 result = {
@@ -69,8 +70,8 @@ class TestBenchmarkSuite:
 
 def debug(tp_impl, config):
     L1, L2, L3 = config
-    tp = tp_impl(L1, L2, L3)
-    batch_size = 2
+    batch_size = 10
+    tp = tp_impl(batch_size, L1, L2, L3)
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(1))), dtype=np.float32) 
@@ -85,5 +86,5 @@ def debug(tp_impl, config):
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct])
-    #debug(ThreadTensorProduct, (4, 3, 1))
+    bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
+    #debug(GemmTensorProduct, (3, 3, 4))

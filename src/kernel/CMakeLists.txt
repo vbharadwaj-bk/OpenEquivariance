@@ -10,6 +10,7 @@ add_library(espmm SHARED
   tensorproducts/tensorproducts.hpp
   tensorproducts/generic_tp.cpp
   tensorproducts/thread_tp.cu
+  tensorproducts/gemm_tp.cu
 
   convolution/convolution.hpp
   convolution/equivariant_convolution.cu
@@ -38,6 +39,8 @@ set_target_properties(espmm PROPERTIES
 set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(espmm PROPERTIES PUBLIC_HEADER "${ESPMM_PUBLIC_HEADERS}")
 
-# Link against CUDA
-target_link_libraries(espmm ${CUDA_LIBRARIES})
+# To-do: should make path to math libraries a parameter 
+target_link_directories(espmm PUBLIC /opt/nvidia/hpc_sdk/Linux_x86_64/2024/math_libs/12.4/lib64/)
+target_link_libraries(espmm CUDA::cudart -lcublasLt)
+
 install(TARGETS espmm PUBLIC_HEADER)

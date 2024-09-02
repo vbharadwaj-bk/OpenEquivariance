@@ -5,9 +5,8 @@ from src.wrapper.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
 
 class ThreadTensorProduct(TensorProduct):
-    def __init__(self, L1, L2, L3):
-        super().__init__(L1, L2, L3)
-        self.name = "ThreadTensorProduct"
+    def __init__(self, batch_size, L1, L2, L3):
+        super().__init__(batch_size, L1, L2, L3)
 
         # Define the sparse tensor in COO format. Coordinate arrays MUST have uint8 datatypes,
         # values must be floats. 

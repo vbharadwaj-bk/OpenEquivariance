@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <cstdint>
+#include <cublasLt.h>
 
 #include "buffer.hpp"
 
@@ -17,6 +18,8 @@ public:
     size_t L1_rowlen;
     size_t L2_rowlen;
     size_t L3_rowlen;
+
+    bool record_internal_stats = false; 
 
     GenericTensorProductImpl(
         uint64_t L1_i, 
@@ -121,4 +124,50 @@ public:
             float* edge_features);
 
     ~ThreadTensorProductImpl() = default;
+};
+
+
+//=========================================================================
+/*
+* A tensor product that executes a dense GEMM after instantiating Kronecker 
+* products explicitly using cuBLASLt. 
+*/
+class __attribute__ ((visibility ("default"))) GemmTensorProductImpl : public GenericTensorProductImpl {
+public:
+    size_t workspaceSize = 1024 * 1024 * 4;
+    DeviceBuffer<char> workspace;
+
+    uint64_t num_products;
+    DeviceBuffer<float> cg_coeffs;
+    DeviceBuffer<float> kprods;
+
+    cublasLtHandle_t     ltHandle;
+    cublasLtMatmulDesc_t operationDesc = NULL; 
+    cublasLtMatrixLayout_t Adesc = NULL, Bdesc = NULL, Cdesc = NULL; 
+    cublasLtMatmulPreference_t preference = NULL; 
+    cublasLtMatmulHeuristicResult_t heuristicResult {};
+
+    GemmTensorProductImpl(
+        uint64_t num_products1,
+        uint64_t L1_i, 
+        uint64_t L2_i, 
+        uint64_t L3_i,
+        py::array_t<float> cg_coeffs_py 
+        ) :
+        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        workspace(workspaceSize),
+        num_products(num_products1),
+        cg_coeffs(cg_coeffs_py), 
+        kprods(num_products * get_row_length(1) * get_row_length(2))
+        { preprocess(); }
+
+    void preprocess();
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* X_in,
+            float* X_out,
+            float* edge_features);
+
+    ~GemmTensorProductImpl(); 
 };
