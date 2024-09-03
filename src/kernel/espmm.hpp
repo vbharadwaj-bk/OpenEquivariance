@@ -177,3 +177,43 @@ public:
     ~ThreadTensorProductImpl() = default;
 };
 
+/*
+* A simple implementation that gets each thread 
+* to handle each tensor product based on a coordinate format. 
+* incorporates staging in shared memory
+*/
+class __attribute__ ((visibility ("default"))) ThreadTensorProductStagedImpl : public GenericTensorProductImpl {
+public:
+    DeviceBuffer<uint8_t> coord1; 
+    DeviceBuffer<uint8_t> coord2; 
+    DeviceBuffer<uint8_t> coord3; 
+    DeviceBuffer<float> values;
+
+    /*L1_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
+    L2_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
+    L3_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))*/
+
+    ThreadTensorProductStagedImpl(
+        uint64_t L1_i, 
+        uint64_t L2_i, 
+        uint64_t L3_i,
+        py::array_t<uint8_t> coord1_py, 
+        py::array_t<uint8_t> coord2_py,
+        py::array_t<uint8_t> coord3_py,
+        py::array_t<float> values_py 
+        ) :
+        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        coord1(coord1_py),
+        coord2(coord2_py),
+        coord3(coord3_py),
+        values(values_py)
+        { }
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* X_in,
+            float* X_out,
+            float* edge_features);
+
+    ~ThreadTensorProductStagedImpl() = default;
+};

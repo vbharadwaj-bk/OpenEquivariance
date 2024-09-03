@@ -10,3 +10,4 @@ experimental/*
 __pycache__
 outputs/*
 visualization/*
+figures/*

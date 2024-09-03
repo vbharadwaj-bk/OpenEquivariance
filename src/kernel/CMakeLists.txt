@@ -6,6 +6,7 @@ add_library(espmm SHARED
   buffer.hpp
   buffer.cpp
   thread_tensor_product.cu
+  thread_tensor_product_staged.cu
   equivariant_convolution.cu
 )
 

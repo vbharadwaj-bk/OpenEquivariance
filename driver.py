@@ -8,6 +8,7 @@ import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
 from src.implementations.ThreadTensorProduct import *
+from src.implementations.ThreadTensorProductStaged import *
 
 class TestBenchmarkSuite:
     def __init__(self):
@@ -85,5 +86,5 @@ def debug(tp_impl, config):
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct])
+    bench_suite.run([ThreadTensorProduct, ThreadTensorProductStaged])
     #debug(ThreadTensorProduct, (4, 3, 1))
