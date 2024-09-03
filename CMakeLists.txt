@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(equivariant_spmm LANGUAGES CXX CUDA)
 
-# Helps find pybindcd
-# This doesn't actually fix the problem
-include_directories(/usr/include)
 
 # Set CUDA version
 set(CUDA_VERSION 11.0)
