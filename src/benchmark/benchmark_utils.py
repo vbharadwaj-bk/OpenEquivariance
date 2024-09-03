@@ -1,18 +1,18 @@
-import json, os
+import json, os, pathlib
 
-BENCHMARK_FOLDER="/global/cfs/projectdirs/m1982/vbharadw/equivariant_spmm/outputs"
 
-def load_benchmarks(subfolder=None):
+def load_benchmarks(path : pathlib.Path, subfolder=None):
+    assert isinstance(path, pathlib.Path)
     if subfolder is None:
-        folders = os.listdir(BENCHMARK_FOLDER)
+        folders = os.listdir(path)
         subfolder = sorted(folders)[-1]
         
     benchmarks = []
     metadata = None
     
-    files = os.listdir(f'{BENCHMARK_FOLDER}/{subfolder}')
+    files = os.listdir(path / subfolder)
     for file in files:
-        with open(f"{BENCHMARK_FOLDER}/{subfolder}/{file}", "r") as f:
+        with open( path / subfolder / file , "r") as f:
             if file != "metadata.json":
                 benchmarks.append(json.load(f))
                 benchmarks[-1]["filename"] = file
