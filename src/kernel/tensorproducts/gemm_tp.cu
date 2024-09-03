@@ -129,4 +129,4 @@ GemmTensorProductImpl::~GemmTensorProductImpl() {
     if (operationDesc) checkCublasStatus(cublasLtMatmulDescDestroy(operationDesc));
 
     checkCublasStatus(cublasLtDestroy(ltHandle));
-  
+}
