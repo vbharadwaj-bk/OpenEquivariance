@@ -37,7 +37,7 @@ def main():
         plt.xlabel("L1, L2, L3")
         plt.ylabel("GFLOPs")
         plt.grid(True)
-        plt.title("Throughput, Thread Tensor Product Implementation")
+        plt.title(fig_title)
         plt.show()
         plt.savefig(figures_path / fig_title.lower().replace(" ","_"))
 

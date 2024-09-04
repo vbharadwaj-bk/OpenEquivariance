@@ -11,3 +11,4 @@ __pycache__
 outputs/*
 visualization/*
 figures/*
+get_gpu_node.sh
