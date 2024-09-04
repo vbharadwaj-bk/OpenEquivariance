@@ -1,6 +1,7 @@
 import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
+from src.wrapper.kernel_wrapper import *
 
 class TensorProduct:
     '''
@@ -11,18 +12,12 @@ class TensorProduct:
     L1, L2, and L3 are pairs. A pair (32, 3) indicates 32 copies of the 
     3-irrep.
     '''
-    def __init__(self, batch_size, L1, L2, L3):
+    def __init__(self, L1: Representation, L2: Representation, L3: Representation, batch_size = None):
         self.internal = None
-        self.batch_size = batch_size
         self.L1 = L1
         self.L2 = L2
         self.L3 = L3
-
-        self.cg_tensor = self.load_cg_tensor(self.L1[1], self.L2[1], self.L3[1])
-
-    def get_string_rep(self, mode):
-        reps = [self.L1, self.L2, self.L3]
-        return f"{reps[mode-1][0]}x{reps[mode-1][1]}"
+        self.batch_size = batch_size
 
     @staticmethod
     def name():
@@ -40,9 +35,6 @@ class TensorProduct:
         constructor. 
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
-
-    def get_row_length(self, mode):
-        return self.internal.get_row_length(mode)
 
     def load_cg_tensor(self, l1, l2, l3):
         with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
@@ -95,9 +87,9 @@ class TensorProduct:
         '''
         rng = np.random.default_rng(prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(1))), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(2))), dtype=np.float32)
-        L3_out = np.zeros((batch_size, self.get_row_length(3)), dtype=np.float32)
+        L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
+        L3_out = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
 
         nnz = len(np.nonzero(self.cg_tensor)[0])
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)

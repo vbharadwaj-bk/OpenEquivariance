@@ -9,6 +9,9 @@ from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
 
+def config_to_reps(config):
+    return [Representation(config[i][0], config[i][1]) for i in range(3)]
+
 class TestBenchmarkSuite:
     def __init__(self):
         self.configs = \
@@ -16,7 +19,7 @@ class TestBenchmarkSuite:
              ((1, 2), (1, 2), (1, 2)),
              ((1, 4), (1, 3), (1, 1)),
              ((1, 4), (1, 3), (1, 5))
-            ]
+            ] # Multiplicity, irrep-type pairs
 
         self.num_warmup = 10
         self.num_iter = 30
@@ -36,17 +39,16 @@ class TestBenchmarkSuite:
             json.dump(metadata, f) 
 
         for config in self.configs: 
-            L1, L2, L3 = config
+            L1, L2, L3 = config_to_reps(config)
+
+            rng = np.random.default_rng(self.prng_seed)
+            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
+            L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
 
             for impl in tp_implementations:
                 tp_correctness = impl(self.correctness_batch_size, L1, L2, L3)
                 tp_bench = impl(self.bench_batch_size, L1, L2, L3)
-
-                # No need to regenerate, but this will do for now 
-                rng = np.random.default_rng(self.prng_seed)
-                L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(1))), dtype=np.float32) 
-                L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, tp_correctness.get_row_length(2))), dtype=np.float32)
-                L3_out = np.zeros((self.correctness_batch_size, tp_correctness.get_row_length(3)), dtype=np.float32)
 
                 print("Started correctness check!")
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
@@ -70,14 +72,14 @@ class TestBenchmarkSuite:
                     json.dump(result, f, indent=2)
 
 def debug(tp_impl, config):
-    L1, L2, L3 = config
+    L1, L2, L3 = config_to_reps(config)
     batch_size = 10
     tp = tp_impl(batch_size, L1, L2, L3)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(1))), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, tp.get_row_length(2))), dtype=np.float32)
-    L3_out = np.zeros((batch_size, tp.get_row_length(3)), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
+    L3_out = np.zeros((batch_size, L3.get_rep_length()), dtype=np.float32)
 
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     correctness, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
@@ -86,9 +88,6 @@ def debug(tp_impl, config):
     print(ground_truth)
 
 if __name__=='__main__':
-    x = Representation("32x1e + 32x3o")
-    print(x.to_string())
-    print(x.get_rep_length())
     #bench_suite = TestBenchmarkSuite()
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
-    #debug(ThreadTensorProduct, ((1, 3), (1, 3), (2, 4)))
+    debug(ThreadTensorProduct, ((1, 3), (1, 3), (2, 4)))

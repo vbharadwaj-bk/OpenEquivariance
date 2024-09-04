@@ -7,9 +7,7 @@ from src.implementations.TensorProduct import TensorProduct
 class GemmTensorProduct(TensorProduct):
     def __init__(self, batch_size, L1, L2, L3):
         super().__init__(batch_size, L1, L2, L3)
-
-        if L1[0] != 1 or L2[0] != 1 or L3[0] != 1:
-            raise NotImplementedError()
+        assert(L1.num_irreps == 1 and L2.num_irreps == 1 and L3.num_irreps == 1)
     
         tensor = self.cg_tensor 
         self.flat_tensor = tensor.reshape(((2 * L1[1] + 1) * (2 * L2[1] + 1), 2 * L3[1] + 1)).T.copy() 

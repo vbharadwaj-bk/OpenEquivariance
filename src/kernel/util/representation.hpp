@@ -31,6 +31,22 @@ public:
         return rep_length;
     }
 
+    size_t num_irreps() {
+        return irreps.size();
+    }
+
+    size_t mult(int irrep_id) {
+        return irreps[irrep_id].first;
+    }
+
+    size_t type(int irrep_id) {
+        return irreps[irrep_id].second;
+    }
+
+    size_t even(int irrep_id) {
+        return irreps[irrep_id].third;
+    }
+
     Representation(string str_rep) {
         // String type must be of the form 32x1e + 1x2o, etc. 
 

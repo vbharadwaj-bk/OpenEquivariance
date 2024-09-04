@@ -50,9 +50,9 @@ void GemmTensorProductImpl::preprocess() {
 
     checkCublasStatus(cublasLtCreate(&ltHandle));
 
-    size_t m = get_row_length(3);
+    size_t m = L3.get_rep_length();
     size_t n = num_products;
-    size_t k = get_row_length(1) * get_row_length(2);
+    size_t k = L1.get_rep_length() * L2.get_rep_length(); 
 
     size_t lda = k; 
     size_t ldb = k;
@@ -85,9 +85,9 @@ void GemmTensorProductImpl::exec_tensor_product(
         float* L2_in,
         float* L3_out) {
 
-    size_t L1_len = get_row_length(1);
-    size_t L2_len = get_row_length(2);
-    size_t L3_len = get_row_length(3);
+    size_t L1_len = L1.get_rep_length(); 
+    size_t L2_len = L2.get_rep_length(); 
+    size_t L3_len = L3.get_rep_length(); 
 
     gpuErrchk( cudaMemset(L3_out, 0.0, L3_len * num_products * sizeof(float)) )
 
