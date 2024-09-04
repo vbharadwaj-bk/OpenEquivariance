@@ -11,9 +11,9 @@
 
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
-    uint64_t L1; // X_in representation
-    uint64_t L2; // Edge feature representation
-    uint64_t L3; // X_out representation
+    uint64_t L1; uint64_t mult1; 
+    uint64_t L2; uint64_t mult2; 
+    uint64_t L3; uint64_t mult3; 
 
     size_t L1_rowlen;
     size_t L2_rowlen;
@@ -22,13 +22,25 @@ public:
     bool record_internal_stats = false; 
 
     GenericTensorProductImpl(
-        uint64_t L1_i, 
-        uint64_t L2_i, 
+        uint64_t L1_i,
+        uint64_t mult1_i, 
+        uint64_t L2_i,
+        uint64_t mult2_i,
+        uint64_t L3_i,
+        uint64_t mult3_i) :
+        L1(L1_i), mult1(mult1_i), 
+        L2(L2_i), mult2(mult2_i),
+        L3(L3_i), mult3(mult3_i),
+        L1_rowlen((L1 * 2 + 1) * mult1),
+        L2_rowlen((L2 * 2 + 1) * mult2),
+        L3_rowlen((L3 * 2 + 1) * mult3)
+        { }
+
+    GenericTensorProductImpl(
+        uint64_t L1_i,
+        uint64_t L2_i,
         uint64_t L3_i) :
-        L1(L1_i), L2(L2_i), L3(L3_i),
-        L1_rowlen(L1 * 2 + 1),
-        L2_rowlen(L2 * 2 + 1),
-        L3_rowlen(L3 * 2 + 1)
+        GenericTensorProductImpl(L1_i, 1, L2_i, 1, L3_i, 1)
         { }
 
     size_t get_row_length(int mode) {
@@ -97,25 +109,28 @@ public:
     DeviceBuffer<uint8_t> coord3; 
     DeviceBuffer<float> values;
 
-    /*L1_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
-    L2_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
-    L3_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))*/
-
     ThreadTensorProductImpl(
         uint64_t L1_i, 
-        uint64_t L2_i, 
+        uint64_t mult1,
+        uint64_t L2_i,
+        uint64_t mult2,
         uint64_t L3_i,
+        uint64_t mult3,
         py::array_t<uint8_t> coord1_py, 
         py::array_t<uint8_t> coord2_py,
         py::array_t<uint8_t> coord3_py,
         py::array_t<float> values_py 
         ) :
-        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        GenericTensorProductImpl(L1_i, mult1, L2_i, mult2, L3_i, mult3),
         coord1(coord1_py),
         coord2(coord2_py),
         coord3(coord3_py),
         values(values_py)
-        { }
+        { 
+            if(mult1 != 1 || mult2 != 1 || mult3 != 1) {
+                throw std::logic_error("Batch != 1 not supported.");
+            }
+        }
 
     void exec_tensor_product(
             uint64_t num_products,

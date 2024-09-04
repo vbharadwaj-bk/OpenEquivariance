@@ -11,10 +11,11 @@ namespace py = pybind11;
 PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("get_row_length", &GenericTensorProductImpl::get_row_length)
+        .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product)
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
         .def("benchmark_cpu", &GenericTensorProductImpl::benchmark_cpu);
     py::class_<ThreadTensorProductImpl, GenericTensorProductImpl>(m, "ThreadTensorProductImpl")
-        .def(py::init<uint64_t, uint64_t, uint64_t,
+        .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
             py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
     py::class_<GemmTensorProductImpl, GenericTensorProductImpl>(m, "GemmTensorProductImpl")
         .def(py::init<uint64_t, uint64_t, uint64_t, uint64_t, py::array_t<float>>());

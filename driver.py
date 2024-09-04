@@ -12,10 +12,10 @@ from src.implementations.ThreadTP import *
 class TestBenchmarkSuite:
     def __init__(self):
         self.configs = \
-            [(5, 5, 3),
-             (2, 2, 2),
-             (4, 3, 1),
-             (4, 3, 5)
+            [((1, 5), (1, 5), (1, 3)),
+             ((1, 2), (1, 2), (1, 2)),
+             ((1, 4), (1, 3), (1, 1)),
+             ((1, 4), (1, 3), (1, 5))
             ]
 
         self.num_warmup = 10
@@ -58,12 +58,13 @@ class TestBenchmarkSuite:
                 print("Completed benchmark!")
 
                 result = {
-                    "config": config,
+                    "config": [config],
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
                 }
-                fname = pathlib.Path(f"{output_folder}/{L1}_{L2}_{L3}_{impl.name()}.json")
+                rnames= [tp_correctness.get_string_rep(i) for i in range(1, 4)]
+                fname = pathlib.Path(f"{output_folder}/{rnames[0]}_{rnames[1]}_{rnames[2]}_{impl.name()}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
@@ -87,4 +88,4 @@ def debug(tp_impl, config):
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
     bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
-    #debug(GemmTensorProduct, (3, 3, 4))
+    #debug(ThreadTensorProduct, ((1, 3), (1, 3), (2, 4)))
