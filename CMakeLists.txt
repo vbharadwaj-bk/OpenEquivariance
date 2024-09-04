@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(equivariant_spmm LANGUAGES CXX CUDA)
 
-
 # Set CUDA version
 set(CUDA_VERSION 11.0)
 
