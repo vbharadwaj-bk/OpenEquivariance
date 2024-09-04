@@ -6,16 +6,23 @@ class TensorProduct:
     '''
     Each class implementation of a TensorProduct uses
     a different internal representation, which it can
-    initialize uniquely. 
+    initialize uniquely.
+
+    L1, L2, and L3 are pairs. A pair (32, 3) indicates 32 copies of the 
+    3-irrep.
     '''
     def __init__(self, batch_size, L1, L2, L3):
         self.internal = None
+        self.batch_size = batch_size
         self.L1 = L1
         self.L2 = L2
         self.L3 = L3
-        self.batch_size = batch_size
 
-        self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
+        self.cg_tensor = self.load_cg_tensor(self.L1[1], self.L2[1], self.L3[1])
+
+    def get_string_rep(self, mode):
+        reps = [self.L1, self.L2, self.L3]
+        return f"{reps[mode-1][0]}x{reps[mode-1][1]}"
 
     @staticmethod
     def name():
@@ -86,8 +93,6 @@ class TensorProduct:
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
-        assert(isinstance(self.L1, int)) 
-
         rng = np.random.default_rng(prng_seed)
 
         L1_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(1))), dtype=np.float32) 
