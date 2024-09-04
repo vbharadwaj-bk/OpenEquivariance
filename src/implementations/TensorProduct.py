@@ -21,11 +21,11 @@ class TensorProduct:
     def name():
         raise NotImplementedError() 
 
-    def exec_tensor_product(self, Batch : int, L1_in, L2_in, L3_out):
+    def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out):
         '''
         This function assumes you've already put your arrays on the gpu
         '''
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out) 
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         '''
