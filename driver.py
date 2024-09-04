@@ -86,6 +86,9 @@ def debug(tp_impl, config):
     print(ground_truth)
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
+    x = Representation("32x1e + 32x3o")
+    print(x.to_string())
+    print(x.get_rep_length())
+    #bench_suite = TestBenchmarkSuite()
+    #bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
     #debug(ThreadTensorProduct, ((1, 3), (1, 3), (2, 4)))

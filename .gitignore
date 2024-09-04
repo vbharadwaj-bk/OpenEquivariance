@@ -10,10 +10,6 @@ experimental/*
 __pycache__
 outputs/*
 visualization/*
-<<<<<<< HEAD
-nvidia-mathdx-*
-=======
 figures/*
 get_gpu_node.sh
 nvidia-mathdx*
->>>>>>> main
