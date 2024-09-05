@@ -5,16 +5,14 @@ from src.wrapper.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
 
 class GemmTensorProduct(TensorProduct):
-    def __init__(self, batch_size, L1, L2, L3):
-        super().__init__(batch_size, L1, L2, L3)
+    def __init__(self, L1, L2, L3, batch_size):
+        super().__init__(L1, L2, L3, batch_size)
+        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+        assert(L1.mult(0) == 1 and L2.mult(0) == 1 and L3.mult(0) == 1)
 
-        if L1[0] != 1 or L2[0] != 1 or L3[0] != 1:
-            raise NotImplementedError()
-    
-        tensor = self.cg_tensor 
-        self.flat_tensor = tensor.reshape(((2 * L1[1] + 1) * (2 * L2[1] + 1), 2 * L3[1] + 1)).T.copy() 
-        self.internal = GemmTensorProductImpl(batch_size, L1[1], L2[1], L3[1], self.flat_tensor)
-
+        tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
+        self.flat_tensor = tensor.reshape(((2 * L1.type(0) + 1) * (2 * L2.type(0) + 1), 2 * L3.type(0) + 1)).T.copy() 
+        self.internal = GemmTensorProductImpl(batch_size, L1, L2, L3, self.flat_tensor)
 
     @staticmethod
     def name():
