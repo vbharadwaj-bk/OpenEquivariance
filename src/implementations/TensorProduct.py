@@ -1,21 +1,23 @@
 import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
+from src.wrapper.kernel_wrapper import *
 
 class TensorProduct:
     '''
     Each class implementation of a TensorProduct uses
     a different internal representation, which it can
-    initialize uniquely. 
+    initialize uniquely.
+
+    L1, L2, and L3 are pairs. A pair (32, 3) indicates 32 copies of the 
+    3-irrep.
     '''
-    def __init__(self, batch_size, L1, L2, L3):
+    def __init__(self, L1: Representation, L2: Representation, L3: Representation, batch_size = None):
         self.internal = None
         self.L1 = L1
         self.L2 = L2
         self.L3 = L3
         self.batch_size = batch_size
-
-        self.cg_tensor = self.load_cg_tensor(self.L1, self.L2, self.L3)
 
     @staticmethod
     def name():
@@ -34,9 +36,6 @@ class TensorProduct:
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
-    def get_row_length(self, mode):
-        return self.internal.get_row_length(mode)
-
     def load_cg_tensor(self, l1, l2, l3):
         with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
             tensors = pickle.load(f) 
@@ -46,6 +45,8 @@ class TensorProduct:
         '''
         ATM, this only works for a single multiplicity in each dimension. 
         '''
+        L1, L2, L3 = self.L1, self.L2, self.L3
+
         result = {
             "shape_match": False,
             "diff_Linf_norm": np.inf,
@@ -53,7 +54,10 @@ class TensorProduct:
             "pass": False
         }
 
-        ground_truth = np.einsum('bi,bj,ijk->bk', L1_in, L2_in, self.cg_tensor)
+        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+        assert(L1.mult(0) == 1 and L2.mult(0) == 1 and L3.mult(0) == 1)
+        cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
+        ground_truth = np.einsum('bi,bj,ijk->bk', L1_in, L2_in, cg_tensor)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
@@ -80,22 +84,26 @@ class TensorProduct:
 
         return time_millis
 
-
     def benchmark(self, num_warmup, num_iter, batch_size, prng_seed=12345):
         '''
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
-        assert(isinstance(self.L1, int)) 
-
         rng = np.random.default_rng(prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(1))), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(batch_size, self.get_row_length(2))), dtype=np.float32)
-        L3_out = np.zeros((batch_size, self.get_row_length(3)), dtype=np.float32)
+        L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
+        L3_out = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
 
-        nnz = len(np.nonzero(self.cg_tensor)[0])
+        L1, L2, L3 = self.L1, self.L2, self.L3
+        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+        assert(L1.mult(0) == 1 and L2.mult(0) == 1 and L3.mult(0) == 1)
+        cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
+        nnz = len(np.nonzero(cg_tensor)[0])
+
+        # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
+        # ==================================== 
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         # Each multiplication requires two multiplications and one addition --> 3 
@@ -108,9 +116,9 @@ class TensorProduct:
         result = {
             "cg tensor nnz": nnz,
             "batch size": batch_size,
-            "L1": self.L1,
-            "L2": self.L2,
-            "L3": self.L3,
+            "L1": L1.to_string(),
+            "L2": L2.to_string(),
+            "L3": L3.to_string(),
             "num_warmup": num_warmup,
             "num_iter": num_iter,
             "prng_seed": prng_seed,
