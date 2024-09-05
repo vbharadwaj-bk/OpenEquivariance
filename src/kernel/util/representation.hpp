@@ -18,7 +18,7 @@ public:
         irreps.emplace_back(1, rep_id, 0);
     }
 
-    Representation(int rep_id, int mult) {
+    Representation(int mult, int rep_id) {
         irreps.emplace_back(mult, rep_id, 0);
     }
 
@@ -36,15 +36,15 @@ public:
     }
 
     size_t mult(int irrep_id) {
-        return irreps[irrep_id].first;
+        return get<0>(irreps[irrep_id]);
     }
 
     size_t type(int irrep_id) {
-        return irreps[irrep_id].second;
+        return get<1>(irreps[irrep_id]);
     }
 
     size_t even(int irrep_id) {
-        return irreps[irrep_id].third;
+        return get<2>(irreps[irrep_id]);
     }
 
     Representation(string str_rep) {

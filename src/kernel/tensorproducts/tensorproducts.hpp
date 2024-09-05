@@ -95,7 +95,7 @@ public:
             if(L1.irreps.size() != 1 || L2.irreps.size() != 1 || L3.irreps.size() != 1) {
                 throw std::invalid_argument("ThreadTensorProductImpl only supports single irreps");
             }
-            else if(L1.irreps[0].first != 1 || L2.irreps[0].first != 1 || L3.irreps[0].first != 1) {
+            else if(L1.mult(0) != 1 || L2.mult(0) != 1 || L3.mult(0) != 1) {
                 throw std::invalid_argument("ThreadTensorProductImpl only supports multiplicity 1");
             }
         }
