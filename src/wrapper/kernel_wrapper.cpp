@@ -10,7 +10,6 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
-        .def("get_row_length", &GenericTensorProductImpl::get_row_length)
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product)
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
         .def("benchmark_cpu", &GenericTensorProductImpl::benchmark_cpu);
