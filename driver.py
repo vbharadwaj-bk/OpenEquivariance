@@ -2,12 +2,13 @@ import json, os, time, pathlib
 import cppimport
 import cppimport.import_hook
 cppimport.settings["use_filelock"] = False
-import numpy as np
-import numpy.linalg as la
 
 from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
+
+import numpy as np
+import numpy.linalg as la
 
 def config_to_reps(config):
     return [Representation(config[i][0], config[i][1]) for i in range(3)]

@@ -23,10 +23,10 @@ find_package(PythonLibs REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/util)
 
-find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS 
-  "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
-)
-target_link_libraries(espmm mathdx::cublasdx)
+#find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS 
+#  "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
+#)
+#target_link_libraries(espmm mathdx::cublasdx)
 
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
