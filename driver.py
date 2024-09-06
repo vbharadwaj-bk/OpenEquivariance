@@ -15,11 +15,14 @@ def config_to_reps(config):
 
 class TestBenchmarkSuite:
     def __init__(self):
-        self.configs = \
-            [((1, 5), (1, 5), (1, 3)),
-             ((1, 2), (1, 2), (1, 2)),
-             ((1, 4), (1, 3), (1, 1)),
-             ((1, 4), (1, 3), (1, 5))
+        self.configs = [
+            ((1, 5), (1, 5), (1, 3)),
+            ((1, 2), (1, 2), (1, 2)),
+            ((1, 4), (1, 3), (1, 1)),
+            ((1, 4), (1, 3), (1, 5)),
+            ((2, 4), (2, 3), (4, 5)),
+            ((2, 4), (1, 3), (2, 5)),
+            ((1, 4), (2, 3), (2, 5)),
             ] # Multiplicity, irrep-type pairs
 
         self.num_warmup = 10
@@ -43,17 +46,18 @@ class TestBenchmarkSuite:
 
         for (L1, L2, L3) in rep_sets: 
             rng = np.random.default_rng(self.prng_seed)
-            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
-            L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
-
+            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.mult(0), 2 * L1.type(0) + 1)), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.mult(0), 2 * L2.type(0) + 1)), dtype=np.float32) 
+            L3_out = np.zeros((self.correctness_batch_size, L3.mult(0), 2 * L3.type(0) + 1), dtype=np.float32)
             for impl in tp_implementations:
+                print(f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}")
+
                 tp_correctness = impl(L1, L2, L3, self.correctness_batch_size)
                 tp_bench = impl(L1, L2, L3, self.bench_batch_size)
 
                 print("Started correctness check!")
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-                correctness, ground_truth = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
+                correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
                 print("Finished Correctness Check!")
 
                 print("Started benchmark!")
@@ -80,17 +84,20 @@ def debug(tp_impl, config):
     tp = tp_impl(L1, L2, L3, batch_size)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
-    L3_out = np.zeros((batch_size, L3.get_rep_length()), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.mult(0), L1.type(0))), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.mult(0), L2.type(0))), dtype=np.float32) 
+    L3_out = np.zeros((batch_size, L3.mult(0), L3.type(0)), dtype=np.float32)
 
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-    correctness, ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+    _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
     print(L3_out)
     print(ground_truth)
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
+    bench_suite.run([
+        ThreadTensorProduct, 
+        # GemmTensorProduct,
+        ])
     #debug(ThreadTensorProduct, ((1, 3), (1, 3), (1, 4)))
