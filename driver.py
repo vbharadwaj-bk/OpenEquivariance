@@ -6,6 +6,7 @@ cppimport.settings["use_filelock"] = False
 from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
+from src.implementations.ShuffleReduceTP import *
 
 import numpy as np
 import numpy.linalg as la
@@ -91,6 +92,6 @@ def debug(tp_impl, config):
     print(ground_truth)
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
-    #debug(ThreadTensorProduct, ((1, 3), (1, 3), (1, 4)))
+    #bench_suite = TestBenchmarkSuite()
+    #bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
+    debug(ShuffleReduceTensorProduct, ((1, 3), (1, 3), (1, 4)))
