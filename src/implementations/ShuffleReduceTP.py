@@ -7,13 +7,16 @@ from src.implementations.TensorProduct import TensorProduct
 class ShuffleReduceTensorProduct(TensorProduct):
     def __init__(self, L1, L2, L3, batch_size):
         super().__init__(L1, L2, L3, batch_size)
+
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+
+        # To begin, we only handle one combo and multiplicity 1. 
         assert(L1.mult(0) == 1 and L2.mult(0) == 1 and L3.mult(0) == 1)
 
         tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
         coord = [arr.astype(np.uint8).copy() for arr in np.nonzero(tensor)]
         values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
-        nnz = len(self.values)
+        nnz = len(values)
 
         warp_length = 32
 
@@ -21,28 +24,62 @@ class ShuffleReduceTensorProduct(TensorProduct):
                 and L2.get_rep_length() <= warp_length
                 and L3.get_rep_length() <= warp_length)
 
-        lane_targets = np.zeros(warp_length, dtype=np.uint8)
+        lane_targets = np.zeros(warp_length, dtype=np.uint8) # The output index that each lane must accumulate to 
+        lanes_by_target = [[] for _ in range(L3.get_rep_length())] # The list of lanes used as accumulators for each output index 
+
         # Each lane is an accumulator for one of the outputs of the TP.
         # Currently, we just assign targets cyclically. 
         for i in range(warp_length):
-            lane_targets[i] = i % L3.get_rep_length() 
+            target = i % L3.get_rep_length()
+            lane_targets[i] = target 
+            lanes_by_target[target].append(i) 
 
-        lane_values = [[] for i in range(warp_length)]        
+        for target in lanes_by_target:
+            target.sort()
+
+        lanes = [[] for _ in range(warp_length)]        
 
         # Greedy algorithm, adds to the minimum lane index 
         for i in range(nnz):
             u, v, w = coord[0][i], coord[1][i], coord[2][i]
             min_lane = 0
             for j in range(warp_length):
-                if lane_targets[j] == w and len(lane_values[j]) < len(lane_values[min_lane]):
+                if lane_targets[j] == w and len(lanes[j]) < len(lanes[min_lane]):
                     min_lane = j
 
-            lane_values[min_lane].append((u, v, values[i]))
+            lanes[min_lane].append((u, v, values[i]))
 
-        print(lane_values)
-        exit(1)
+        max_lane_length = np.max([len(lane) for lane in lanes])
 
+        # Need to take the log 2 and floor
+        reduction_depth = np.max([len(target) for target in lanes_by_target]) 
+        warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float)
+
+        # Can probably smash these values into a uin64_t mask 
+        l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.uint8) 
+        l2_indices  = np.zeros((max_lane_length, warp_length), dtype=np.uint8)
+        red_lanes = np.zeros((reduction_depth, warp_length), dtype=np.uint8)
+
+        for i, lane in enumerate(lanes):
+            for j, (u, v, value) in enumerate(lane): 
+                warp_values[j][i] = value
+                l1_indices[j][i] = u
+                l1_indices[j][i] = v
+
+
+        for d in range(reduction_depth):
+            jump = 2 ** d
+            for target in lanes_by_target:
+                for i, j in enumerate(target):
+                    if i + jump >= len(target):
+                        red_lanes[d][j] = 0 
+                    else:
+                        red_lanes[d][j] = target[i + jump] 
+
+        print(red_lanes)
         self.internal = None 
+
+        
 
     @staticmethod
     def name():
