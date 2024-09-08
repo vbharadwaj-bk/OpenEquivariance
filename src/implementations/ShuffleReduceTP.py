@@ -53,12 +53,12 @@ class ShuffleReduceTensorProduct(TensorProduct):
         max_lane_length = np.max([len(lane) for lane in lanes])
 
         reduction_depth = (int(np.max([len(target) for target in lanes_by_target])) - 1).bit_length()
-        warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float32)
 
         # Can probably smash these values into a uin64_t mask 
-        l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.uint8) 
-        l2_indices  = np.zeros((max_lane_length, warp_length), dtype=np.uint8)
-        red_lanes = np.zeros((reduction_depth, warp_length), dtype=np.uint8)
+        warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float32)
+        l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int) # uint8?
+        l2_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int) 
+        red_lanes = np.zeros((reduction_depth, warp_length), dtype=np.int)
 
         for i, lane in enumerate(lanes):
             for j, (u, v, value) in enumerate(lane): 
@@ -107,18 +107,20 @@ class ShuffleReduceTensorProduct(TensorProduct):
             vec1[:L1.get_rep_length()] = L1_in[i, :]
             vec2[:L2.get_rep_length()] = L2_in[i, :]
 
+            # Step 2: Shuffle and multiply
             for j in range(self.max_lane_length):
-                for tid in range(self.warp_length):
-                    wval = self.warp_values[j][tid]
-                    l1_val = shuffle(vec1, self.l1_indices[j][tid])
-                    l2_val = shuffle(vec2, self.l2_indices[j][tid])
-                    vec3[tid] += l1_val * l2_val * wval
+                for lane_id in range(self.warp_length):
+                    wval = self.warp_values[j][lane_id]
+                    l1_val = shuffle(vec1, self.l1_indices[j][lane_id])
+                    l2_val = shuffle(vec2, self.l2_indices[j][lane_id])
+                    vec3[lane_id] += l1_val * l2_val * wval
 
+            # Step 3: terminal reduction
             for j in range(self.reduction_depth):
                 vec3_copy = vec3.copy()
                 vec3_copy[0] = 0.0
-                for tid in range(self.warp_length):
-                    vec3[tid] += shuffle(vec3_copy, self.red_lanes[j][tid])
+                for lane_id in range(self.warp_length):
+                    vec3[lane_id] += shuffle(vec3_copy, self.red_lanes[j][lane_id])
 
             L3_out[i, :] = vec3[:L3.get_rep_length()]
 
