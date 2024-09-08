@@ -94,4 +94,4 @@ def debug(tp_impl, config):
 if __name__=='__main__':
     #bench_suite = TestBenchmarkSuite()
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
-    debug(ShuffleReduceTensorProduct, ((1, 3), (1, 3), (1, 1)))
+    debug(ShuffleReduceTensorProduct, ((1, 2), (1, 2), (1, 2)))

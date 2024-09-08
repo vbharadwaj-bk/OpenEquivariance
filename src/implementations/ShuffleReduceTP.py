@@ -43,9 +43,9 @@ class ShuffleReduceTensorProduct(TensorProduct):
         # Greedy algorithm, adds to the minimum lane index 
         for i in range(nnz):
             u, v, w = coord[0][i], coord[1][i], coord[2][i]
-            min_lane = 0
+            min_lane = -1
             for j in range(warp_length):
-                if lane_targets[j] == w and len(lanes[j]) < len(lanes[min_lane]):
+                if lane_targets[j] == w and (min_lane == -1 or len(lanes[j]) < len(lanes[min_lane])):
                     min_lane = j
 
             lanes[min_lane].append((u, v, values[i]))
@@ -88,6 +88,14 @@ class ShuffleReduceTensorProduct(TensorProduct):
         self.internal = None 
         self.mode = mode
 
+        print("*" * 20)
+        print(coord[0])
+        print(coord[1])
+        print(coord[2])
+        print("*" * 20)
+        print(lane_targets)
+        print(lanes)
+        print("*" * 20)
 
     def prototype(self, L1_in, L2_in, L3_out):
         '''
@@ -100,6 +108,10 @@ class ShuffleReduceTensorProduct(TensorProduct):
 
         def shuffle(vec, src):
             return vec[src]
+        
+        print("=============")
+        print(self.l1_indices)
+        print(self.l2_indices)
 
         for i in range(batch_size):
 
