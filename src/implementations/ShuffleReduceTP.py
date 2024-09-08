@@ -51,9 +51,8 @@ class ShuffleReduceTensorProduct(TensorProduct):
 
         max_lane_length = np.max([len(lane) for lane in lanes])
 
-        # Need to take the log 2 and floor
-        reduction_depth = np.max([len(target) for target in lanes_by_target]) 
-        warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float)
+        reduction_depth = int(np.max([len(target) for target in lanes_by_target])).bit_length()
+        warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float32)
 
         # Can probably smash these values into a uin64_t mask 
         l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.uint8) 
@@ -64,21 +63,26 @@ class ShuffleReduceTensorProduct(TensorProduct):
             for j, (u, v, value) in enumerate(lane): 
                 warp_values[j][i] = value
                 l1_indices[j][i] = u
-                l1_indices[j][i] = v
+                l2_indices[j][i] = v
 
 
         for d in range(reduction_depth):
             jump = 2 ** d
             for target in lanes_by_target:
-                for i, j in enumerate(target):
-                    if i + jump >= len(target):
-                        red_lanes[d][j] = 0 
-                    else:
-                        red_lanes[d][j] = target[i + jump] 
+                for j in target:
+                    red_lanes[d][j] = target[0] 
 
+                for i in range(0, len(target), jump * 2):
+                    j = target[i]
+
+                    if i + jump < len(target):
+                        red_lanes[d][j] = target[i + jump]
+
+        print(lanes_by_target)
         print(red_lanes)
-        self.internal = None 
+        exit(1)
 
+        self.internal = None 
         
 
     @staticmethod
