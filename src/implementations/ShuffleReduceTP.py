@@ -52,7 +52,7 @@ class ShuffleReduceTensorProduct(TensorProduct):
 
         max_lane_length = np.max([len(lane) for lane in lanes])
 
-        reduction_depth = int(np.max([len(target) for target in lanes_by_target])).bit_length() - 1
+        reduction_depth = (int(np.max([len(target) for target in lanes_by_target])) - 1).bit_length()
         warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float32)
 
         # Can probably smash these values into a uin64_t mask 
@@ -88,15 +88,6 @@ class ShuffleReduceTensorProduct(TensorProduct):
         self.internal = None 
         self.mode = mode
 
-        print("*" * 20)
-        print(coord[0])
-        print(coord[1])
-        print(coord[2])
-        print("*" * 20)
-        print(lane_targets)
-        print(lanes)
-        print("*" * 20)
-
     def prototype(self, L1_in, L2_in, L3_out):
         '''
         Tests variable setup and the algorithm logic. 
@@ -109,10 +100,6 @@ class ShuffleReduceTensorProduct(TensorProduct):
         def shuffle(vec, src):
             return vec[src]
         
-        print("=============")
-        print(self.l1_indices)
-        print(self.l2_indices)
-
         for i in range(batch_size):
 
             # Step 1: load vectors into warp lanes 
@@ -126,23 +113,14 @@ class ShuffleReduceTensorProduct(TensorProduct):
                     l1_val = shuffle(vec1, self.l1_indices[j][tid])
                     l2_val = shuffle(vec2, self.l2_indices[j][tid])
                     vec3[tid] += l1_val * l2_val * wval
-                    #print((l1_val, l2_val, wval, l1_val * l2_val * wval)) 
-
-            vec3_copy = vec3.copy()  
-            vec3[0] = 0 
 
             for j in range(self.reduction_depth):
+                vec3_copy = vec3.copy()
+                vec3_copy[0] = 0.0
                 for tid in range(self.warp_length):
-                    vec3[tid] += shuffle(vec3, self.red_lanes[j][tid])
+                    vec3[tid] += shuffle(vec3_copy, self.red_lanes[j][tid])
 
-            vec3[0] += vec3_copy[0]
             L3_out[i, :] = vec3[:L3.get_rep_length()]
-
-            print("-------")
-            #print(vec1)
-            #print(vec2)
-            print(vec3)
-            print("-------")
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         if self.mode == "prototype":
