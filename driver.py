@@ -77,8 +77,8 @@ class TestBenchmarkSuite:
 
 def debug(tp_impl, config):
     L1, L2, L3 = config_to_reps(config)
-    batch_size = 10
-    tp = tp_impl(L1, L2, L3, batch_size)
+    batch_size = 1
+    tp = tp_impl(L1, L2, L3, batch_size, mode="prototype")
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
@@ -94,4 +94,4 @@ def debug(tp_impl, config):
 if __name__=='__main__':
     #bench_suite = TestBenchmarkSuite()
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct])
-    debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))
+    debug(ShuffleReduceTensorProduct, ((1, 3), (1, 3), (1, 1)))
