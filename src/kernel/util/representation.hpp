@@ -35,17 +35,6 @@ public:
         return irreps.size();
     }
 
-<<<<<<< HEAD
-    size_t mult(int irrep_id) {
-        return get<0>(irreps[irrep_id]);
-    }
-
-    size_t type(int irrep_id) {
-        return get<1>(irreps[irrep_id]);
-    }
-
-    size_t even(int irrep_id) {
-=======
     int mult(int irrep_id) {
         return get<0>(irreps[irrep_id]);
     }
@@ -55,7 +44,6 @@ public:
     }
 
     int even(int irrep_id) {
->>>>>>> main
         return get<2>(irreps[irrep_id]);
     }
 

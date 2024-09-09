@@ -57,8 +57,11 @@ class TensorProduct:
 
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        ground_truth = np.einsum('bui,bvj,ijk->buvk', L1_in, L2_in, cg_tensor)
-        ground_truth = ground_truth.reshape(L1_in.shape[0], L1_in.shape[1] * L2_in.shape[1], -1)
+        ground_truth = np.einsum('bui,bvj,ijk->buvk', 
+                L1_in.reshape((L1_in.shape[0], L1.mult(0), 2 * L1.type(0) + 1)), 
+                L2_in.reshape((L2_in.shape[0], L2.mult(0), 2 * L2.type(0) + 1)), 
+                cg_tensor)
+        ground_truth = ground_truth.reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
