@@ -9,6 +9,7 @@ from src.implementations.ThreadTP import *
 
 import numpy as np
 import numpy.linalg as la
+import cupy as cp
 
 def config_to_reps(config):
     return [Representation(config[i][0], config[i][1]) for i in range(3)]
@@ -58,11 +59,48 @@ class TestBenchmarkSuite:
                 print("Started correctness check!")
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
                 correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
+                if not correctness['pass']: print("Uh oh, correctness check failed!")
                 print("Finished Correctness Check!")
 
                 print("Started benchmark!")
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
                 print("Completed benchmark!")
+  
+                if(False):
+                    tp_correctness = impl(L1, L2, L3, self.correctness_batch_size)
+                    print("Start GPU Array Benchmark")
+
+                    gpu_L1_in = cp.cuda.runtime.malloc(L1_in.size)
+                    cp.cuda.runtime.memcpy(gpu_L1_in, L1_in.ctypes.data, L1_in.nbytes, cp.cuda.runtime.memcpyHostToDevice)
+                    print("one things copied")
+                    
+                    gpu_L2_in = cp.cuda.runtime.malloc(L2_in.size)
+                    cp.cuda.runtime.memcpy(gpu_L2_in, L2_in.ctypes.data, L2_in.nbytes, cp.cuda.runtime.memcpyHostToDevice)
+                    print("two things copied")
+
+                    temp = np.zeros((self.correctness_batch_size, L3.mult(0), 2 * L3.type(0) + 1), dtype=np.float32)
+                    gpu_L3_out = cp.cuda.runtime.malloc(temp.size)
+                    cp.cuda.runtime.memcpy(gpu_L3_out, temp.ctypes.data, temp.nbytes, cp.cuda.runtime.memcpyHostToDevice)
+                    print("three things copied")
+                    
+                    print(f"batch_size: {self.correctness_batch_size}, type: {type(self.correctness_batch_size)}")
+                    tp_correctness.exec_tensor_product(self.correctness_batch_size, gpu_L1_in, gpu_L2_in, gpu_L3_out)
+                    print('did da calc')
+                    
+                    cp.cuda.runtime.memcpy(temp.ctypes.data, gpu_L3_out, temp.nbytes, MEMCPY_DEVICE_TO_HOST)
+
+                    print('got da answer')
+                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, gpu_L3_out)
+                    print("gpu correctness")
+                    print(correctness)
+
+                    cp.cuda.runtime.free(gpu_L1_in)
+                    cp.cuda.runtime.free(gpu_L2_in)
+                    cp.cuda.runtime.free(gpu_L3_out)
+
+                    print("Complete GPU Array Benchmark")
+
+
 
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
@@ -84,15 +122,19 @@ def debug(tp_impl, config):
     tp = tp_impl(L1, L2, L3, batch_size)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.mult(0), L1.type(0))), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.mult(0), L2.type(0))), dtype=np.float32) 
-    L3_out = np.zeros((batch_size, L3.mult(0), L3.type(0)), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.mult(0), 2 * L1.type(0) + 1)), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.mult(0), 2 * L2.type(0) + 1)), dtype=np.float32) 
+    L3_out = np.zeros((batch_size, L3.mult(0), 2 * L3.type(0) + 1), dtype=np.float32)
 
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
+    print("Impl L3_out")
     print(L3_out)
+    print("Ground Truth")
     print(ground_truth)
+    print("diff")
+    print(L3_out - ground_truth)
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
@@ -100,4 +142,4 @@ if __name__=='__main__':
         ThreadTensorProduct, 
         # GemmTensorProduct,
         ])
-    #debug(ThreadTensorProduct, ((1, 3), (1, 3), (1, 4)))
+    # debug(ThreadTensorProduct, ((2, 4), (1, 3), (2, 5)))
