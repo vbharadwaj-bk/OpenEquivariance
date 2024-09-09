@@ -47,10 +47,10 @@ __global__ void shuffle_tp_kernel(
         red_lanes[i] = red_lanes_ptr[i * THREADS_PER_WARP + lane_id];
     }
 
-    size_t warps_launched = blockDim.x * gridDim.x / 16;
+    size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
     size_t nnz_per_warp = (num_products + warps_launched - 1) / warps_launched;
 
-    size_t start = warp_id * nnz_per_warp;
+    size_t start = nnz_per_warp * ((size_t) warp_id);
     size_t end = min(start + nnz_per_warp, num_products);
 
     for(size_t i = start; i < end; i++) {
@@ -91,6 +91,24 @@ __global__ void shuffle_tp_kernel(
     }
 }
 
+
+#define EXECUTE_OPTION(max_lane_l, red_depth) { \
+    if(this->max_lane_length == max_lane_l && this->reduction_depth == red_depth) { \
+        executed_kernel = true; \
+        shuffle_tp_kernel<max_lane_l, red_depth> \
+            <<<A100_SMS * 2, THREAD_BLOCK_SIZE>>>( \
+                num_products, \
+                {L1_in, static_cast<uint32_t>(L1.get_rep_length())}, \
+                {L2_in, static_cast<uint32_t>(L2.get_rep_length())}, \
+                {L3_out, static_cast<uint32_t>(L3.get_rep_length())}, \
+                warp_values.ptr, \
+                l1_indices.ptr, \
+                l2_indices.ptr, \
+                red_lanes.ptr \
+            ); \
+    } \
+}
+
 void ShuffleTensorProductImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
@@ -102,20 +120,10 @@ void ShuffleTensorProductImpl::exec_tensor_product(
 
     bool executed_kernel = false;
 
-    if(this->max_lane_length == 4 && this->reduction_depth == 2) {
-        executed_kernel = true;
-        shuffle_tp_kernel<4, 3>
-            <<<A100_SMS, THREAD_BLOCK_SIZE>>>(
-                num_products,
-                {L1_in, static_cast<uint32_t>(L1.get_rep_length())},
-                {L2_in, static_cast<uint32_t>(L2.get_rep_length())},
-                {L3_out, static_cast<uint32_t>(L3.get_rep_length())},
-                warp_values.ptr,
-                l1_indices.ptr,
-                l2_indices.ptr,
-                red_lanes.ptr
-            ); 
-    }
+    EXECUTE_OPTION(2, 4)
+    EXECUTE_OPTION(1, 3)
+    EXECUTE_OPTION(5, 3)
+    EXECUTE_OPTION(4, 2)
 
     cudaDeviceSynchronize();
     gpuErrchk( cudaGetLastError() );
