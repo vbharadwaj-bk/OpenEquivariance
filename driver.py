@@ -84,9 +84,9 @@ def debug(tp_impl, config):
     tp = tp_impl(L1, L2, L3, batch_size)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.mult(0), L1.type(0))), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.mult(0), L2.type(0))), dtype=np.float32) 
-    L3_out = np.zeros((batch_size, L3.mult(0), L3.type(0)), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.mult(0), 2 * L1.type(0) + 1)), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.mult(0), 2 * L2.type(0) + 1)), dtype=np.float32) 
+    L3_out = np.zeros((batch_size, L3.mult(0), 2 * L3.type(0) + 1), dtype=np.float32)
 
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
