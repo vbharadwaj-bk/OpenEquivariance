@@ -182,7 +182,6 @@ public:
                 warp_values(warp_values_py),
                 l1_indices(l1_indices_py),
                 l2_indices(l2_indices_py),
-                l3_indices(l3_indices_py),
                 red_lanes(red_lanes_py) { 
 
             // Just to get max lane length
@@ -192,7 +191,7 @@ public:
             max_lane_length = static_cast<int>(warp_values_dummy.shape[0]);
             reduction_depth = static_cast<int>(red_lanes_dummy.shape[0]);
 
-            cout << "Initialized shuffle tensor product!" << end;
+            cout << "Initialized shuffle tensor product!" << endl;
         }
 
     void exec_tensor_product(
@@ -201,5 +200,5 @@ public:
             float* X_out,
             float* edge_features);
 
-    ~ShuffleTensorProductImpl(); 
+    ~ShuffleTensorProductImpl() = default; 
 };

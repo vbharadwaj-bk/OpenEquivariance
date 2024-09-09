@@ -19,7 +19,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GemmTensorProductImpl, GenericTensorProductImpl>(m, "GemmTensorProductImpl")
         .def(py::init<uint64_t, Representation&, Representation&, Representation&, py::array_t<float>>());
     py::class_<ShuffleTensorProductImpl, GenericTensorProductImpl>(m, "ShuffleTensorProductImpl")
-        .def(py::init<uint64_t, Representation&, Representation&, Representation&, 
+        .def(py::init<Representation&, Representation&, Representation&, 
                 py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
     py::class_<Representation>(m, "Representation")
         .def(py::init<string>())

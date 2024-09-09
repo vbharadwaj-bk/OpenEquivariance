@@ -56,9 +56,9 @@ class ShuffleReduceTensorProduct(TensorProduct):
 
         # Can probably smash these values into a uin64_t mask 
         warp_values = np.zeros((max_lane_length, warp_length), dtype=np.float32)
-        l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int) # uint8?
-        l2_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int) 
-        red_lanes = np.zeros((reduction_depth, warp_length), dtype=np.int)
+        l1_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int32) # uint8?
+        l2_indices  = np.zeros((max_lane_length, warp_length), dtype=np.int32) 
+        red_lanes = np.zeros((reduction_depth, warp_length), dtype=np.int32)
 
         for i, lane in enumerate(lanes):
             for j, (u, v, value) in enumerate(lane): 
@@ -85,7 +85,10 @@ class ShuffleReduceTensorProduct(TensorProduct):
         self.warp_values, self.l1_indices, self.l2_indices, self.red_lanes = \
                 warp_values, l1_indices, l2_indices, red_lanes
 
-        self.internal = None 
+        self.internal = ShuffleTensorProductImpl(
+            L1, L2, L3, 
+            warp_values, l1_indices, l2_indices, red_lanes)
+
         self.mode = mode
 
     def prototype(self, L1_in, L2_in, L3_out):
