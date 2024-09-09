@@ -27,9 +27,9 @@ class TestBenchmarkSuite:
             ((1, 2), (1, 2), (1, 2)),
             ((1, 4), (1, 3), (1, 1)),
             ((1, 4), (1, 3), (1, 5)),
-            ((2, 4), (2, 3), (4, 5)),
-            ((2, 4), (1, 3), (2, 5)),
-            ((1, 4), (2, 3), (2, 5)),
+            #((2, 4), (2, 3), (4, 5)),
+            #((2, 4), (1, 3), (2, 5)),
+            #((1, 4), (2, 3), (2, 5)),
             ] # Multiplicity, irrep-type pairs
 
         self.num_warmup = 10
@@ -107,6 +107,7 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
     bench_suite.run([
         ThreadTensorProduct, 
-        # GemmTensorProduct,
+        GemmTensorProduct,
+        ShuffleReduceTensorProduct
         ])
     #debug(ThreadTensorProduct, ((1, 3), (1, 3), (1, 4)))
