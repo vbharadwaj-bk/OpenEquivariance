@@ -13,3 +13,4 @@ visualization/*
 figures/*
 get_gpu_node.sh
 nvidia-mathdx*
+.vscode/*
