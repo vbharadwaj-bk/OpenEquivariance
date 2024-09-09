@@ -78,7 +78,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config):
     L1, L2, L3 = config_to_reps(config)
     batch_size = 2
-    tp = tp_impl(L1, L2, L3, batch_size, mode="prototype")
+    tp = tp_impl(L1, L2, L3, batch_size)
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 

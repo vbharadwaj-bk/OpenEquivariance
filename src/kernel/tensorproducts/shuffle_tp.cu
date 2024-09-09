@@ -2,11 +2,12 @@
 
 #include <iostream>
 #include "cuda_runtime.h"
-#include "util.hpp"     // round_up
 #include "gpu_util.hpp"
 
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 512
+
+#define A100_SMS 108
 
 using namespace std;
 
@@ -59,7 +60,7 @@ __global__ void shuffle_tp_kernel(
 
         // Step 1: Load vectors into warp lanes 
         if(lane_id < L1.stride) {
-            float* l1_start = L1.ptr + i * L1.stride; 
+            float* l1_start = L1.ptr + i * L1.stride;
             l1_vec = l1_start[lane_id];
         }
         if(lane_id < L2.stride) {
@@ -72,7 +73,7 @@ __global__ void shuffle_tp_kernel(
         for(int j = 0; j < MAX_LANE_LENGTH; j++) {
             float l1_val = __shfl_sync(0xFFFFFFFF, l1_vec, l1_indices[j]);
             float l2_val = __shfl_sync(0xFFFFFFFF, l2_vec, l2_indices[j]);
-            l3_vec += l1_val * l2_val * values[j];
+            l3_vec += l1_val * l2_val * values[j]; // TODO: Can have multiple accumulators 
         }
 
         // Step 3: Reduce if necessary
@@ -95,5 +96,31 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     float* L1_in,
     float* L2_in,
     float* L3_out) {
+        
+    // Not really necessary
+    gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * num_products * sizeof(float)) )
 
+    bool executed_kernel = false;
+
+    if(this->max_lane_length == 4 && this->reduction_depth == 2) {
+        executed_kernel = true;
+        shuffle_tp_kernel<4, 3>
+            <<<A100_SMS, THREAD_BLOCK_SIZE>>>(
+                num_products,
+                {L1_in, static_cast<uint32_t>(L1.get_rep_length())},
+                {L2_in, static_cast<uint32_t>(L2.get_rep_length())},
+                {L3_out, static_cast<uint32_t>(L3.get_rep_length())},
+                warp_values.ptr,
+                l1_indices.ptr,
+                l2_indices.ptr,
+                red_lanes.ptr
+            ); 
+    }
+
+    cudaDeviceSynchronize();
+    gpuErrchk( cudaGetLastError() );
+
+    if(!executed_kernel) {
+        throw std::runtime_error("Unsupported lane length and reduction depth: " + std::to_string(this->max_lane_length) + ", " + std::to_string(this->reduction_depth));
+    }
 }
