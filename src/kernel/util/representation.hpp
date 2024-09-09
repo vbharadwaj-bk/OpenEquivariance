@@ -23,6 +23,7 @@ public:
     }
 
     size_t get_rep_length() {
+        // TODO: Deal with even / odd here 
         size_t rep_length = 0;
         for (auto& irrep : irreps) {
             rep_length += get<0>(irrep) * (2 * get<1>(irrep) + 1);
