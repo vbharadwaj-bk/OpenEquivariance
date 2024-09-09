@@ -54,7 +54,6 @@ class TestBenchmarkSuite:
             L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
             L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
             L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
-
             for impl in tp_implementations:
                 tc_name = f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}"
                 logger.info(f'Starting {tc_name}.')
