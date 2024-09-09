@@ -2,6 +2,7 @@ import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 from src.wrapper.kernel_wrapper import *
+from src.benchmark.print_utils import bcolors
 
 class TensorProduct:
     '''
@@ -56,8 +57,11 @@ class TensorProduct:
 
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        ground_truth = np.einsum('bui,bvj,ijk->buvk', L1_in, L2_in, cg_tensor)
-        ground_truth = ground_truth.reshape(L1_in.shape[0], L1_in.shape[1] * L2_in.shape[1], -1)
+        ground_truth = np.einsum('bui,bvj,ijk->buvk', 
+                L1_in.reshape((L1_in.shape[0], L1.mult(0), 2 * L1.type(0) + 1)), 
+                L2_in.reshape((L2_in.shape[0], L2.mult(0), 2 * L2.type(0) + 1)), 
+                cg_tensor)
+        ground_truth = ground_truth.reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
@@ -65,7 +69,7 @@ class TensorProduct:
             result["shape_match"] = True 
             diff_norm = la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf)
             result["diff_Linf_norm"] = float(diff_norm)
-            result["pass"] = bool(diff_norm < result["thresh"])
+            result["pass"] = bool(diff_norm < result["thresh"])            
 
         return result, ground_truth
 
@@ -125,5 +129,6 @@ class TensorProduct:
             "throughputs_gflops": throughputs_gflops,
             "bandwidth_gbps_rough": bandwidth_gbps_rough
         }
+        print(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
 
         return result
