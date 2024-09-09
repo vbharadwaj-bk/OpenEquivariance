@@ -2,7 +2,9 @@ import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 from src.wrapper.kernel_wrapper import *
-from src.benchmark.print_utils import bcolors
+from src.benchmark.logging_utils import getLogger, bcolors 
+
+logger = getLogger()
 
 class TensorProduct:
     '''
@@ -48,10 +50,11 @@ class TensorProduct:
         '''
         L1, L2, L3 = self.L1, self.L2, self.L3
 
+        thresh = 5e-7
         result = {
             "shape_match": False,
             "diff_Linf_norm": np.inf,
-            "thresh": 5e-7, # Above floating point interval machine epsilon 
+            "thresh": thresh, # Above floating point interval machine epsilon 
             "pass": False
         }
 
@@ -65,11 +68,17 @@ class TensorProduct:
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
+            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
         else:
             result["shape_match"] = True 
-            diff_norm = la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf)
-            result["diff_Linf_norm"] = float(diff_norm)
-            result["pass"] = bool(diff_norm < result["thresh"])            
+            diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
+            result["diff_Linf_norm"] = diff_Linf_norm 
+            result["pass"] = bool(diff_Linf_norm < thresh) 
+
+            if result["pass"]:
+                logger.info(f"{bcolors.OKGREEN}Correctness check pass. {bcolors.ENDC}")
+            else:
+                logger.error(f"{bcolors.FAIL}Correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
 
         return result, ground_truth
 
@@ -129,6 +138,6 @@ class TensorProduct:
             "throughputs_gflops": throughputs_gflops,
             "bandwidth_gbps_rough": bandwidth_gbps_rough
         }
-        print(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
 
         return result

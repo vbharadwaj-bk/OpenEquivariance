@@ -1,8 +1,10 @@
-import json, os, time, pathlib
+import json, os, time, pathlib 
 import cppimport
 import cppimport.import_hook
+
 cppimport.settings["use_filelock"] = False
 
+from src.benchmark.logging_utils import *
 from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
@@ -11,11 +13,7 @@ from src.implementations.ShuffleReduceTP import *
 import numpy as np
 import numpy.linalg as la
 
-def config_to_reps(config):
-    return [Representation(config[i][0], config[i][1]) for i in range(3)]
-
-import numpy as np
-import numpy.linalg as la
+logger = getLogger()
 
 def config_to_reps(config):
     return [Representation(config[i][0], config[i][1]) for i in range(3)]
@@ -56,21 +54,18 @@ class TestBenchmarkSuite:
             L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
             L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
             L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
+
             for impl in tp_implementations:
-                print(f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}")
+                tc_name = f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}"
+                logger.info(f'Starting {tc_name}.')
 
                 tp_correctness = impl(L1, L2, L3, self.correctness_batch_size)
                 tp_bench = impl(L1, L2, L3, self.bench_batch_size)
 
-                print("Started correctness check!")
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
                 correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
-                print("Finished Correctness Check!")
 
-                print("Started benchmark!")
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
-                print("Completed benchmark!")
-
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
                     "config": rnames, 
@@ -84,6 +79,7 @@ class TestBenchmarkSuite:
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
 
+                logger.info(f'Finished {tc_name}.')
 
 def debug(tp_impl, config):
     L1, L2, L3 = config_to_reps(config)
