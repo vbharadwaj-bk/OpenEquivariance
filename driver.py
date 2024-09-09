@@ -17,10 +17,10 @@ def config_to_reps(config):
 class TestBenchmarkSuite:
     def __init__(self):
         self.configs = \
-            [((1, 5), (1, 5), (1, 3)),
-             ((1, 2), (1, 2), (1, 2)),
+            [#((1, 5), (1, 5), (1, 3)),
+             #((1, 2), (1, 2), (1, 2)),
              ((1, 4), (1, 3), (1, 1)),
-             ((1, 4), (1, 3), (1, 5))
+             #((1, 4), (1, 3), (1, 5))
             ] # Multiplicity, irrep-type pairs
 
         self.num_warmup = 10
@@ -95,5 +95,5 @@ def debug(tp_impl, config):
 
 if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
-    bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct]) 
+    bench_suite.run([ShuffleReduceTensorProduct]) 
     #debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))

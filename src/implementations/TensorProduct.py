@@ -2,6 +2,7 @@ import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 from src.wrapper.kernel_wrapper import *
+from src.benchmark.print_utils import bcolors
 
 class TensorProduct:
     '''
@@ -65,7 +66,7 @@ class TensorProduct:
             result["shape_match"] = True 
             diff_norm = la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf)
             result["diff_Linf_norm"] = float(diff_norm)
-            result["pass"] = bool(diff_norm < result["thresh"])
+            result["pass"] = bool(diff_norm < result["thresh"])            
 
         return result, ground_truth
 
@@ -126,5 +127,6 @@ class TensorProduct:
             "throughputs_gflops": throughputs_gflops,
             "bandwidth_gbps_rough": bandwidth_gbps_rough
         }
+        print(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
 
         return result
