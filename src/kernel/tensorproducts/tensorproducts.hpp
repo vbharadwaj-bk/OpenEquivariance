@@ -185,13 +185,11 @@ public:
                 red_lanes(red_lanes_py) { 
 
             // Just to get max lane length
-            Buffer<float> warp_values_dummy; 
-            Buffer<int> red_lanes_dummy;
+            Buffer<float> warp_values_dummy(warp_values_py); 
+            Buffer<int> red_lanes_dummy(red_lanes_py);
 
             max_lane_length = static_cast<int>(warp_values_dummy.shape[0]);
             reduction_depth = static_cast<int>(red_lanes_dummy.shape[0]);
-
-            cout << "Initialized shuffle tensor product!" << endl;
         }
 
     void exec_tensor_product(
