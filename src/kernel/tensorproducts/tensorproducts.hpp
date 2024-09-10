@@ -191,9 +191,51 @@ public:
 
     void exec_tensor_product(
             uint64_t num_products,
-            float* X_in,
-            float* X_out,
-            float* edge_features);
+            float* L1_in,
+            float* L2_in,
+            float* L3_out);
 
     ~ShuffleTensorProductImpl() = default; 
+};
+
+//=========================================================================
+
+/*
+* A simple implementation that gets each thread 
+* to handle each tensor product based on a coordinate format. 
+*/
+class __attribute__ ((visibility ("default"))) MultiplicityOuterProductTensorProductImpl : public GenericTensorProductImpl {
+public:
+    DeviceBuffer<uint8_t> coord1; 
+    DeviceBuffer<uint8_t> coord2; 
+    DeviceBuffer<uint8_t> coord3; 
+    DeviceBuffer<float> values;
+
+    MultiplicityOuterProductTensorProductImpl(
+        Representation &L1,
+        Representation &L2,
+        Representation &L3,
+        py::array_t<uint8_t> coord1_py, 
+        py::array_t<uint8_t> coord2_py,
+        py::array_t<uint8_t> coord3_py,
+        py::array_t<float> values_py 
+        ) :
+        GenericTensorProductImpl(L1, L2, L3),
+        coord1(coord1_py),
+        coord2(coord2_py),
+        coord3(coord3_py),
+        values(values_py)
+        { 
+            if(L1.irreps.size() != 1 || L2.irreps.size() != 1 || L3.irreps.size() != 1) {
+                throw std::invalid_argument("MultiplicityOuterProductTensorProductImpl only supports single irreps");
+            }
+        }
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* L1_in,
+            float* L2_in,
+            float* L3_out);
+
+    ~MultiplicityOuterProductTensorProductImpl() = default;
 };

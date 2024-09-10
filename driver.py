@@ -9,6 +9,7 @@ from src.wrapper.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
 from src.implementations.ShuffleReduceTP import *
+from src.implementations.MultiplicityOuterProductTP import *
 
 import numpy as np
 import numpy.linalg as la
@@ -21,19 +22,22 @@ def config_to_reps(config):
 class TestBenchmarkSuite:
     def __init__(self):
         self.configs = [
-            ((1, 5), (1, 5), (1, 3)),
-            ((1, 2), (1, 2), (1, 2)),
-            ((1, 4), (1, 3), (1, 1)),
+            # ((1, 5), (1, 5), (1, 3)),
+            # ((1, 2), (1, 2), (1, 2)),
+            # ((1, 4), (1, 3), (1, 1)),
             ((1, 4), (1, 3), (1, 5)),
             ((2, 4), (2, 3), (4, 5)),
-            ((2, 4), (1, 3), (2, 5)),
-            ((1, 4), (2, 3), (2, 5)),
+            # ((2, 4), (1, 3), (2, 5)),
+            # ((1, 4), (2, 3), (2, 5)),
+            ((4, 4), (4, 3), (16, 5)),
+            ((8, 4), (8, 3), (64, 5)),
+            ((16, 4), (16, 3), (256, 5)),
             ] # Multiplicity, irrep-type pairs
 
         self.num_warmup = 10
         self.num_iter = 30
         self.correctness_batch_size = 100000
-        self.bench_batch_size = 10000000
+        self.bench_batch_size = 100000
         self.prng_seed = 12345
 
     def run(self, tp_implementations, correctness=True):        
@@ -102,7 +106,8 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite()
     bench_suite.run([
         ThreadTensorProduct, 
-        GemmTensorProduct,
-        ShuffleReduceTensorProduct
+        # GemmTensorProduct,
+        # ShuffleReduceTensorProduct,
+        MultiplicityOuterProductTensorProduct,
         ])
     #debug(ThreadTensorProduct, ((1, 3), (1, 3), (1, 4)))
