@@ -24,6 +24,13 @@ private:
    nvrtcProgram prog;
 
    bool compiled = false;
+   char* ptx = nullptr;
+
+   CUdevice cuDevice;
+   CUcontext context;
+   CUmodule module;
+
    vector<string> kernel_names;
+   vector<CUfunction> kernels;
 };
 
