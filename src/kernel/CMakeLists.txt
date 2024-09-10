@@ -13,6 +13,7 @@ add_library(espmm SHARED
   tensorproducts/thread_tp.cu
   tensorproducts/gemm_tp.cu
   tensorproducts/shuffle_tp.cu
+  tensorproducts/multiplicity_op_tp.cu
 
   convolution/convolution.hpp
   convolution/equivariant_convolution.cu
