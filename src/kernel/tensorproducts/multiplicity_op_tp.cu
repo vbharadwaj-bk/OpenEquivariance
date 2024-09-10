@@ -30,83 +30,47 @@ __device__ __forceinline__ void multiplicity_outer_product_kernel(
     const int L3,
     const float value 
 ){  
-    int mult3_idx = 0; 
+    // Read in L1
+    float L1_arr[mult1]; 
     #pragma unroll
-    for(int mult1_idx = 0; mult1_idx < mult1; mult1_idx++){
+    for (int i = 0; i < mult1; i++){
+        L1_arr[i] = L1_in[i * (2 * L1 + 1) + L1_idx]; 
+    }
+
+    // Read in L2
+    float L2_arr[mult2];
+    #pragma unroll
+    for (int j = 0; j < mult2; j++){
+        L2_arr[j] = L2_in[j * (2 * L2 + 1) + L2_idx]; 
+    }   
+
+    // Intialize L3
+    float L3_arr[mult1][mult2]; 
+
+   
+    // Calculations
+    #pragma unroll
+    for(int i = 0; i < mult1; i++){
         #pragma unroll
-        for(int mult2_idx = 0; mult2_idx < mult2; mult2_idx++){
+        for(int j = 0; j < mult2; j++){
+            L3_arr[i][j] = L1_arr[i] * L2_arr[j] * value;
+        }
+    }
 
-            int coord1 = mult1_idx * (2 * L1 + 1) + L1_idx; 
-            int coord2 = mult2_idx * (2 * L2 + 1) + L2_idx; 
-            int coord3 = mult3_idx * (2 * L3 + 1) + L3_idx;
-    
-            L3_out[coord3] += L1_in[coord1] * L2_in[coord2] * value;
-
-            mult3_idx++;
+    // Writing Results Out
+    int k = 0; 
+    #pragma unroll
+    for(int i = 0; i < mult1; i++){
+        #pragma unroll
+        for(int j = 0; j < mult2; j++){
+            L3_out[k * (2 * L3 + 1) + L3_idx] += L3_arr[i][j]; 
+            k++;  
         }
     }
 }
 
-__device__ __forceinline__ void get_correct_templated_kernel(
-    const int mult1, 
-    const int mult2, 
-    const float* __restrict__ L1_in,
-    const uint8_t L1_idx, 
-    const int L1,
-    const float* __restrict__ L2_in,
-    const uint8_t L2_idx,
-    const int L2, 
-    float* __restrict__ L3_out, 
-    const uint8_t L3_idx,
-    const int L3, 
-    const float value
-){
-    switch(mult1){
-        case 1:
-            switch(mult2){
-                case 1:
-                    multiplicity_outer_product_kernel<1, 1>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                case 2:
-                    multiplicity_outer_product_kernel<1, 2>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                default:
-                    assert(false);
-            }
-            break;
-        case 2:
-            switch(mult2){
-                case 1:
-                    multiplicity_outer_product_kernel<2, 1>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                case 2:
-                    multiplicity_outer_product_kernel<2, 2>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                default:
-                    assert(false);
-            } break; 
-        case 4:
-            switch(mult2){
-                case 4:
-                    multiplicity_outer_product_kernel<4, 4>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                default:
-                    assert(false);
-            } break;
-        case 8: 
-            switch(mult2){
-                case 8:
-                    multiplicity_outer_product_kernel<8, 8>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                default:
-                    assert(false);
-            } break;
-        case 16:
-            switch(mult2){
-                case 16:
-                    multiplicity_outer_product_kernel<16, 16>(L1_in, L1_idx, L1, L2_in, L2_idx, L2, L3_out, L3_idx, L3, value); break;
-                default:
-                    assert(false);
-            } break;
-            default:
-                assert(false);
-    }
-}
 
+template<int mult1, int mult2> 
 __global__ void thread_tp_kernel(
         size_t num_products,
         const float* __restrict__ L1_in,
@@ -141,9 +105,7 @@ __global__ void thread_tp_kernel(
         float* L3_vec = L3_out + (idx * L3_stride);
 
         for(int i = 0; i < nnz; i++) {
-            get_correct_templated_kernel(
-                L1_mult, 
-                L2_mult, 
+            multiplicity_outer_product_kernel<mult1, mult2>(
                 L1_vec, coord1[i], L1, 
                 L2_vec, coord2[i], L2,
                 L3_vec, coord3[i], L3, 
@@ -151,6 +113,25 @@ __global__ void thread_tp_kernel(
             );
         }
     }
+}
+
+#define EXECUTE_OPTION(mult1, mult2) { \
+    if(L1_info.mult == mult1 && L2_info.mult == mult2) { \
+        executed_kernel = true; \
+        thread_tp_kernel<mult1,mult2><<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>( \
+            num_products, \
+            L1_in, \
+            L1_info, \
+            L2_in, \
+            L2_info, \
+            L3_out, \
+            L3_info, \
+            nnz, \
+            coord1.ptr, \
+            coord2.ptr, \
+            coord3.ptr, \
+            values.ptr); \
+    } \
 }
 
 void MultiplicityOuterProductTensorProductImpl::exec_tensor_product(
@@ -166,25 +147,25 @@ void MultiplicityOuterProductTensorProductImpl::exec_tensor_product(
     // This will eventually need to go when we add support for representations with sums
     gpuErrchk( cudaMemset(L3_out, 0.0, L3_stride * num_products * sizeof(float)) ) 
     size_t nnz = values.size;
-
+    
     Linfo L1_info = {L1_stride, L1.mult(0), L1.type(0)};
     Linfo L2_info = {L2_stride, L2.mult(0), L2.type(0)};
     Linfo L3_info = {L3_stride, L3.mult(0), L3.type(0)};
 
-    thread_tp_kernel<<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
-            num_products, 
-            L1_in,
-            L1_info, 
-            L2_in,
-            L2_info,
-            L3_out,
-            L3_info,
+    bool executed_kernel = false;
 
-            nnz,
-            coord1.ptr,
-            coord2.ptr,
-            coord3.ptr,
-            values.ptr); 
+    EXECUTE_OPTION(1,1);
+    EXECUTE_OPTION(1,2);
+    EXECUTE_OPTION(2,1);
+    EXECUTE_OPTION(2,2);
+    EXECUTE_OPTION(4,4);
+    EXECUTE_OPTION(8,8);
+    EXECUTE_OPTION(16,16);
 
+    cudaDeviceSynchronize();
     gpuErrchk( cudaGetLastError() );
+
+    if(!executed_kernel) {
+        throw std::runtime_error("Unsupported mult1, mult2: " + std::to_string(L1_info.mult) + ", " + std::to_string(L1_info.mult));
+    }
 }
