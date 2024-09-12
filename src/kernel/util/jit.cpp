@@ -2,6 +2,7 @@
 
 #include <nvrtc.h>
 #include <cuda.h>
+#include <sstream>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -10,7 +11,7 @@
 using namespace std;
 
 /*
-* This page is a useful resource to understand this file: 
+* This page is a useful resource on NVRTC: 
 * https://docs.nvidia.com/cuda/nvrtc/index.html#example-using-nvrtcgettypename
 */
 
@@ -40,8 +41,12 @@ string file_to_string(ifstream &ifile) {
     ifile.clear();
     ifile.seekg(0);
 
+    if(ifile.fail()) {
+        throw std::runtime_error("Failed to read kernel file.");
+    }
+
     std::stringstream buffer;
-    buffer << t.rdbuf();
+    buffer << ifile.rdbuf();
     return buffer.str();
 }
 
@@ -52,35 +57,35 @@ JITKernel::JITKernel(ifstream& ifile)
 JITKernel::JITKernel(string gpu_program) :
     gpu_program(gpu_program) {
 
-    nvrtcProgram prog;
     NVRTC_SAFE_CALL(
     nvrtcCreateProgram( &prog,                // prog
                         gpu_program.c_str(),  // buffer
                         "kernel.cu",          // name
                         0,                    // numHeaders
                         NULL,                 // headers
-                        NULL));               // includeNames 
+                        NULL));               // includeNames
 }
 
-void JITKernel::compile(string kernel_name, vector<int> &template_params) {
+void JITKernel::compile(string kernel_name, const vector<int> &template_params) {
     // Step 1: Generate kernel names from the template parameters 
     if(template_params.size() == 0) {
         kernel_names.push_back(kernel_name);
     }
     else {
-        std::string result;
+        std::string result = kernel_name + "<";
         for(int i = 0; i < template_params.size(); i++) {
             result += std::to_string(template_params[i]); 
             if(i != template_params.size() - 1) {
                 result += ",";
             }
         }
+        result += ">";
         kernel_names.push_back(result);
     }
 
     // =========================================================
     // Step 2: Add name expressions, compile 
-    for (size_t i = 0; i < name_vec.size(); ++i)
+    for (size_t i = 0; i < kernel_names.size(); ++i)
         NVRTC_SAFE_CALL(nvrtcAddNameExpression(prog, kernel_names[i].c_str()));
 
     nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
@@ -96,7 +101,7 @@ void JITKernel::compile(string kernel_name, vector<int> &template_params) {
         throw std::logic_error("NVRTC Fail, log: " + std::string(log));
     } 
     delete[] log;
-    compiled = true
+    compiled = true;
 
     // =========================================================
     // Step 3: Get PTX, initialize device, context, and module 
@@ -116,18 +121,46 @@ void JITKernel::compile(string kernel_name, vector<int> &template_params) {
 
         NVRTC_SAFE_CALL(nvrtcGetLoweredName(
                                 prog,
-                name_vec[i].c_str(), // name expression
-                &name                // lowered name
-                                            ));
+                kernel_names[i].c_str(), // name expression
+                &name                    // lowered name
+                ));
 
-        kernel.emplace_back();
+        kernels.emplace_back();
         CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
     }
 }
 
-~JITKernel::JITKernel {
-    CUDA_SAFE_CALL(cuModuleUnload(module));
-    CUDA_SAFE_CALL(cuCtxDestroy(context));
-    delete[] ptx;
+void JITKernel::execute(uint32_t num_blocks, uint32_t num_threads, 
+         void* args[], uint32_t smem, CUstream hStream) {
+
+    cuLaunchKernel( kernels[0],
+                    num_blocks, 1, 1,    // grid dim
+                    num_threads, 1, 1,   // block dim
+                    smem, hStream,       // shared mem and stream
+                    args, 0);            // arguments
+}
+
+
+JITKernel::~JITKernel() {
+    if(compiled) {
+        CUDA_SAFE_CALL(cuModuleUnload(module));
+        CUDA_SAFE_CALL(cuCtxDestroy(context));
+        delete[] ptx;
+    }
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
+}
+
+void test_jit() {
+    //=========
+    // Test the JIT
+    int test = 42;
+
+    std::ifstream kernel_file ("/global/cfs/projectdirs/m1982/vbharadw/equivariant_spmm/src/kernel/util/jit_test.cpp");
+    JITKernel jit(kernel_file);
+    jit.compile("f3", { 3 });
+
+    void *args[] = { &test };
+    jit.execute(1, 32, args);
+
+    //=========
 }

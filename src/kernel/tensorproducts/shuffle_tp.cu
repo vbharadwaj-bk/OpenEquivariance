@@ -1,8 +1,10 @@
 #include "tensorproducts.hpp"
 
 #include <iostream>
+#include <fstream>
 #include "cuda_runtime.h"
 #include "gpu_util.hpp"
+#include "jit.hpp"
 
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 512
@@ -114,7 +116,9 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     float* L1_in,
     float* L2_in,
     float* L3_out) {
-        
+
+    test_jit();
+
     // Not really necessary
     gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * num_products * sizeof(float)) )
 

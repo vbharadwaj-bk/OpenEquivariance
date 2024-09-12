@@ -2,10 +2,11 @@
 
 #include <nvrtc.h>
 #include <cuda.h>
-#include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
+
+using namespace std;
 
 class JITKernel {
 public:
@@ -14,8 +15,10 @@ public:
 
    // In the future, could compile more than one combo of kernel names
    // and template parameters
-   void compile(string kernel_name, vector<int> &template_params);
-   int execute();
+   void compile(string kernel_name, const vector<int> &template_params);
+
+   void execute(uint32_t num_blocks, uint32_t num_threads, 
+         void* args[], uint32_t smem=0, CUstream hStream=NULL);
 
    ~JITKernel();
 
@@ -34,3 +37,4 @@ private:
    vector<CUfunction> kernels;
 };
 
+void test_jit();

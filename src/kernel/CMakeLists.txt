@@ -7,6 +7,8 @@ add_library(espmm SHARED
   util/buffer.hpp
   util/buffer.cpp
   util/representation.hpp
+  util/jit.hpp
+  util/jit.cpp
 
   tensorproducts/tensorproducts.hpp
   tensorproducts/generic_tp.cpp
@@ -48,5 +50,5 @@ set_target_properties(espmm PROPERTIES PUBLIC_HEADER "${ESPMM_PUBLIC_HEADERS}")
 
 # To-do: should make path to standard CUDA math libraries a parameter 
 target_link_directories(espmm PUBLIC /opt/nvidia/hpc_sdk/Linux_x86_64/2024/math_libs/12.4/lib64/)
-target_link_libraries(espmm CUDA::cudart -lcublasLt)
+target_link_libraries(espmm CUDA::cudart -lcublasLt -lnvrtc -lcuda)
 install(TARGETS espmm PUBLIC_HEADER)
