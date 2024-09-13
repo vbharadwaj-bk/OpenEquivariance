@@ -10,16 +10,7 @@ using namespace std;
 
 // These macros can only be used once per file
 
-// Creates a string for a JIT-only kernel
-#define JITONLY_CODE(func) \
-    const char* JIT_CODE = #func;
-
-// Expands to both a JIT code and the function signature. 
-#define JITBOTH_CODE(func) \
-    const char* JIT_CODE = #func; \
-    func
-
-class JITKernel {
+class __attribute__((visibility("default"))) JITKernel {
 public:
    JITKernel(ifstream& ifile); 
    JITKernel(string gpu_program);

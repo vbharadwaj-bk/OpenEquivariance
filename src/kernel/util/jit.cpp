@@ -112,8 +112,6 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
     NVRTC_SAFE_CALL(nvrtcGetPTX(prog, ptx));
 
     CUDA_SAFE_CALL(cuInit(0));
-    CUDA_SAFE_CALL(cuDeviceGet(&cuDevice, 0));
-    CUDA_SAFE_CALL(cuCtxCreate(&context, 0, cuDevice));
     CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
 
     for (size_t i = 0; i < kernel_names.size(); i++) {
@@ -140,28 +138,29 @@ void JITKernel::execute(uint32_t num_blocks, uint32_t num_threads,
                     args, 0);            // arguments
 }
 
-
 JITKernel::~JITKernel() {
     if(compiled) {
         CUDA_SAFE_CALL(cuModuleUnload(module));
-        CUDA_SAFE_CALL(cuCtxDestroy(context));
         delete[] ptx;
     }
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
 }
 
-JITONLY_CODE(
-    using namespace std;
+// ========================= JIT TEST =========================
 
-    template<int template_int>
-    __global__ void f3(int test) {  
-        printf("Hello, my argument is %d\n", test);
-        printf("Hello, my template parameter is %d\n", template_int);
-    }
-)
+const char* JIT_TEST_CODE = R"(
+using namespace std;
+
+template<int template_int>
+__global__ void f3(int test) {  
+    printf("Hello, my argument is %d\n", test);
+    printf("Hello, my template parameter is %d\n", template_int);
+}
+
+)";
 
 void test_jit() {
-    JITKernel jit(JIT_CODE);
+    JITKernel jit(JIT_TEST_CODE);
     jit.compile("f3", { 3 });
     int test = 5;
     void *args[] = { &test };

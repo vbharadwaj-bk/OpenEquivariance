@@ -10,6 +10,7 @@
 
 #include "buffer.hpp"
 #include "representation.hpp"
+#include "jit.hpp"
 
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
@@ -168,6 +169,8 @@ public:
     DeviceBuffer<int> l2_indices;
     DeviceBuffer<int> red_lanes;
 
+    JITKernel jit;
+
     ShuffleTensorProductImpl(
         Representation &L1_i,
         Representation &L2_i,
@@ -175,20 +178,7 @@ public:
         py::array_t<float> warp_values_py, 
         py::array_t<int> l1_indices_py, 
         py::array_t<int> l2_indices_py, 
-        py::array_t<int> red_lanes_py) :
-                GenericTensorProductImpl(L1_i, L2_i, L3_i),
-                warp_values(warp_values_py),
-                l1_indices(l1_indices_py),
-                l2_indices(l2_indices_py),
-                red_lanes(red_lanes_py) { 
-
-            // Just to get max lane length
-            Buffer<float> warp_values_dummy(warp_values_py); 
-            Buffer<int> red_lanes_dummy(red_lanes_py);
-
-            max_lane_length = static_cast<int>(warp_values_dummy.shape[0]);
-            reduction_depth = static_cast<int>(red_lanes_dummy.shape[0]);
-        }
+        py::array_t<int> red_lanes_py);
 
     void exec_tensor_product(
             uint64_t num_products,

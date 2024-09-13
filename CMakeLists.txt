@@ -21,6 +21,6 @@ if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
 endif()
 
 # Set CUDA flags
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --gpu-architecture=sm_80)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --gpu-architecture=sm_80 -fPIC)
 
 add_subdirectory(src/kernel)

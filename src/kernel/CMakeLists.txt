@@ -33,6 +33,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/util)
 
 set(ESPMM_PUBLIC_HEADERS
     "espmm.hpp"
+    "util/jit.hpp"
     "util/buffer.hpp"
     "util/util.hpp"
     "util/representation.hpp"
