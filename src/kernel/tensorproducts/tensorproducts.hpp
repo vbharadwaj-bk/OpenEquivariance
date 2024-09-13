@@ -6,6 +6,7 @@
 #include <pybind11/numpy.h>
 #include <cstdint>
 #include <cublasLt.h>
+#include <string>
 
 #include "buffer.hpp"
 #include "representation.hpp"
@@ -16,7 +17,7 @@ public:
     Representation &L2;
     Representation &L3;
 
-    bool record_internal_stats = false; 
+    bool record_internal_stats = false;
 
     GenericTensorProductImpl(
         Representation &L1_i,
@@ -59,7 +60,7 @@ public:
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
             uint64_t num_warmup,
-            py::array_t<float> time_millis_py); 
+            py::array_t<float> time_millis_py);
 
     virtual ~GenericTensorProductImpl() {};
 };

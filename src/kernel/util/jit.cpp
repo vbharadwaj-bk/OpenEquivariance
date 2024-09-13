@@ -150,17 +150,20 @@ JITKernel::~JITKernel() {
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
 }
 
+JITONLY_CODE(
+    using namespace std;
+
+    template<int template_int>
+    __global__ void f3(int test) {  
+        printf("Hello, my argument is %d\n", test);
+        printf("Hello, my template parameter is %d\n", template_int);
+    }
+)
+
 void test_jit() {
-    //=========
-    // Test the JIT
-    int test = 42;
-
-    std::ifstream kernel_file ("/global/cfs/projectdirs/m1982/vbharadw/equivariant_spmm/src/kernel/util/jit_test.cpp");
-    JITKernel jit(kernel_file);
+    JITKernel jit(JIT_CODE);
     jit.compile("f3", { 3 });
-
+    int test = 5;
     void *args[] = { &test };
     jit.execute(1, 32, args);
-
-    //=========
 }

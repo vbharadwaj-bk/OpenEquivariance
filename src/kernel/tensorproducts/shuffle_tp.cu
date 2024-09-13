@@ -117,8 +117,6 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     float* L2_in,
     float* L3_out) {
 
-    test_jit();
-
     // Not really necessary
     gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * num_products * sizeof(float)) )
 

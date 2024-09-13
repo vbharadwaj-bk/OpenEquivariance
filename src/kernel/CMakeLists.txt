@@ -40,6 +40,12 @@ set(ESPMM_PUBLIC_HEADERS
     "convolution/convolution.hpp"
 )
 
+# Loop over JIT_TEMPLATES and copy them to the folder build/jit
+foreach(JIT_TEMPLATE ${JIT_TEMPLATES})
+    cmake_path(GET JIT_TEMPLATE FILENAME JIT_TEMPLATE_NAME) 
+    configure_file(${JIT_TEMPLATE} ${CMAKE_BINARY_DIR}/jit/${JIT_TEMPLATE_NAME} COPYONLY)
+endforeach() 
+
 # Set target properties
 set_target_properties(espmm PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
