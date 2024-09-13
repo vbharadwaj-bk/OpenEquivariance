@@ -24,7 +24,7 @@ class TensorProduct:
 
     @staticmethod
     def name():
-        raise NotImplementedError() 
+        raise NotImplementedError()
 
     def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out):
         '''

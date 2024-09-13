@@ -42,7 +42,6 @@ __global__ void thread_tp_kernel(
     int L2 = L2_info.l; 
 
     size_t L3_stride = L3_info.stride;
-    int L3_mult = L3_info.mult;
     int L3 = L3_info.l; 
     
     if(idx < num_products) {
