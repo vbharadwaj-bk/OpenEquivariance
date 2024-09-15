@@ -1,43 +1,40 @@
 # ESPMM
 
 # Prerequisites
-You will need the `cppimport` module, but the latest one in the Github 
-repo for Perlmutter DVS, not the last release. Install it with
+Before building this package, you must activate the Python environment 
+that you want the resulting extension to use. At the
+start of the configuration process, the command `which python` should
+return the Python interpreter that you intend to use. On NERSC Perlmutter,
+you can activate the nersc Python module by sourcing `.env.sh`.
 
-```bash
-git clone https://github.com/tbenthompson/cppimport 
-cd cppimport
-python setup.py install
-```
+You need Python3, CMake Version >=3.15, and CUDAToolkit>=12.2. We require the
+following Python dependencies:
+
+- numpy
+- pybind11
 
 # Building the Code 
-
-This repository contains two components: a C++ component
-that is compiled / built with CMake, and a Python
-wrapper that interfaces with the C++ layer through 
-Pybind11. 
+The following steps build the C++ extension to Python using Pybind11.
 
 1. To set up the build, use the cmake configuration script:
 
 ```bash
-vbharadw@login15> . cmake_configure.sh
+vbharadw@login15> . env.sh 
+(nersc-python) vbharadw@login15> . cmake_configure.sh 
 ```
 
 2. You need to recompile the C++ layer every time you
-make a change to a C++ source file OR header: 
+make a change to a C++ source file or header: 
 
 ```bash
-vbharadw@login15> . compile.sh 
+(nersc-python) vbharadw@login15> . compile.sh 
 ```
 
-3. You can now run the driver classes at the Python level:
+3. You can now run the driver classes at the Python level. Remember to source
+the environment script: 
 
 ```bash
 vbharadw@login15> . get_gpu_node.sh 
 vbharadw@nid200264> . env.sh 
 (nersc-python) vbharadw@nid200264> python driver.py
 ```
-You only need to source the environment file `env.sh`
-once per session, which activates the NERSC Python module. 
-The script may trigger another round of building / linking against
-the C++ library compiled earlier. You can now run the tests. 

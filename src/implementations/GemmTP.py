@@ -1,7 +1,5 @@
 import numpy as np
-import cppimport
-import cppimport.import_hook
-from src.wrapper.kernel_wrapper import *
+from build.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
 
 class GemmTensorProduct(TensorProduct):

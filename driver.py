@@ -1,11 +1,7 @@
 import json, os, time, pathlib 
-import cppimport
-import cppimport.import_hook
-
-cppimport.settings["use_filelock"] = False
 
 from src.benchmark.logging_utils import *
-from src.wrapper.kernel_wrapper import *
+from build.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
 from src.implementations.ShuffleReduceTP import *
