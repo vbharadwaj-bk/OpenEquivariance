@@ -8,8 +8,6 @@
 
 using namespace std;
 
-// These macros can only be used once per file
-
 class __attribute__((visibility("default"))) JITKernel {
 public:
    JITKernel(ifstream& ifile); 
