@@ -1,7 +1,5 @@
 import numpy as np
-import cppimport
-import cppimport.import_hook
-from src.wrapper.kernel_wrapper import *
+from build.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
 
 class ThreadTensorProduct(TensorProduct):
@@ -15,7 +13,6 @@ class ThreadTensorProduct(TensorProduct):
         self.coord = [arr.astype(np.uint8).copy() for arr in np.nonzero(tensor)]
         self.values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
         self.internal = ThreadTensorProductImpl(L1, L2, L3, self.coord[0], self.coord[1], self.coord[2], self.values)
-
 
     @staticmethod
     def name():
