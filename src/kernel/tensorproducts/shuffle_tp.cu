@@ -1,19 +1,31 @@
 #include "tensorproducts.hpp"
 
 #include <iostream>
+#include <fstream>
 #include "cuda_runtime.h"
 #include "gpu_util.hpp"
-
-#define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 512
+#include "jit.hpp"
 
 #define A100_SMS 108
 
 using namespace std;
 
+#define THREADS_PER_WARP 32
+#define THREAD_BLOCK_SIZE 512
+
 struct Linfo {
     float* ptr;
-    uint32_t stride; // Assume here that stride is equal to length of row 
+    unsigned int stride; // Assume here that stride is equal to length of row 
+};
+
+const char* SHUFFLE_JIT_CODE = R"(
+
+#define THREADS_PER_WARP 32
+#define THREAD_BLOCK_SIZE 512
+
+struct Linfo {
+    float* ptr;
+    unsigned int stride; // Assume here that stride is equal to length of row 
 };
 
 template <int MAX_LANE_LENGTH, int REDUCTION_DEPTH>
@@ -77,7 +89,7 @@ __global__ void shuffle_tp_kernel(
         }
 
         // Step 3: Reduce if necessary
-        #pragma unroll
+        #pragma unroll 
         for(int j = 0; j < REDUCTION_DEPTH; j++) {
             float bcast_value = lane_id == 0 ? 0.0 : l3_vec;
             l3_vec += __shfl_sync(0xFFFFFFFF, bcast_value, red_lanes[j]); 
@@ -91,6 +103,7 @@ __global__ void shuffle_tp_kernel(
     }
 }
 
+)";
 
 #define EXECUTE_OPTION(max_lane_l, red_depth) { \
     if(this->max_lane_length == max_lane_l && this->reduction_depth == red_depth) { \
@@ -109,26 +122,40 @@ __global__ void shuffle_tp_kernel(
     } \
 }
 
+ShuffleTensorProductImpl::ShuffleTensorProductImpl(
+    Representation &L1_i,
+    Representation &L2_i,
+    Representation &L3_i,
+    py::array_t<float> warp_values_py, 
+    py::array_t<int> l1_indices_py, 
+    py::array_t<int> l2_indices_py, 
+    py::array_t<int> red_lanes_py) :
+            GenericTensorProductImpl(L1_i, L2_i, L3_i),
+            warp_values(warp_values_py),
+            l1_indices(l1_indices_py),
+            l2_indices(l2_indices_py),
+            red_lanes(red_lanes_py),
+            jit(SHUFFLE_JIT_CODE) { 
+
+    // Just to get max lane length
+    Buffer<float> warp_values_dummy(warp_values_py); 
+    Buffer<int> red_lanes_dummy(red_lanes_py);
+
+    max_lane_length = static_cast<int>(warp_values_dummy.shape[0]);
+    reduction_depth = static_cast<int>(red_lanes_dummy.shape[0]);
+    
+    jit.compile("shuffle_tp_kernel", {max_lane_length, reduction_depth});
+}
+
 void ShuffleTensorProductImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
     float* L2_in,
     float* L3_out) {
-        
-    // Not really necessary
-    gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * num_products * sizeof(float)) )
 
-    bool executed_kernel = false;
-
-    EXECUTE_OPTION(2, 4)
-    EXECUTE_OPTION(1, 3)
-    EXECUTE_OPTION(5, 3)
-    EXECUTE_OPTION(4, 2)
-
-    cudaDeviceSynchronize();
-    gpuErrchk( cudaGetLastError() );
-
-    if(!executed_kernel) {
-        throw std::runtime_error("Unsupported lane length and reduction depth: " + std::to_string(this->max_lane_length) + ", " + std::to_string(this->reduction_depth));
-    }
+    Linfo L1_info = {L1_in, static_cast<uint32_t>(L1.get_rep_length())};
+    Linfo L2_info = {L2_in, static_cast<uint32_t>(L2.get_rep_length())};
+    Linfo L3_info = {L3_out, static_cast<uint32_t>(L3.get_rep_length())};
+    void *args[] = { &num_products, &L1_info, &L2_info, &L3_info, &warp_values.ptr, &l1_indices.ptr, &l2_indices.ptr, &red_lanes.ptr };
+    jit.execute(A100_SMS * 2, THREAD_BLOCK_SIZE, args);
 }

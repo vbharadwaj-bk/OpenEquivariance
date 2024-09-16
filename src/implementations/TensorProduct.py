@@ -1,7 +1,7 @@
 import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
-from src.wrapper.kernel_wrapper import *
+from build.kernel_wrapper import *
 from src.benchmark.logging_utils import getLogger, bcolors 
 
 logger = getLogger()
@@ -24,7 +24,7 @@ class TensorProduct:
 
     @staticmethod
     def name():
-        raise NotImplementedError() 
+        raise NotImplementedError()
 
     def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out):
         '''
