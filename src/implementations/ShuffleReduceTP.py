@@ -77,7 +77,6 @@ class ShuffleReduceTensorProduct(TensorProduct):
                     if i + jump < len(target):
                         red_lanes[d][j] = target[i + jump]
 
-
         self.warp_length, self.reduction_depth, self.max_lane_length = \
                 warp_length, reduction_depth, max_lane_length
         self.warp_values, self.l1_indices, self.l2_indices, self.red_lanes = \
