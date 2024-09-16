@@ -5,6 +5,7 @@ from build.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
 from src.implementations.ShuffleReduceTP import *
+from src.implementations.LoopUnrollTP import *
 
 import numpy as np
 import numpy.linalg as la
@@ -79,7 +80,7 @@ class TestBenchmarkSuite:
 
 def debug(tp_impl, config):
     L1, L2, L3 = config_to_reps(config)
-    batch_size = 100000
+    batch_size = 10000
     tp = tp_impl(L1, L2, L3, batch_size)
 
     rng = np.random.default_rng(12345)
@@ -96,10 +97,10 @@ def debug(tp_impl, config):
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([
-        ThreadTensorProduct, 
-        GemmTensorProduct,
-        ShuffleReduceTensorProduct
-        ])
-    #debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))
+    #bench_suite = TestBenchmarkSuite()
+    #bench_suite.run([
+    #    ThreadTensorProduct, 
+    #    GemmTensorProduct,
+    #    ShuffleReduceTensorProduct
+    #    ])
+    debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
