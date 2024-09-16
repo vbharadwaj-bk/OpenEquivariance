@@ -8,6 +8,8 @@
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 1024
 
+#define A100_SMS 108
+
 using namespace std;
 
 struct Linfo{
@@ -58,13 +60,12 @@ __device__ __forceinline__ void multiplicity_outer_product_kernel(
     }
 
     // Writing Results Out
-    int k = 0; 
+
     #pragma unroll
     for(int i = 0; i < mult1; i++){
         #pragma unroll
         for(int j = 0; j < mult2; j++){
-            L3_out[k * (2 * L3 + 1) + L3_idx] += L3_arr[i][j]; 
-            k++;  
+            L3_out[(i * mult1 + j) * (2 * L3 + 1) + L3_idx] += L3_arr[i][j]; 
         }
     }
 }
@@ -86,23 +87,24 @@ __global__ void thread_tp_kernel(
         const uint8_t* __restrict__ coord3,
         const float* __restrict__ values) {
     
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     
     size_t L1_stride = L1_info.stride;  
-    int L1_mult = L1_info.mult;
     int L1 = L1_info.l; 
     
     size_t L2_stride = L2_info.stride;
-    int L2_mult = L2_info.mult; 
     int L2 = L2_info.l; 
 
     size_t L3_stride = L3_info.stride;
     int L3 = L3_info.l; 
     
-    if(idx < num_products) {
-        const float* L1_vec =  L1_in + (idx * L1_stride);
-        const float* L2_vec =  L2_in + (idx * L2_stride);
-        float* L3_vec = L3_out + (idx * L3_stride);
+    for(
+        int idx = blockIdx.x * blockDim.x + threadIdx.x; 
+        idx < num_products;
+        idx += blockDim.x * gridDim.x
+        ){
+        const float* __restrict__ L1_vec =  L1_in + (idx * L1_stride);
+        const float* __restrict__ L2_vec =  L2_in + (idx * L2_stride);
+        float* __restrict__ L3_vec = L3_out + (idx * L3_stride);
 
         for(int i = 0; i < nnz; i++) {
             multiplicity_outer_product_kernel<mult1, mult2>(
@@ -118,7 +120,7 @@ __global__ void thread_tp_kernel(
 #define EXECUTE_OPTION(mult1, mult2) { \
     if(L1_info.mult == mult1 && L2_info.mult == mult2) { \
         executed_kernel = true; \
-        thread_tp_kernel<mult1,mult2><<<round_up(num_products, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>( \
+        thread_tp_kernel<mult1,mult2><<<A100_SMS * 2, THREAD_BLOCK_SIZE>>>( \
             num_products, \
             L1_in, \
             L1_info, \
