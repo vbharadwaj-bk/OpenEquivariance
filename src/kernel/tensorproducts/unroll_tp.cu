@@ -11,6 +11,17 @@ using namespace std;
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE 512
 
+UnrollTPImpl::UnrollTPImpl(
+    Representation &L1_i,
+    Representation &L2_i,
+    Representation &L3_i,
+    std::string jit_kernel) :
+        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        jit(jit_kernel) { 
+    
+    jit.compile("loop_unroll_many_to_one", {});
+}
+
 void UnrollTPImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,

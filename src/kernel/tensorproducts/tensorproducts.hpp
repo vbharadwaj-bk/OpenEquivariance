@@ -202,9 +202,7 @@ public:
         Representation &L1_i,
         Representation &L2_i,
         Representation &L3_i,
-        std::string jit_kernel) :
-        jit(jit_kernel)
-        { }
+        std::string jit_kernel);
 
     void exec_tensor_product(
             uint64_t num_products,
