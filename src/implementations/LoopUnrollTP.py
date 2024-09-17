@@ -39,7 +39,29 @@ class LoopUnrollTP(TensorProduct):
             coord3 = coord[2]
         ) 
 
+        print(self.jit_kernel)
+
         self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel) 
+
+    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
+        L1, L2, L3 = self.L1, self.L2, self.L3
+
+        def transpose_rep_mult(arr, rep, dir="forward"):
+            i_shape = (arr.shape[0], rep.mult(0), 2 * rep.type(0) + 1)
+
+            if dir == "backward":
+                i_shape = (i_shape[0], i_shape[2], i_shape[1]) 
+
+            rs1 = arr.reshape(i_shape)
+            rs1t = rs1.transpose([0, 2, 1])
+            return rs1t.reshape((arr.shape[0], -1)).copy() 
+
+        L1_in_copy = transpose_rep_mult(L1_in, L1, "forward") 
+        L2_in_copy = transpose_rep_mult(L2_in, L2, "forward") 
+        L3_out_copy = np.zeros_like(L3_out)
+
+        self.internal.exec_tensor_product_cpu(L1_in_copy, L2_in_copy, L3_out_copy) 
+        L3_out[:] = transpose_rep_mult(L3_out_copy, L3, "backward")
 
     @staticmethod
     def name():

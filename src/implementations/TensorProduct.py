@@ -119,7 +119,7 @@ class TensorProduct:
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         # Each multiplication requires two multiplications and one addition --> 3 
-        ops_per_nz = 3
+        ops_per_nz = 3 * self.L1.mult(0)
         throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
 
         bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]

@@ -16,22 +16,12 @@ def config_to_reps(config):
     return [Representation(config[i][0], config[i][1]) for i in range(3)]
 
 class TestBenchmarkSuite:
-    def __init__(self):
-        self.configs = [
-            ((1, 5), (1, 5), (1, 3)),
-            ((1, 2), (1, 2), (1, 2)),
-            ((1, 4), (1, 3), (1, 1)),
-            ((1, 4), (1, 3), (1, 5)),
-
-            #((2, 4), (2, 3), (4, 5)),
-            #((2, 4), (1, 3), (2, 5)),
-            #((1, 4), (2, 3), (2, 5)),
-            ] # Multiplicity, irrep-type pairs
-
+    def __init__(self, configs):
+        self.configs = configs 
         self.num_warmup = 10
         self.num_iter = 30
-        self.correctness_batch_size = 100000
-        self.bench_batch_size = 10000000
+        self.correctness_batch_size = 10000
+        self.bench_batch_size = 1000000
         self.prng_seed = 12345
 
     def run(self, tp_implementations, correctness=True):        
@@ -91,17 +81,28 @@ def debug(tp_impl, config):
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
-    #print(L3_out) 
-    #print(ground_truth) 
+    print(L3_out) 
+    print(ground_truth) 
     #print(L3_out - ground_truth)
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    #bench_suite = TestBenchmarkSuite()
-    #bench_suite.run([
-    #    ThreadTensorProduct, 
-    #    GemmTensorProduct,
-    #    ShuffleReduceTensorProduct
-    #    ])
-    debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
+    bench_suite = TestBenchmarkSuite([
+            ((32, 4), (1, 3), (32, 5))
+            #((1, 5), (1, 5), (1, 3)),
+            #((1, 2), (1, 2), (1, 2)),
+            #((1, 4), (1, 3), (1, 1)),
+            #((1, 4), (1, 3), (1, 5)),
+
+            #((2, 4), (2, 3), (4, 5)),
+            #((2, 4), (1, 3), (2, 5)),
+            #((1, 4), (2, 3), (2, 5)),
+            ] # Multiplicity, irrep-type pairs
+    )
+
+    #ThreadTensorProduct, 
+    #GemmTensorProduct,
+    #ShuffleReduceTensorProduct
+    bench_suite.run([LoopUnrollTP])
+    #debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
     #debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))
