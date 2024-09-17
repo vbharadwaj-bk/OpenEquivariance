@@ -39,10 +39,7 @@ class LoopUnrollTP(TensorProduct):
             coord3 = coord[2]
         ) 
 
-        print(self.jit_kernel)
-        exit(1)
-
-        self.internal = LoopTPImpl(L1, L2, L3, self.jit_kernel) 
+        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel) 
 
     @staticmethod
     def name():

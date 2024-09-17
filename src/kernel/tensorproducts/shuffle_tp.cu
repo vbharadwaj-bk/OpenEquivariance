@@ -6,8 +6,6 @@
 #include "gpu_util.hpp"
 #include "jit.hpp"
 
-#define A100_SMS 108
-
 using namespace std;
 
 #define THREADS_PER_WARP 32

@@ -182,9 +182,36 @@ public:
 
     void exec_tensor_product(
             uint64_t num_products,
-            float* X_in,
-            float* X_out,
-            float* edge_features);
+            float* L1_in,
+            float* L2_in,
+            float* L3_out);
 
     ~ShuffleTensorProductImpl() = default; 
 };
+
+
+//=========================================================================
+/*
+* A tensor product where we write out all instructions into a JIT-compiled kernel.
+*/
+class __attribute__ ((visibility ("default"))) UnrollTPImpl : public GenericTensorProductImpl {
+public:
+    JITKernel jit;
+
+    UnrollTPImpl(
+        Representation &L1_i,
+        Representation &L2_i,
+        Representation &L3_i,
+        std::string jit_kernel) :
+        jit(jit_kernel)
+        { }
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* L1_in,
+            float* L2_in,
+            float* L3_out);
+
+    ~UnrollTPImpl() = default; 
+};
+

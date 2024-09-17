@@ -19,6 +19,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<ShuffleTensorProductImpl, GenericTensorProductImpl>(m, "ShuffleTensorProductImpl")
         .def(py::init<Representation&, Representation&, Representation&, 
                 py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
+    py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
+        .def(py::init<Representation&, Representation&, Representation&, std::string>());
     py::class_<Representation>(m, "Representation")
         .def(py::init<string>())
         .def(py::init<int, int>())
