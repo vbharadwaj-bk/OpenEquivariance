@@ -24,7 +24,7 @@ __global__ void loop_unroll_many_to_one(
     for(size_t i = start; i < end; i++) {
         float l1_vec[{{L1_one_rep_len}}];
         float l2_vec[{{L2_one_rep_len}}];
-        float l3_vec[{{L2_one_rep_len}}];
+        float l3_vec[{{L3_one_rep_len}}];
 
         float* l1_start = L1_in + i * {{L1_stride}};
         float* l2_start = L2_in + i * {{L2_stride}};
@@ -37,7 +37,12 @@ __global__ void loop_unroll_many_to_one(
 
         #pragma unroll
         for(int j = 0; j < {{L2_one_rep_len}}; j++) {
-            l2_vec[j] = l2_start[lane_id];
+            l2_vec[j] = l2_start[j]; // All threads read common values for l2 
+        }
+
+        #pragma unroll
+        for(int j = 0; j < {{L3_one_rep_len}}; j++) {
+            l3_vec[j] = 0.0f; 
         }
 
         {# Value, L1_idx, L2_idx, L3_idx in each tuple #}

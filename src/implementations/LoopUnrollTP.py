@@ -39,9 +39,14 @@ class LoopUnrollTP(TensorProduct):
             coord3 = coord[2]
         ) 
 
-        print(self.jit_kernel)
+        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel)
 
-        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel) 
+    @staticmethod
+    def testcases():
+        return [("32x5e", "1x5e", "32x3e"),
+                ("32x2e", "1x2e", "32x2e"),
+                ("32x4e", "1x3e", "32x1e"),
+                ("32x4e", "1x3e", "32x5e")]
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         L1, L2, L3 = self.L1, self.L2, self.L3

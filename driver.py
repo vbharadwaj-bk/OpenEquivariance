@@ -13,15 +13,24 @@ import numpy.linalg as la
 logger = getLogger()
 
 def config_to_reps(config):
-    return [Representation(config[i][0], config[i][1]) for i in range(3)]
+    if isinstance(config[0], tuple):
+        return [Representation(config[i][0], config[i][1]) for i in range(3)]
+    elif isinstance(config[0], str):
+        return [Representation(config[i]) for i in range(3)] 
 
 class TestBenchmarkSuite:
-    def __init__(self, configs):
+    def __init__(self, configs,
+        num_warmup = 10,
+        num_iter = 30,
+        correctness_batch_size = 10000,
+        bench_batch_size = 10000000,
+        prng_seed = 12345
+    ):
         self.configs = configs 
-        self.num_warmup = 10
-        self.num_iter = 30
-        self.correctness_batch_size = 10000
-        self.bench_batch_size = 1000000
+        self.num_warmup = num_warmup
+        self.num_iter = num_iter
+        self.correctness_batch_size = correctness_batch_size 
+        self.bench_batch_size = bench_batch_size 
         self.prng_seed = 12345
 
     def run(self, tp_implementations, correctness=True):        
@@ -70,7 +79,7 @@ class TestBenchmarkSuite:
 
 def debug(tp_impl, config):
     L1, L2, L3 = config_to_reps(config)
-    batch_size = 1
+    batch_size = 10000
     tp = tp_impl(L1, L2, L3, batch_size) 
 
     rng = np.random.default_rng(12345)
@@ -81,28 +90,30 @@ def debug(tp_impl, config):
     tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
     _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
 
-    print(L3_out) 
-    print(ground_truth) 
+    #print(L3_out) 
+    #print(ground_truth) 
     #print(L3_out - ground_truth)
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite([
-            ((32, 4), (1, 3), (32, 5))
-            #((1, 5), (1, 5), (1, 3)),
-            #((1, 2), (1, 2), (1, 2)),
-            #((1, 4), (1, 3), (1, 1)),
-            #((1, 4), (1, 3), (1, 5)),
+    default_tests = [
+            ((1, 5), (1, 5), (1, 3)),
+            ((1, 2), (1, 2), (1, 2)),
+            ((1, 4), (1, 3), (1, 1)),
+            ((1, 4), (1, 3), (1, 5))]
 
-            #((2, 4), (2, 3), (4, 5)),
-            #((2, 4), (1, 3), (2, 5)),
-            #((1, 4), (2, 3), (2, 5)),
-            ] # Multiplicity, irrep-type pairs
-    )
+    multiplicity_tests = [
+            ((2, 4), (2, 3), (4, 5)),
+            ((2, 4), (1, 3), (2, 5)),
+            ((1, 4), (2, 3), (2, 5))
+    ]
 
-    #ThreadTensorProduct, 
-    #GemmTensorProduct,
-    #ShuffleReduceTensorProduct
+    bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP])
+
+    #bench_suite = TestBenchmarkSuite(default_tests)
+    #bench_suite.run([ThreadTensorProduct,
+    #                    GemmTensorProduct,
+    #                    ShuffleReduceTensorProduct])
+
     #debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
-    #debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))
