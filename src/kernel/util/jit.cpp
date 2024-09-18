@@ -2,11 +2,14 @@
 
 #include <nvrtc.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <sstream>
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
+
+#include "gpu_util.hpp"
 
 using namespace std;
 
@@ -57,6 +60,7 @@ JITKernel::JITKernel(ifstream& ifile)
 JITKernel::JITKernel(string gpu_program) :
     gpu_program(gpu_program) {
 
+    gpuErrchk(cudaFree(0)); // No-op to initialize the primary context 
     NVRTC_SAFE_CALL(
     nvrtcCreateProgram( &prog,                // prog
                         gpu_program.c_str(),  // buffer
@@ -108,10 +112,18 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
 
     size_t ptxSize;
     NVRTC_SAFE_CALL(nvrtcGetPTXSize(prog, &ptxSize));
+
     ptx = new char[ptxSize];
     NVRTC_SAFE_CALL(nvrtcGetPTX(prog, ptx));
 
     CUDA_SAFE_CALL(cuInit(0));
+
+    // TODO: No context management here, we use the primary context 
+    // CUdevice cuDevice;
+    // CUcontext context;
+    // CUDA_SAFE_CALL(cuDeviceGet(&cuDevice, 0));
+    // CUDA_SAFE_CALL(cuCtxCreate(&context, 0, cuDevice));
+
     CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
 
     for (size_t i = 0; i < kernel_names.size(); i++) {
