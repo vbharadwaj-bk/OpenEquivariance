@@ -1,8 +1,10 @@
 import numpy as np
 from build.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
-
+from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, PackageLoader, FileSystemLoader 
+
+logger = getLogger()
 
 class LoopUnrollTP(TensorProduct):
     def __init__(self, L1, L2, L3, batch_size):
@@ -50,6 +52,7 @@ class LoopUnrollTP(TensorProduct):
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         L1, L2, L3 = self.L1, self.L2, self.L3
+        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         def transpose_rep_mult(arr, rep, dir="forward"):
             i_shape = (arr.shape[0], rep.mult(0), 2 * rep.type(0) + 1)
