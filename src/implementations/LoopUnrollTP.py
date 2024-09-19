@@ -1,6 +1,6 @@
 import numpy as np
 from build.kernel_wrapper import *
-from src.implementations.TensorProduct import TensorProduct
+from src.implementations.TensorProduct import TensorProduct, GPUInfo
 from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, PackageLoader, FileSystemLoader 
 
@@ -21,6 +21,12 @@ class LoopUnrollTP(TensorProduct):
         env = Environment(loader=FileSystemLoader("src/templates"))
         template = env.get_template("loop_unroll.cuh")
 
+        config = KernelLaunchConfig()
+        config.num_blocks = GPUInfo.A100_SMS * 4 
+        # Warning: correctness check fail at 1024 threads 
+        config.num_threads = 512
+        self.launch_config = config 
+
         self.jit_kernel = template.render(
             L1_one_rep_len=L1.type(0) * 2 + 1,
             L2_one_rep_len=L2.type(0) * 2 + 1,
@@ -38,10 +44,12 @@ class LoopUnrollTP(TensorProduct):
             values = str_values,
             coord1 = coord[0],
             coord2 = coord[1],
-            coord3 = coord[2]
+            coord3 = coord[2],
+
+            thread_block_size=config.num_threads
         ) 
 
-        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel)
+        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel, self.launch_config)
 
     @staticmethod
     def testcases():

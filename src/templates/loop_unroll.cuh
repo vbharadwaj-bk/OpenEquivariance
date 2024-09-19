@@ -1,7 +1,7 @@
 {# Jinja2 Template #}
 
 #define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 512
+#define THREAD_BLOCK_SIZE {{thead_block_size}}
 
 // Assumes that L1 has multiplicity 32, L2 has multiplicity 1, L3 has multiplicity 32,
 // column-major data layout

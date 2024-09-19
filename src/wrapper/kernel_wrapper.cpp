@@ -20,7 +20,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def(py::init<Representation&, Representation&, Representation&, 
                 py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
     py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
-        .def(py::init<Representation&, Representation&, Representation&, std::string>());
+        .def(py::init<Representation&, Representation&, Representation&, std::string, KernelLaunchConfig&>());
     py::class_<Representation>(m, "Representation")
         .def(py::init<string>())
         .def(py::init<int, int>())
@@ -31,4 +31,9 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("mult", &Representation::mult)
         .def("type", &Representation::type)
         .def("even", &Representation::even);
+
+    py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
+        .def(py::init<>())
+        .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
+        .def_readwrite("num_threads", &KernelLaunchConfig::num_threads);
 }
