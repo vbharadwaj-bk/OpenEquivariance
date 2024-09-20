@@ -1,4 +1,4 @@
-import json, os, time, pathlib 
+import json, os, pickle, pathlib 
 
 from build.kernel_wrapper import *
 from src.implementations.Convolution import *
@@ -17,7 +17,51 @@ def config_to_rep_triple(config):
         reps = [Representation(config[i]) for i in range(3)] 
     return RepTriple(reps[0], reps[1], reps[2])
 
+def load_graph(name):
+    coords, rows, cols = None, None, None
+
+    def load_pickle(name):
+        with open(f"data/molecular_structures/{name}.pickle", 'rb') as f:
+            result = pickle.load(f)
+            return result["coords"], result["rows"], result["cols"]
+
+    pickle_files = [f"hiv_capsid_radius{rad}" for rad in ["2.0", "2.5", "3.0", "3.5"]]
+    for candidate in pickle_files:
+        if name == candidate:
+            logger.info(f"Loading {name} from pickle...")
+            coords, rows, cols = load_pickle(name) 
+            logger.info(f"Graph {name} loaded.")
+
+    if name == "debug":
+        coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
+        rows = np.array([0, 0, 1, 2, 2, 2], dtype=np.uint32)
+        cols = np.array([0, 2, 2, 0, 1, 2], dtype=np.uint32)
+
+    if coords is None or rows is None or cols is None:
+        logger.critical(f"{bColors.FAIL}Could not find graph with name {name}.{bColors.ENDC}")
+
+    return CoordGraph(coords, rows, cols)
+
+def debug(conv_impl, rep_config, graph):
+    io_reps = config_to_rep_triple(rep_config)
+    conv = conv_impl(io_reps) 
+
+    rng = np.random.default_rng(12345)
+    L1, L2, L3 = io_reps.L1, io_reps.L2, io_reps.L3
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
+    L3_out = np.zeros((batch_size, L3.get_rep_length() ), dtype=np.float32)
+
+    tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
+    _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+
+    #print(L3_out) 
+    #print(ground_truth) 
+    #print(L3_out - ground_truth)
+    print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+
 if __name__=='__main__':
     config = ("32x5e", "1x5e", "32x3e")
     conv = Convolution(config_to_rep_triple(config))
+
 

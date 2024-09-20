@@ -6,6 +6,20 @@ from build.kernel_wrapper import *
 from src.benchmark.logging_utils import getLogger, bcolors 
 logger = getLogger()
 
+class CoordGraph:
+    def __init__(self, coords, rows, cols):
+        '''
+        Because graphs may change constantly, this class is designed
+        to be as light as possible. A directed edge from node
+        u to v is indicated by the presence of an index i such that
+        rows[i] = u, rows[i] = v.
+        '''
+        assert(len(rows) == len(cols))
+        self.num_edges = len(rows) 
+        self.node_count = coords.shape[0]
+        self.rows = rows
+        self.cols = cols
+
 class Convolution:
     '''
     Inputs: L1 for input node features
@@ -24,11 +38,10 @@ class Convolution:
 
     def exec_conv_cpu(self, 
             L1_in, L2_in, L3_out,
-            rows, cols, no_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, rows, cols, no_tensor_op)
+            graph, no_tensor_op=False):
+        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, graph.coords, graph.rows, graph.cols, no_tensor_op)
 
-    def test_correctness_no_op(self, L1_in, L2_in, L3_out_comp, 
-            rows, cols, reuse_cached_graph=False):
+    def test_correctness_no_op(self, L1_in, L2_in, L3_out_comp, graph, reuse_cached_graph=False):
         '''
         Tests correctness by performing a "no-op" tensor product. For
         each nonzero (i, j), A[i:] += B[j:]. This test requires
@@ -41,7 +54,7 @@ class Convolution:
         from scipy.sparse import csr_matrix
 
         if not reuse_cached_graph or self.cached_sp_graph is None:
-            self.cached_sp_graph = csr_matrix( (np.ones(len(rows)), rows, cols) )
+            self.cached_sp_graph = csr_matrix( (np.ones(len(rows)), graph.rows, graph.cols) )
 
         ground_truth = self.cached_sp_graph @ L1_in
 
