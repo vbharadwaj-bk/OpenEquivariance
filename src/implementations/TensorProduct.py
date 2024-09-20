@@ -79,9 +79,9 @@ class TensorProduct:
             result["pass"] = bool(diff_Linf_norm < thresh) 
 
             if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}Correctness check pass. {bcolors.ENDC}")
+                logger.info(f"{bcolors.OKGREEN}Batch TP correctness check pass. {bcolors.ENDC}")
             else:
-                logger.error(f"{bcolors.FAIL}Correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+                logger.error(f"{bcolors.FAIL}Batch TP correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
 
         return result, ground_truth
 
