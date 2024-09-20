@@ -4,7 +4,7 @@ from sklearn.neighbors import radius_neighbors_graph
 from scipy.io import mmwrite
 
 def cif_to_molecular_graph(cif_file, cp, radii):
-    with open(f'../../data/cif_files/{cif_file}', 'r') as f:
+    with open(f'../data/cif_files/{cif_file}', 'r') as f:
         print("Started reading file...")
         lines = f.readlines()
         print("Finished reading file!")
@@ -23,7 +23,7 @@ def cif_to_molecular_graph(cif_file, cp, radii):
                             include_self=False) 
             print(f"Finished radius neighbors calculation, found {A.nnz} nonzeros.") 
     
-            # mmwrite(f'../../data/molecular_structures/{cif_file.split(".")[0]}.mtx', A)
+            # mmwrite(f'../data/molecular_structures/{cif_file.split(".")[0]}.mtx', A)
 
             coo_mat = A.tocoo()
             result = {
@@ -32,7 +32,7 @@ def cif_to_molecular_graph(cif_file, cp, radii):
                 'coords': coords
             }
 
-            with open(f'../../data/molecular_structures/{cif_file.split(".")[0]}_radius{radius}.pickle', 'wb') as handle:
+            with open(f'../data/molecular_structures/{cif_file.split(".")[0]}_radius{radius}.pickle', 'wb') as handle:
                 pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 

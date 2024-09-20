@@ -31,7 +31,11 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("mult", &Representation::mult)
         .def("type", &Representation::type)
         .def("even", &Representation::even);
-
+    py::class_<RepTriple>(m, "RepTriple")
+        .def(py::init<Representation&, Representation&, Representation&>())
+        .def_readwrite("L1", &RepTriple::L1) 
+        .def_readwrite("L2", &RepTriple::L2)
+        .def_readwrite("L3", &RepTriple::L3);
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)

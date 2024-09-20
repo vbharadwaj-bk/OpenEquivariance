@@ -110,4 +110,16 @@ public:
         return ss.str();
     }    
 };
- 
+
+class RepTriple {
+public:
+    Representation L1;
+    Representation L2;
+    Representation L3;
+
+    RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
+        L1(L1_i),
+        L2(L2_i),
+        L3(L3_i)
+    { }
+};

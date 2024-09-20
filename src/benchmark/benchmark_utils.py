@@ -1,6 +1,5 @@
 import json, os, pathlib
 
-
 def load_benchmarks(path : pathlib.Path, subfolder=None):
     assert isinstance(path, pathlib.Path)
     if subfolder is None:
