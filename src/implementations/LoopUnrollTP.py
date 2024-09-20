@@ -44,9 +44,7 @@ class LoopUnrollTP(TensorProduct):
             values = str_values,
             coord1 = coord[0],
             coord2 = coord[1],
-            coord3 = coord[2],
-
-            thread_block_size=config.num_threads
+            coord3 = coord[2]
         ) 
 
         self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel, self.launch_config)
