@@ -8,6 +8,7 @@ logger = getLogger()
 
 import numpy as np
 import numpy.linalg as la
+import os
 
 def config_to_rep_triple(config):
     reps = None 
@@ -25,7 +26,8 @@ def load_graph(name):
             result = pickle.load(f)
             return result["coords"], result["row"], result["col"]
 
-    pickle_files = [f"hiv_capsid_radius{rad}" for rad in ["2.0", "2.5", "3.0", "3.5"]]
+    # List all pickle files in data/molecular_structures
+    pickle_files = [f[:-7] for f in os.listdir("data/molecular_structures") if f.endswith(".pickle")]
     for candidate in pickle_files:
         if name == candidate:
             logger.info(f"Loading {name} from pickle...")
@@ -65,7 +67,6 @@ def debug(conv_impl, rep_config, graph_name):
 
 if __name__=='__main__':
     rep_config = ("32x5e", "1x3e", "32x5e")
-    debug(Convolution, rep_config, "debug") 
-    # "hiv_capsid_radius2.0")
+    debug(Convolution, rep_config, "covid_spike_radius3.5")
 
 

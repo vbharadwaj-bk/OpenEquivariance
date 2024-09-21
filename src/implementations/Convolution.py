@@ -56,7 +56,8 @@ class Convolution:
 
         logger.info("Starting reference SpMM for convolution...")
         if not reuse_cached_graph or graph.cached_sp_graph is None:
-            graph.cached_sp_graph = csr_matrix( (np.ones(len(graph.rows)), graph.rows, graph.cols) )
+            graph.cached_sp_graph = csr_matrix((np.ones(len(graph.rows)), (graph.rows, graph.cols)), shape=(graph.node_count, graph.node_count))
+            
         ground_truth = graph.cached_sp_graph @ L1_in
         logger.info("Finished reference SpMM.")
 
