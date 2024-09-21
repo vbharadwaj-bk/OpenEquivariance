@@ -1,44 +1,63 @@
 #pragma once
 
-#include "util.hpp"
+#include <stdexcept>
+#include <iostream>
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <cstdint>
 
-/*
-* Graph convolution that combines node / edge features 
-*/
+#include "buffer.hpp"
+#include "representation.hpp"
+#include "jit.hpp"
 
-class ESPMM_Context {  
+class ConvolutionImpl {
 public:
-    // TODO: have this work for a sum of reps, not just one. 
-    uint64_t node_count;
-    uint64_t L1; // X_in representation
-    uint64_t L2; // Edge feature representation
-    uint64_t L3; // X_out representation
+    Representation &L1;
+    Representation &L2;
+    Representation &L3;
 
-    size_t X_in_rowlen;
-    size_t edge_rowlen;
-    size_t X_out_rowlen; 
+    ConvolutionImpl(RepTriple &io_reps) :
+        L1(io_reps.L1),
+        L2(io_reps.L2),
+        L3(io_reps.L3) { }
 
-    ESPMM_Context(
-        uint64_t node_count_i,
-        uint64_t L1_i, 
-        uint64_t L2_i, 
-        uint64_t L3_i) :
-        node_count(node_count_i),
-        L1(L1_i), L2(L2_i), L3(L3_i),
-        X_in_rowlen(round_up(L1 * 2 + 1, 128 / sizeof(float))),
-        edge_rowlen(round_up(L2 * 2 + 1, 128 / sizeof(float))),
-        X_out_rowlen(round_up(L3 * 2 + 1, 128 / sizeof(float)))
-        { }
+    virtual void exec_conv(
+            float* L1_in,
+            float* L2_in,
+            float* L3_out,
+            uint32_t* rows,
+            uint32_t* cols,
+            uint64_t nnz,
+            uint32_t node_count,
+            ) = 0; 
 
-    size_t get_X_in_rowlen() {
-        return X_in_rowlen;
+    void exec_conv_cpu(
+            py::array_t<float> &L1_in_py,
+            py::array_t<float> &L2_in_py,
+            py::array_t<float> &L3_out_py,
+            py::array_t<float> &coords_py,
+            py::array_t<uint32_t> &rows_py,
+            py::array_t<uint32_t> &cols_py) {
+
+        Buffer<float> L3_out_host(L3_out_py);
+        Buffer<uint32_t> rows_host(rows);
+
+        DeviceBuffer<float> L1_in(L1_in_py);
+        DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> L3_out(L3_out_host.size());
+
+        // Transfer rows, cols, and coords to graph.
+        DeviceBuffer<float> coords(coords_py); 
+        DeviceBuffer<uint32_t> rows(rows_py); 
+        DeviceBuffer<uint32_t> cols(cols_py);
+
+        uint64_t nnz = rows_host.shape[0];
+        uint32_t node_count = static_cast<uint32_t>(L3_out.shape[0]);
+
+        exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count);
+        L3_out.copy_to_host_buffer(L3_out_host);
     }
 
-    size_t get_edge_rowlen() {
-        return edge_rowlen;
-    }
-
-    size_t get_X_out_rowlen() {
-        return X_out_rowlen;
-    }
+    virtual ~ConvolutionImpl() {};
 };
+

@@ -40,4 +40,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
         .def_readwrite("num_threads", &KernelLaunchConfig::num_threads);
+
+    //============= Convolutions ===============
+    py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
+        .def("exec_conv_cpu", &ConvolutionImpl::exec_conv_cpu);
 }
