@@ -71,7 +71,7 @@ class TensorProduct:
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
         else:
             result["shape_match"] = True 
             diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))

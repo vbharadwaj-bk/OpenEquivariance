@@ -1,4 +1,4 @@
-import json, os, pickle, pathlib 
+import json, os, time, pickle
 
 from build.kernel_wrapper import *
 from src.implementations.Convolution import *
@@ -23,7 +23,7 @@ def load_graph(name):
     def load_pickle(name):
         with open(f"data/molecular_structures/{name}.pickle", 'rb') as f:
             result = pickle.load(f)
-            return result["coords"], result["rows"], result["cols"]
+            return result["coords"], result["row"], result["col"]
 
     pickle_files = [f"hiv_capsid_radius{rad}" for rad in ["2.0", "2.5", "3.0", "3.5"]]
     for candidate in pickle_files:
@@ -38,22 +38,25 @@ def load_graph(name):
         cols = np.array([0, 2, 2, 0, 1, 2], dtype=np.uint32)
 
     if coords is None or rows is None or cols is None:
-        logger.critical(f"{bColors.FAIL}Could not find graph with name {name}.{bColors.ENDC}")
+        logger.critical(f"{bcolors.FAIL}Could not find graph with name {name}{bcolors.ENDC}")
+        exit(1)
 
     return CoordGraph(coords, rows, cols)
 
-def debug(conv_impl, rep_config, graph):
+def debug(conv_impl, rep_config, graph_name):
+    logger.info("Starting debugging routine...")
     io_reps = config_to_rep_triple(rep_config)
-    conv = conv_impl(io_reps) 
+    conv = conv_impl(io_reps)
+    graph = load_graph(graph_name)
 
     rng = np.random.default_rng(12345)
     L1, L2, L3 = io_reps.L1, io_reps.L2, io_reps.L3
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
-    L3_out = np.zeros((batch_size, L3.get_rep_length() ), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.get_rep_length())), dtype=np.float32) 
+    L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.get_rep_length())), dtype=np.float32) 
+    L3_out = np.zeros((graph.node_count, L3.get_rep_length() ), dtype=np.float32)
 
-    tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-    _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+    #conv.exec_conv_cpu(L1_in, L2_in, L3_out, graph, no_tensor_op=True)
+    _ , ground_truth = conv.test_correctness_no_op(L1_in, L2_in, L3_out, graph)
 
     #print(L3_out) 
     #print(ground_truth) 
@@ -61,7 +64,8 @@ def debug(conv_impl, rep_config, graph):
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    config = ("32x5e", "1x5e", "32x3e")
-    conv = Convolution(config_to_rep_triple(config))
+    rep_config = ("32x5e", "1x3e", "32x5e")
+    debug(Convolution, rep_config, "debug") 
+    # "hiv_capsid_radius2.0")
 
 

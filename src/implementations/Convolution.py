@@ -15,10 +15,12 @@ class CoordGraph:
         rows[i] = u, rows[i] = v.
         '''
         assert(len(rows) == len(cols))
-        self.num_edges = len(rows) 
+        self.nnz = len(rows) # Counts every nonzero in the adjacency matrix 
         self.node_count = coords.shape[0]
         self.rows = rows
         self.cols = cols
+
+        self.cached_sp_graph = None # Cached scipy sparse matrix 
 
 class Convolution:
     '''
@@ -30,7 +32,6 @@ class Convolution:
         self.io_reps = io_reps
         self.L1, self.L2, self.L3 = io_reps.L1, io_reps.L2, io_reps.L3
         self.internal = None
-        self.cached_sp_graph = None
 
     @staticmethod
     def name():
@@ -53,10 +54,11 @@ class Convolution:
 
         from scipy.sparse import csr_matrix
 
-        if not reuse_cached_graph or self.cached_sp_graph is None:
-            self.cached_sp_graph = csr_matrix( (np.ones(len(rows)), graph.rows, graph.cols) )
-
-        ground_truth = self.cached_sp_graph @ L1_in
+        logger.info("Starting reference SpMM for convolution...")
+        if not reuse_cached_graph or graph.cached_sp_graph is None:
+            graph.cached_sp_graph = csr_matrix( (np.ones(len(graph.rows)), graph.rows, graph.cols) )
+        ground_truth = graph.cached_sp_graph @ L1_in
+        logger.info("Finished reference SpMM.")
 
         thresh = 5e-7
         result = {
@@ -68,7 +70,7 @@ class Convolution:
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
         else:
             result["shape_match"] = True 
             diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
