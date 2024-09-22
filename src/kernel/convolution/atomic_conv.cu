@@ -20,16 +20,26 @@ struct LInfo {
     size_t row_len;
 };
 
-__global__ atomicConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
-     
+__global__ atomicConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) { 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int global_warp_idx  = idx / THREADS_PER_WARP;
     int lane_id = idx % THREADS_PER_WARP;
 
+    if(global_warp_idx < edge_count) {
+        uint64_t row = g.rows[global_warp_idx];
+        uint64_t col = g.cols[global_warp_idx];
 
+        float* in_row = L1.ptr + col * L1.row_len;
+        float* out_row = L3.ptr + row * L3.row_len;
 
+        for(size_t i = 0; i < L1.row_len; i += THREADS_PER_WARP) {
+            if(i + lane_id < L1.row_len) {
+                float in_val = in_row[i + lane_id];
+                atomicAdd(out_row + i + lane_id, in_val);
+            }
+        }
+    }
 }
-
 
 void AtomicConvImpl::exec_conv(
         float* L1_in,
@@ -54,27 +64,3 @@ void AtomicConvImpl::exec_conv(
 
     gpuErrchk( cudaGetLastError() );
 }
-
-/*
-__global__ void espmm_v1(
-    ESPMM_Context ctx,
-    uint64_t edge_count,
-    uint64_t* rows,
-    uint64_t* cols,
-    float* X_in,
-    float* edge_features,
-    float* X_out) {
-
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int global_warp_idx  = idx / THREADS_PER_WARP;
-    int lane_id = idx % THREADS_PER_WARP;
-
-    if(global_warp_idx < edge_count) {
-        uint64_t row = rows[global_warp_idx];
-        uint64_t col = cols[global_warp_idx];
-
-        float X_in_val = X_in[col * ctx.X_in_rowlen + lane_id];
-        atomicAdd(X_out + row * ctx.X_out_rowlen + lane_id, X_in_val); 
-    }
-}
-*/
