@@ -35,6 +35,7 @@ target_include_directories(espmm PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/util
   ${CMAKE_CURRENT_SOURCE_DIR}/tensorproducts
+  ${CMAKE_CURRENT_SOURCE_DIR}/convolution
   )
 
 set(ESPMM_PUBLIC_HEADERS

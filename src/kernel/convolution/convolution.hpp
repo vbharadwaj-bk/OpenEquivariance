@@ -29,7 +29,7 @@ public:
             uint32_t* cols,
             uint64_t nnz,
             uint32_t node_count,
-            bool disable_tensor_op,
+            bool disable_tensor_op
             ) = 0; 
 
     void exec_conv_cpu(
@@ -42,7 +42,7 @@ public:
             bool disable_tensor_op) {
 
         Buffer<float> L3_out_host(L3_out_py);
-        Buffer<uint32_t> rows_host(rows);
+        Buffer<uint32_t> rows_host(rows_py);
 
         DeviceBuffer<float> L1_in(L1_in_py);
         DeviceBuffer<float> L2_in(L2_in_py);
@@ -54,9 +54,9 @@ public:
         DeviceBuffer<uint32_t> cols(cols_py);
 
         uint64_t nnz = rows_host.shape[0];
-        uint32_t node_count = static_cast<uint32_t>(L3_out.shape[0]);
+        uint32_t node_count = static_cast<uint32_t>(L3_out_host.shape[0]);
 
-        exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count);
+        exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count, disable_tensor_op);
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
@@ -81,9 +81,9 @@ public:
             uint32_t* cols,
             uint64_t nnz,
             uint32_t node_count,
-            bool disable_tensor_op,
+            bool disable_tensor_op
             );
 
     ~AtomicConvImpl() = default;
-}
+};
 

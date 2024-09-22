@@ -1,7 +1,7 @@
 import json, os, time, pickle
 
 from build.kernel_wrapper import *
-from src.implementations.Convolution import *
+from src.implementations.AtomicConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -26,7 +26,6 @@ def load_graph(name):
             result = pickle.load(f)
             return result["coords"], result["row"], result["col"]
 
-    # List all pickle files in data/molecular_structures
     pickle_files = [f[:-7] for f in os.listdir("data/molecular_structures") if f.endswith(".pickle")]
     for candidate in pickle_files:
         if name == candidate:
@@ -69,6 +68,6 @@ def debug(conv_impl, rep_config, graph_name):
 
 if __name__=='__main__':
     rep_config = ("32x5e", "1x3e", "32x5e")
-    debug(Convolution, rep_config, "covid_spike_radius3.5")
+    debug(AtomicConv, rep_config, "covid_spike_radius3.5")
 
 

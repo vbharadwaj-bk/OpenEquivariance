@@ -1,4 +1,3 @@
-import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
@@ -19,7 +18,7 @@ class CoordGraph:
         self.node_count = coords.shape[0]
         self.rows = rows
         self.cols = cols
-
+        self.coords = coords 
         self.cached_sp_graph = None # Cached scipy sparse matrix 
 
 class Convolution:

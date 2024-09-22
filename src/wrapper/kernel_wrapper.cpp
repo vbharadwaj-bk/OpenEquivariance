@@ -44,4 +44,6 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
         .def("exec_conv_cpu", &ConvolutionImpl::exec_conv_cpu);
+    py::class_<AtomicConvImpl, ConvolutionImpl>(m, "AtomicConvImpl")
+        .def(py::init<RepTriple&>()); 
 }
