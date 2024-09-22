@@ -10,7 +10,7 @@
 #include "representation.hpp"
 #include "jit.hpp"
 
-class ConvolutionImpl {
+class __attribute__ ((visibility ("default"))) ConvolutionImpl {
 public:
     Representation &L1;
     Representation &L2;
@@ -29,6 +29,7 @@ public:
             uint32_t* cols,
             uint64_t nnz,
             uint32_t node_count,
+            bool disable_tensor_op,
             ) = 0; 
 
     void exec_conv_cpu(
@@ -37,7 +38,8 @@ public:
             py::array_t<float> &L3_out_py,
             py::array_t<float> &coords_py,
             py::array_t<uint32_t> &rows_py,
-            py::array_t<uint32_t> &cols_py) {
+            py::array_t<uint32_t> &cols_py,
+            bool disable_tensor_op) {
 
         Buffer<float> L3_out_host(L3_out_py);
         Buffer<uint32_t> rows_host(rows);
@@ -60,4 +62,28 @@ public:
 
     virtual ~ConvolutionImpl() {};
 };
+
+//=========================================================================
+/*
+* Simple implementation that assigns one warp per nonzero and
+* executes atomicAdd operations to accumulate to the output buffer.
+*/
+class __attribute__ ((visibility ("default"))) AtomicConvImpl  : public ConvolutionImpl {
+public:
+    AtomicConvImpl(RepTriple &io_reps) :
+        ConvolutionImpl(io_reps) { };
+
+    void exec_conv(
+            float* L1_in,
+            float* L2_in,
+            float* L3_out,
+            uint32_t* rows,
+            uint32_t* cols,
+            uint64_t nnz,
+            uint32_t node_count,
+            bool disable_tensor_op,
+            );
+
+    ~AtomicConvImpl() = default;
+}
 

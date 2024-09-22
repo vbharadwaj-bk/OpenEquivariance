@@ -57,6 +57,8 @@ def debug(conv_impl, rep_config, graph_name):
     L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.get_rep_length())), dtype=np.float32) 
     L3_out = np.zeros((graph.node_count, L3.get_rep_length() ), dtype=np.float32)
 
+    conv.exec_conv_cpu( L1_in, L2_in, L3_out, graph, disable_tensor_op=True)
+
     #conv.exec_conv_cpu(L1_in, L2_in, L3_out, graph, no_tensor_op=True)
     _ , ground_truth = conv.test_correctness_no_op(L1_in, L2_in, L3_out, graph)
 

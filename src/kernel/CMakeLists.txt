@@ -18,6 +18,7 @@ add_library(espmm SHARED
   tensorproducts/unroll_tp.cu
 
   convolution/convolution.hpp
+  convolution/atomic_conv.cu
 )
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)

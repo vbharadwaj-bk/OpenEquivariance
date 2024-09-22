@@ -39,8 +39,10 @@ class Convolution:
 
     def exec_conv_cpu(self, 
             L1_in, L2_in, L3_out,
-            graph, no_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, graph.coords, graph.rows, graph.cols, no_tensor_op)
+            graph, disable_tensor_op=False):
+        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, 
+                graph.coords, graph.rows, graph.cols, 
+                disable_tensor_op)
 
     def test_correctness_no_op(self, L1_in, L2_in, L3_out_comp, graph, reuse_cached_graph=False):
         '''
