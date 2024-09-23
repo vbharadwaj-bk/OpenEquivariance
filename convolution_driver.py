@@ -68,6 +68,6 @@ def debug(conv_impl, rep_config, graph_name):
 
 if __name__=='__main__':
     rep_config = ("32x5e", "1x3e", "32x5e")
-    debug(AtomicConv, rep_config, "covid_spike_radius3.5")
+    debug(AtomicConv, rep_config, "debug")
 
 
