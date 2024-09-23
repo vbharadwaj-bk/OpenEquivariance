@@ -55,7 +55,9 @@ void AtomicConvImpl::exec_conv(
         throw std::invalid_argument("AtomicConvolve does not support tensor contraction yet!");
     }
 
-    atomicConvolve<<<round_up(nnz, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
+    gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * node_count * sizeof(float)) )
+
+    atomicConvolve<<<round_up(nnz * THREADS_PER_WARP, THREAD_BLOCK_SIZE) / THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE>>>(
         {L1_in, L1.get_rep_length()},
         {L2_in, L2.get_rep_length()},
         {L3_out, L3.get_rep_length()},

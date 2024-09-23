@@ -16,6 +16,8 @@ public:
     Representation &L2;
     Representation &L3;
 
+    bool record_internal_stats = false;
+
     ConvolutionImpl(RepTriple &io_reps) :
         L1(io_reps.L1),
         L2(io_reps.L2),
@@ -48,7 +50,7 @@ public:
         DeviceBuffer<float> L2_in(L2_in_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
 
-        // Transfer rows, cols, and coords to graph.
+        // Transfer rows, cols, and coords to device. 
         DeviceBuffer<float> coords(coords_py); 
         DeviceBuffer<uint32_t> rows(rows_py); 
         DeviceBuffer<uint32_t> cols(cols_py);
@@ -59,6 +61,17 @@ public:
         exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count, disable_tensor_op);
         L3_out.copy_to_host_buffer(L3_out_host);
     }
+
+    void benchmark_cpu(
+            py::array_t<float> &L1_in_py,
+            py::array_t<float> &L2_in_py,
+            py::array_t<float> &L3_out_py,
+            py::array_t<float> &coords_py,
+            py::array_t<uint32_t> &rows_py,
+            py::array_t<uint32_t> &cols_py,
+            bool disable_tensor_op,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
 
     virtual ~ConvolutionImpl() {};
 };

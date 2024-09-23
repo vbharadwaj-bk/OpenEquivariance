@@ -6,7 +6,7 @@ from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
 
 class CoordGraph:
-    def __init__(self, coords, rows, cols):
+    def __init__(self, coords, rows, cols, name):
         '''
         Because graphs may change constantly, this class is designed
         to be as light as possible. A directed edge from node
@@ -18,7 +18,9 @@ class CoordGraph:
         self.node_count = coords.shape[0]
         self.rows = rows
         self.cols = cols
-        self.coords = coords 
+        self.coords = coords
+        self.name = name
+
         self.cached_sp_graph = None # Cached scipy sparse matrix 
 
 class Convolution:
@@ -62,7 +64,7 @@ class Convolution:
         ground_truth = graph.cached_sp_graph @ L1_in
         logger.info("Finished reference SpMM.")
 
-        thresh = 5e-7
+        thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
             "shape_match": False,
             "diff_Linf_norm": np.inf,
@@ -85,4 +87,65 @@ class Convolution:
                 logger.error(f"{bcolors.FAIL}No-tensor-op convolution correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
 
         return result, ground_truth
+
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op):
+        '''
+        Returns the total time for num_iter iterations of the core inner loop
+        after num_warmup warmup iterations. Can override for other implementations
+        '''
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        self.internal.benchmark_cpu(L1_in, L2_in, L3_out, 
+                graph.coords, graph.rows, graph.cols, 
+                disable_tensor_op,
+                num_warmup,
+                time_millis)
+
+        return time_millis
+
+    def benchmark(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+        '''
+        This function only works for scalar L-values right now, need to change
+        to handle any multiplicity.
+        '''
+        rng = np.random.default_rng(prng_seed)
+
+        L1_in  = np.array(rng.uniform(size=(graph.node_count, self.L1.get_rep_length())), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(graph.node_count, self.L2.get_rep_length())), dtype=np.float32)
+        L3_out = np.zeros((graph.node_count, self.L3.get_rep_length()), dtype=np.float32)
+
+        L1, L2, L3 = self.L1, self.L2, self.L3
+
+        #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+        #cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
+        #nnz = len(np.nonzero(cg_tensor)[0])
+
+        # =========== Benchmarking ===========
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op)
+        # ==================================== 
+
+        logger.error("Error, throughput calculation is incorrect.")
+        ops_per_nz = 3 * self.L1.mult(0)
+        throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+
+        bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
+        time_millis = [float(el) for el in time_millis] 
+
+        result = {
+            "cg tensor nnz": nnz,
+            "disable_tensor_op": disable_tensor_op, 
+            "batch size": batch_size,
+            "L1": L1.to_string(),
+            "L2": L2.to_string(),
+            "L3": L3.to_string(),
+            "num_warmup": num_warmup,
+            "num_iter": num_iter,
+            "prng_seed": prng_seed,
+            "time_millis": time_millis,
+            "throughputs_gflops": throughputs_gflops,
+            "bandwidth_gbps_rough": bandwidth_gbps_rough
+        }
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
+
+        return result
 
