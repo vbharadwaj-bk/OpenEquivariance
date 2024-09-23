@@ -48,4 +48,6 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("benchmark_cpu", &ConvolutionImpl::benchmark_cpu);
     py::class_<AtomicConvImpl, ConvolutionImpl>(m, "AtomicConvImpl")
         .def(py::init<RepTriple&>()); 
+    py::class_<SMConvImpl, ConvolutionImpl>(m, "SMConvImpl")
+        .def(py::init<RepTriple&>()); 
 }

@@ -20,6 +20,7 @@ add_library(espmm SHARED
   convolution/convolution.hpp
   convolution/atomic_conv.cu
   convolution/generic_conv.cpp
+  convolution/sm_conv.cu
 )
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -48,3 +49,4 @@ set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 # To-do: should make path to standard CUDA math libraries a parameter 
 target_link_directories(espmm PUBLIC /opt/nvidia/hpc_sdk/Linux_x86_64/2024/math_libs/12.4/lib64/)
 target_link_libraries(espmm CUDA::cudart -lcublasLt -lcuda CUDA::nvrtc)
+install(TARGETS espmm )

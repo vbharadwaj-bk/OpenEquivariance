@@ -72,7 +72,7 @@ void ThreadTensorProductImpl::exec_tensor_product(
     size_t L3_stride = L3.get_rep_length(); 
     
     // This will eventually need to go when we add support for representations with sums
-    gpuErrchk( cudaMemset(L3_out, 0.0, L3_stride * num_products * sizeof(float)) ) 
+    gpuErrchk( cudaMemset(L3_out, 0.0, L3.get_rep_length() * num_products * sizeof(float)) )
     size_t nnz = values.size;
 
     Linfo L1_info = {L1_stride, L1.mult(0), L1.type(0)};

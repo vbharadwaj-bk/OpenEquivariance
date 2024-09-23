@@ -5,6 +5,7 @@ import os
 
 from build.kernel_wrapper import *
 from src.implementations.AtomicConv import *
+from src.implementations.SMConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -143,7 +144,7 @@ if __name__=='__main__':
         [rep_config], graph,
         disable_tensor_op=True
     )
-    bench.run([AtomicConv]) 
+    bench.run([SMConv]) 
 
     #debug(AtomicConv, rep_config, graph) 
 

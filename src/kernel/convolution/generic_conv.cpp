@@ -39,8 +39,6 @@ void ConvolutionImpl::benchmark_cpu(
     }
 
     record_internal_stats = true;
-    // TODO: Synchronization can be costly if the runtime of any given
-    // kernel execution is small. 
     for(int i = 0; i < time_millis.shape[0]; i++) {
         timer.start();
         exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count, disable_tensor_op);
