@@ -66,6 +66,7 @@ class Convolution:
 
         thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
+            "disable_tensor_op": True,
             "shape_match": False,
             "diff_Linf_norm": np.inf,
             "thresh": thresh, # Above floating point interval machine epsilon 
@@ -82,9 +83,9 @@ class Convolution:
             result["pass"] = bool(diff_Linf_norm < thresh) 
 
             if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}No-tensor-op convolution correctness check pass. {bcolors.ENDC}")
+                logger.info(f"{bcolors.OKGREEN}No-tensor-op convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
             else:
-                logger.error(f"{bcolors.FAIL}No-tensor-op convolution correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+                logger.error(f"{bcolors.FAIL}No-tensor-op convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
 
         return result, ground_truth
 
@@ -124,20 +125,22 @@ class Convolution:
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op)
         # ==================================== 
 
-        logger.error("Error, throughput calculation is incorrect.")
-        ops_per_nz = 3 * self.L1.mult(0)
-        throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+        if disable_tensor_op:
+            throughputs_gflops = [float(el) for el in graph.nnz * self.L1.get_rep_length() / (time_millis * 1e6)]
 
-        bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
-        time_millis = [float(el) for el in time_millis] 
+            # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
+            bandwidth_gbps_rough = [float(el) for el in (L3_out.nbytes + L1_in[0, :].nbytes * graph.nnz) / (time_millis * 1e6)]
+            time_millis = [float(el) for el in time_millis] 
+        else:
+            raise NotImplementedError("No throughput / bwidth calculation implemented when tensor op is enabled!")
 
         result = {
-            "cg tensor nnz": nnz,
             "disable_tensor_op": disable_tensor_op, 
-            "batch size": batch_size,
             "L1": L1.to_string(),
             "L2": L2.to_string(),
             "L3": L3.to_string(),
+            "graph_node_count": graph.node_count,
+            "graph_adj_nnz": graph.nnz,
             "num_warmup": num_warmup,
             "num_iter": num_iter,
             "prng_seed": prng_seed,
@@ -145,7 +148,12 @@ class Convolution:
             "throughputs_gflops": throughputs_gflops,
             "bandwidth_gbps_rough": bandwidth_gbps_rough
         }
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
 
+        disable_op_str = ""
+        if disable_tensor_op:
+            disable_op_str = " (Tensor Op Disabled)"
+
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps_rough):.2f} ± {np.std(bandwidth_gbps_rough):.2f} GBPs{bcolors.ENDC}")
         return result
 

@@ -122,4 +122,12 @@ public:
         L2(L2_i),
         L3(L3_i)
     { }
+
+    string to_string() {
+        std::stringstream ss;
+        ss << "(" << L1.to_string() << ") x ";
+        ss << "(" << L2.to_string() << ") -> ";
+        ss << "(" << L3.to_string() << ")";
+        return ss.str();
+    }
 };

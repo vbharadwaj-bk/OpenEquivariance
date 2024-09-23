@@ -1,14 +1,13 @@
-import json, os, time, pickle
+import json, os, time, pickle, pathlib
+import numpy as np
+import numpy.linalg as la
+import os
 
 from build.kernel_wrapper import *
 from src.implementations.AtomicConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
-
-import numpy as np
-import numpy.linalg as la
-import os
 
 def config_to_rep_triple(config):
     reps = None 
@@ -19,7 +18,7 @@ def config_to_rep_triple(config):
     return RepTriple(reps[0], reps[1], reps[2])
 
 def load_graph(name):
-    coords, rows, cols, name = None, None, None
+    coords, rows, cols = None, None, None
 
     def load_pickle(name):
         with open(f"data/molecular_structures/{name}.pickle", 'rb') as f:
@@ -58,7 +57,6 @@ class ConvBenchmarkSuite:
         self.num_warmup = num_warmup
         self.num_iter = num_iter
         self.disable_tensor_op = disable_tensor_op
-        self.disable_correctness = disable_correctness
         self.prng_seed = 12345
 
     def run(self, tp_implementations, correctness=True):        
@@ -66,34 +64,46 @@ class ConvBenchmarkSuite:
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
+        graph = self.graph
+
         rep_sets = [config_to_rep_triple(config) for config in self.configs] 
         metadata = {
-            "configs": [[rep.to_string() for rep in reps] for reps in rep_sets], 
+            "configs": [reps.to_string() for reps in rep_sets], 
             "implementations": [impl.name() for impl in tp_implementations],
             "graph": graph.name
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for (L1, L2, L3) in rep_sets: 
+        for io_reps in rep_sets: 
             rng = np.random.default_rng(self.prng_seed)
-            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
-            L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
+
+            L1, L2, L3 = io_reps.L1, io_reps.L2, io_reps.L3
+
+            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.get_rep_length())), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(graph.node_count, L2.get_rep_length())), dtype=np.float32) 
+            L3_out = np.zeros((graph.node_count, L3.get_rep_length()), dtype=np.float32)
+
             for impl in tp_implementations:
-                tc_name = f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}"
+                tc_name = f"{io_reps.to_string()}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}')
 
-                conv = impl(L1, L2, L3)
+                conv = impl(io_reps)
 
                 if correctness:
-                    conv.exec_conv_cpu( L1_in, L2_in, L3_out, self.graph, self.disable_tensor_op)
-                    correctness, _ = conv.test_correctness_no_op(L1_in, L2_in, L3_out, self.graph)
+                    if self.disable_tensor_op:
+                        conv.exec_conv_cpu( L1_in, L2_in, L3_out, self.graph, self.disable_tensor_op)
+                        correctness, _ = conv.test_correctness_no_op(L1_in, L2_in, L3_out, self.graph)
+                    else:
+                        raise NotImplementedError("No correctness check implemented including tensor operation!")
 
-                benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
+                benchmark = conv.benchmark(self.num_warmup, 
+                            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
-                    "config": rnames, 
+                    "config": rnames,
+                    "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
@@ -132,8 +142,7 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         [rep_config], graph,
         disable_tensor_op=True
-    ) 
-
+    )
     bench.run([AtomicConv]) 
 
     #debug(AtomicConv, rep_config, graph) 

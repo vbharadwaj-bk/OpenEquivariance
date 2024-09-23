@@ -33,6 +33,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("even", &Representation::even);
     py::class_<RepTriple>(m, "RepTriple")
         .def(py::init<Representation&, Representation&, Representation&>())
+        .def("to_string", &RepTriple::to_string)
         .def_readwrite("L1", &RepTriple::L1) 
         .def_readwrite("L2", &RepTriple::L2)
         .def_readwrite("L3", &RepTriple::L3);
