@@ -54,32 +54,32 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
 
     bool firstSegment = true;
     for(int i = start; i < end; i++) {
-        uint64_t row = g.rows[i];
-        uint64_t col = g.cols[i];
+        size_t row = g.rows[i];
+        size_t col = g.cols[i];
 
-        float* in_row = L1.ptr + col * L1.row_len;
+        float* in_row_shft = L1.ptr + col * L1.row_len + lane_id;
 
         ROW_OPERATION(
-            buffers[warp_loc][j + lane_id] += in_row[j + lane_id];
+            buffers[warp_loc][j + lane_id] += in_row_shft[j];
         )
 
         // If changing rows and this is not the first segment or the last segment,
         // write directly to global memory 
         if(i < end - 1 && row != g.rows[i+1] && ! firstSegment) {
-            float* out_row = L3.ptr + row * L3.row_len;
+            float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
-                out_row[j + lane_id] = buffers[warp_loc][j + lane_id]; 
+                out_row_shft[j] = buffers[warp_loc][j + lane_id]; 
                 buffers[warp_loc][j + lane_id] = 0.0; // Zero out buffer for next accumulation
             )
         }
 
         // If this is either the first or last segment, atomicAdd to the output row
         else if(i == end - 1 || firstSegment) {
-            float* out_row = L3.ptr + row * L3.row_len;
+            float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
-                atomicAdd(out_row + j + lane_id, buffers[warp_loc][j + lane_id]);
+                atomicAdd(out_row_shft + j, buffers[warp_loc][j + lane_id]);
                 buffers[warp_loc][j + lane_id] = 0.0;
             )
 

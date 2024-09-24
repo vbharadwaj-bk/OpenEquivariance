@@ -144,7 +144,7 @@ if __name__=='__main__':
         [rep_config], graph,
         disable_tensor_op=True
     )
-    bench.run([SMConv]) 
+    bench.run([AtomicConv, SMConv]) 
 
     #debug(AtomicConv, rep_config, graph) 
 
