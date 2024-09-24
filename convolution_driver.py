@@ -137,7 +137,7 @@ def debug(conv_impl, rep_config, graph):
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("hiv_capsid_radius3.5")
     rep_config = ("32x5e", "1x3e", "32x5e")
 
     bench = ConvBenchmarkSuite(

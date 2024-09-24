@@ -6,7 +6,7 @@
 using namespace std;
 
 #define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 512
+#define THREAD_BLOCK_SIZE 256
 
 struct Graph {
     uint32_t* rows;

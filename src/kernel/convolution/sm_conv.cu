@@ -6,7 +6,7 @@
 using namespace std;
 
 #define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 512
+#define THREAD_BLOCK_SIZE 256
 #define WARPS_PER_BLOCK THREAD_BLOCK_SIZE / THREADS_PER_WARP
 
 #define A100_SMS 108
@@ -59,23 +59,26 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
 
         float* in_row_shft = L1.ptr + col * L1.row_len + lane_id;
 
-        ROW_OPERATION(
-            buffers[warp_loc][j + lane_id] += in_row_shft[j];
+        ROW_OPERATION( 
+            buffers[warp_loc][j + lane_id] += in_row_shft[j]; 
         )
 
+        bool changeRow = (i < end - 1) && (row != g.rows[i+1]);
         // If changing rows and this is not the first segment or the last segment,
-        // write directly to global memory 
-        if(i < end - 1 && row != g.rows[i+1] && ! firstSegment) {
+        // write directly to global memory
+
+        if(changeRow && ! firstSegment) {
             float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
-                out_row_shft[j] = buffers[warp_loc][j + lane_id]; 
+                out_row_shft[j] = buffers[warp_loc][j + lane_id];
                 buffers[warp_loc][j + lane_id] = 0.0; // Zero out buffer for next accumulation
             )
         }
 
-        // If this is either the first or last segment, atomicAdd to the output row
-        else if(i == end - 1 || firstSegment) {
+        // If this is either the first segment (and changing row) or the last segment, atomicAdd
+        // to output 
+        else if(i == end - 1 || (firstSegment && changeRow) ) {
             float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
