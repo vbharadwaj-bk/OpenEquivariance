@@ -34,13 +34,16 @@ struct Linfo {
 };
 
 template<int ROW_LEN>
-__global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
-    __shared__ float buffers[WARPS_PER_BLOCK][ROW_LEN]; 
+__global__ void 
+SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
+    __shared__ float buffers[WARPS_PER_BLOCK * ROW_LEN]; 
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = idx / THREADS_PER_WARP;
     int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % (WARPS_PER_BLOCK);
+
+    float* bptr = buffers + (warp_loc * ROW_LEN) + lane_id;
 
     size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
     size_t nnz_per_warp = (g.nnz + warps_launched - 1) / warps_launched;
@@ -49,7 +52,7 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
     size_t end = min(start + nnz_per_warp, g.nnz);
 
     ROW_OPERATION(
-        buffers[warp_loc][j + lane_id] = 0.0;
+        bptr[j] = 0.0;
     )
 
     bool firstSegment = true;
@@ -60,7 +63,7 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
         float* in_row_shft = L1.ptr + col * L1.row_len + lane_id;
 
         ROW_OPERATION( 
-            buffers[warp_loc][j + lane_id] += in_row_shft[j]; 
+            bptr[j] += in_row_shft[j]; 
         )
 
         bool changeRow = (i < end - 1) && (row != g.rows[i+1]);
@@ -71,8 +74,8 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
             float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
-                out_row_shft[j] = buffers[warp_loc][j + lane_id];
-                buffers[warp_loc][j + lane_id] = 0.0; // Zero out buffer for next accumulation
+                out_row_shft[j] = bptr[j];
+                bptr[j] = 0.0; // Zero out buffer for next accumulation
             )
         }
 
@@ -82,14 +85,15 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
             float* out_row_shft = L3.ptr + row * L3.row_len + lane_id;
 
             ROW_OPERATION(
-                atomicAdd(out_row_shft + j, buffers[warp_loc][j + lane_id]);
-                buffers[warp_loc][j + lane_id] = 0.0;
+                atomicAdd(out_row_shft + j, bptr[j]);
+                bptr[j] = 0.0;
             )
 
             firstSegment = false;
         }
     }
 }
+
 
 void SMConvImpl::exec_conv(
         float* L1_in,
