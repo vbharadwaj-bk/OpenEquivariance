@@ -11,6 +11,16 @@ using namespace std;
 
 #define A100_SMS 108
 
+#define ROW_OPERATION(...) \
+    _Pragma ("unroll") \
+    for(int j = 0; j < ROW_LEN - THREADS_PER_WARP; j += THREADS_PER_WARP) { \
+        __VA_ARGS__  \
+    } \
+    if(ROW_LEN - THREADS_PER_WARP > 0 && (ROW_LEN - THREADS_PER_WARP + lane_id < ROW_LEN)) { \
+        int j = ROW_LEN - THREADS_PER_WARP; \
+        __VA_ARGS__ \
+    }
+
 struct Graph {
     uint32_t* rows;
     uint32_t* cols;
@@ -38,13 +48,9 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
     size_t start = nnz_per_warp * ((size_t) warp_id);
     size_t end = min(start + nnz_per_warp, g.nnz);
 
-    // Zero out SMEM buffers 
-    #pragma unroll
-    for(size_t j = 0; j < ROW_LEN; j += THREADS_PER_WARP) {
-        if(j + lane_id < ROW_LEN) {
-            buffers[warp_loc][j + lane_id] = 0.0;
-        }
-    }
+    ROW_OPERATION(
+        buffers[warp_loc][j + lane_id] = 0.0;
+    )
 
     bool firstSegment = true;
     for(int i = start; i < end; i++) {
@@ -53,37 +59,29 @@ __global__ void SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
 
         float* in_row = L1.ptr + col * L1.row_len;
 
-        #pragma unroll
-        for(size_t j = 0; j < ROW_LEN; j += THREADS_PER_WARP) {
-            if(j + lane_id < ROW_LEN) {
-                buffers[warp_loc][j + lane_id] += in_row[j + lane_id];
-            }
-        }
+        ROW_OPERATION(
+            buffers[warp_loc][j + lane_id] += in_row[j + lane_id];
+        )
 
         // If changing rows and this is not the first segment or the last segment,
         // write directly to global memory 
         if(i < end - 1 && row != g.rows[i+1] && ! firstSegment) {
             float* out_row = L3.ptr + row * L3.row_len;
-            #pragma unroll
-            for(size_t j = 0; j < ROW_LEN; j += THREADS_PER_WARP) {
-                if(j + lane_id < ROW_LEN) {
-                    out_row[j + lane_id] = buffers[warp_loc][j + lane_id]; 
-                    buffers[warp_loc][j + lane_id] = 0.0; // Zero out buffer for next accumulation
-                }
-            }
+
+            ROW_OPERATION(
+                out_row[j + lane_id] = buffers[warp_loc][j + lane_id]; 
+                buffers[warp_loc][j + lane_id] = 0.0; // Zero out buffer for next accumulation
+            )
         }
 
         // If this is either the first or last segment, atomicAdd to the output row
         else if(i == end - 1 || firstSegment) {
             float* out_row = L3.ptr + row * L3.row_len;
 
-            #pragma unroll
-            for(size_t j = 0; j < ROW_LEN; j += THREADS_PER_WARP) {
-                if(j + lane_id < ROW_LEN) {
-                    atomicAdd(out_row + j + lane_id, buffers[warp_loc][j + lane_id]);
-                    buffers[warp_loc][j + lane_id] = 0.0;
-                }
-            }
+            ROW_OPERATION(
+                atomicAdd(out_row + j + lane_id, buffers[warp_loc][j + lane_id]);
+                buffers[warp_loc][j + lane_id] = 0.0;
+            )
 
             firstSegment = false;
         }
