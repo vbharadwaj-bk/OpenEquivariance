@@ -16,7 +16,7 @@ UnrollTPImpl::UnrollTPImpl(
     std::string jit_kernel,
     KernelLaunchConfig &config_i 
     ) :
-        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        GenericTensorProductImpl(reps),
         jit(jit_kernel),
         config(config_i) {  
     jit.compile("loop_unroll_many_to_one", {});

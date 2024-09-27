@@ -40,7 +40,7 @@ class TestBenchmarkSuite:
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
-        rep_sets = [config_to_reps(config) for config in self.configs] 
+        rep_sets = [config_to_rep_triple(config) for config in self.configs] 
         metadata = {
             "configs": [set.to_string() for set in rep_sets], 
             "implementations": [impl.name() for impl in tp_implementations]
@@ -81,7 +81,7 @@ class TestBenchmarkSuite:
                 logger.info(f'Finished {tc_name}.')
 
 def debug(tp_impl, config):
-    reps = config_to_reps(config)
+    reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
     batch_size = 10000
     tp = tp_impl(reps, batch_size) 
@@ -112,9 +112,10 @@ if __name__=='__main__':
             ((1, 4), (2, 3), (2, 5))
     ]
 
-    #bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
-    bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
-    bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
+    bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
+    bench_suite.run([LoopUnrollTP])
+    #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
+    #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
     #bench_suite = TestBenchmarkSuite(default_tests)
     #bench_suite.run([ThreadTensorProduct,

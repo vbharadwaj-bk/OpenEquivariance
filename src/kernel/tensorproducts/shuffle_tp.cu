@@ -126,7 +126,7 @@ ShuffleTensorProductImpl::ShuffleTensorProductImpl(
     py::array_t<int> l1_indices_py, 
     py::array_t<int> l2_indices_py, 
     py::array_t<int> red_lanes_py) :
-            GenericTensorProductImpl(L1_i, L2_i, L3_i),
+            GenericTensorProductImpl(reps),
             warp_values(warp_values_py),
             l1_indices(l1_indices_py),
             l2_indices(l2_indices_py),

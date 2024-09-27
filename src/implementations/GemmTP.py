@@ -11,7 +11,7 @@ class GemmTensorProduct(TensorProduct):
 
         tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
         self.flat_tensor = tensor.reshape(((2 * L1.type(0) + 1) * (2 * L2.type(0) + 1), 2 * L3.type(0) + 1)).T.copy() 
-        self.internal = GemmTensorProductImpl(batch_size, self.reps, self.flat_tensor)
+        self.internal = GemmTensorProductImpl(self.reps, batch_size, self.flat_tensor)
 
     @staticmethod
     def name():
