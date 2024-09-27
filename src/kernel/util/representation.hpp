@@ -122,7 +122,7 @@ public:
     Representation L2;
     Representation L3;
 
-    vector<tuple<int, int, int>> interactions; 
+    vector<tuple<int, int, int>> interactions_i; 
 
     RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
         L1(L1_i),
@@ -142,13 +142,21 @@ public:
                 int lA = max(L1.type(i), L2.type(j));
                 int lB = min(L1.type(i), L2.type(j));
 
-                for(int k = lA - lB; k <= lA + lB; k++) {
+                for(int k = lA - lB; k <= min(lA + lB, LMax); k++) {
                     // To-do: deal with even / oddness 
                     L3.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
-                    interactions.emplace_back(i, j, L3.size() - 1);
+                    interactions_i.emplace_back(i, j, L3.size() - 1);
                 }
             }
         }
+    }
+
+    int num_interactions() {
+        return interactions_i.size();
+    }
+
+    tuple<int, int, int> interactions(int i) {
+        return interactions_i[i]; 
     }
 
     string to_string() {
@@ -159,5 +167,4 @@ public:
         return ss.str();
     }
 };
-
 
