@@ -14,6 +14,7 @@
 
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
+    RepTriple reps;
     Representation &L1;
     Representation &L2;
     Representation &L3;
@@ -21,10 +22,9 @@ public:
     bool record_internal_stats = false;
 
     GenericTensorProductImpl(
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i) :
-        L1(L1_i), L2(L2_i), L3(L3_i)
+        RepTriple &reps_i) :
+        reps(reps_i),
+        L1(reps.L1), L2(reps.L2), L3(reps.L3)
         { }
 
     virtual void exec_tensor_product(
@@ -80,15 +80,13 @@ public:
     DeviceBuffer<float> values;
 
     ThreadTensorProductImpl(
-        Representation &L1,
-        Representation &L2,
-        Representation &L3,
+        RepTriple &reps,
         py::array_t<uint8_t> coord1_py, 
         py::array_t<uint8_t> coord2_py,
         py::array_t<uint8_t> coord3_py,
         py::array_t<float> values_py 
         ) :
-        GenericTensorProductImpl(L1, L2, L3),
+        GenericTensorProductImpl(reps),
         coord1(coord1_py),
         coord2(coord2_py),
         coord3(coord3_py),
@@ -130,13 +128,11 @@ public:
     cublasLtMatmulHeuristicResult_t heuristicResult {};
 
     GemmTensorProductImpl(
+        RepTriple &reps,
         uint64_t num_products1,
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i,
         py::array_t<float> cg_coeffs_py 
         ) :
-        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        GenericTensorProductImpl(reps),
         workspace(workspaceSize),
         num_products(num_products1),
         cg_coeffs(cg_coeffs_py), 
@@ -172,9 +168,7 @@ public:
     JITKernel jit;
 
     ShuffleTensorProductImpl(
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i,
+        RepTriple &reps,
         py::array_t<float> warp_values_py, 
         py::array_t<int> l1_indices_py, 
         py::array_t<int> l2_indices_py, 
@@ -197,12 +191,12 @@ public:
 class __attribute__ ((visibility ("default"))) UnrollTPImpl : public GenericTensorProductImpl {
 public:
     JITKernel jit;
+    KernelLaunchConfig &config; 
 
     UnrollTPImpl(
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i,
-        std::string jit_kernel);
+        RepTriple &reps,
+        std::string jit_kernel,    
+        KernelLaunchConfig &config_i);
 
     void exec_tensor_product(
             uint64_t num_products,

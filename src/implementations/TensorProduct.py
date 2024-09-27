@@ -2,24 +2,22 @@ import pickle, pathlib
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
-from src.benchmark.logging_utils import getLogger, bcolors 
 
+from src.benchmark.logging_utils import getLogger, bcolors 
 logger = getLogger()
+
+class GPUInfo:
+    A100_SMS = 108
 
 class TensorProduct:
     '''
     Each class implementation of a TensorProduct uses
     a different internal representation, which it can
     initialize uniquely.
-
-    L1, L2, and L3 are pairs. A pair (32, 3) indicates 32 copies of the 
-    3-irrep.
     '''
-    def __init__(self, L1: Representation, L2: Representation, L3: Representation, batch_size = None):
-        self.internal = None
-        self.L1 = L1
-        self.L2 = L2
-        self.L3 = L3
+    def __init__(self, reps: RepTriple, batch_size=None):
+        self.reps = reps 
+        self.L1, self.L2, self.L3 = reps.L1, reps.L2, reps.L3
         self.batch_size = batch_size
 
     @staticmethod
@@ -68,7 +66,7 @@ class TensorProduct:
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
         else:
             result["shape_match"] = True 
             diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
@@ -76,9 +74,9 @@ class TensorProduct:
             result["pass"] = bool(diff_Linf_norm < thresh) 
 
             if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}Correctness check pass. {bcolors.ENDC}")
+                logger.info(f"{bcolors.OKGREEN}Batch TP correctness check pass. {bcolors.ENDC}")
             else:
-                logger.error(f"{bcolors.FAIL}Correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
+                logger.error(f"{bcolors.FAIL}Batch TP correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
 
         return result, ground_truth
 

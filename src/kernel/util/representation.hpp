@@ -46,6 +46,8 @@ public:
         return get<2>(irreps[irrep_id]);
     }
 
+    Representation() = default; 
+
     Representation(string str_rep) {
         // String type must be of the form 32x1e + 1x2o, etc. 
 
@@ -110,4 +112,61 @@ public:
         return ss.str();
     }    
 };
- 
+
+/*
+* A RepTriple encapsulates the three-cornered E3NN interaction graph. 
+*/
+class RepTriple {
+public:
+    Representation L1;
+    Representation L2;
+    Representation L3;
+
+    vector<tuple<int, int, int>> interactions_i; 
+
+    RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
+        L1(L1_i),
+        L2(L2_i),
+        L3(L3_i) { 
+        
+        // TODO: Need to fill interactions here 
+    }
+
+    /*
+    * Full decomposition up to LMax. 
+    */
+    RepTriple(Representation &L1_i, Representation &L2_i, int LMax) :
+        L1(L1_i),
+        L2(L2_i) {
+
+        for(int i = 0; i < L1.num_irreps(); i++) {
+            for(int j = 0; j < L2.num_irreps(); j++) {
+                int lA = max(L1.type(i), L2.type(j));
+                int lB = min(L1.type(i), L2.type(j));
+
+                for(int k = lA - lB; k <= min(lA + lB, LMax); k++) {
+                    // To-do: deal with even / oddness 
+                    L3.irreps.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
+                    interactions_i.emplace_back(i, j, static_cast<int>(L3.num_irreps()) - 1);
+                }
+            }
+        }
+    }
+
+    int num_interactions() {
+        return interactions_i.size();
+    }
+
+    tuple<int, int, int> interactions(int i) {
+        return interactions_i[i]; 
+    }
+
+    string to_string() {
+        std::stringstream ss;
+        ss << "(" << L1.to_string() << ") x ";
+        ss << "(" << L2.to_string() << ") -> ";
+        ss << "(" << L3.to_string() << ")";
+        return ss.str();
+    }
+};
+

@@ -12,11 +12,13 @@ import numpy.linalg as la
 
 logger = getLogger()
 
-def config_to_reps(config):
+def config_to_rep_triple(config):
+    reps = None 
     if isinstance(config[0], tuple):
-        return [Representation(config[i][0], config[i][1]) for i in range(3)]
+        reps = [Representation(config[i][0], config[i][1]) for i in range(3)]
     elif isinstance(config[0], str):
-        return [Representation(config[i]) for i in range(3)] 
+        reps = [Representation(config[i]) for i in range(3)] 
+    return RepTriple(reps[0], reps[1], reps[2])
 
 class TestBenchmarkSuite:
     def __init__(self, configs,
@@ -38,25 +40,26 @@ class TestBenchmarkSuite:
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
-        rep_sets = [config_to_reps(config) for config in self.configs] 
+        rep_sets = [config_to_rep_triple(config) for config in self.configs] 
         metadata = {
-            "configs": [[rep.to_string() for rep in reps] for reps in rep_sets], 
+            "configs": [set.to_string() for set in rep_sets], 
             "implementations": [impl.name() for impl in tp_implementations]
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for (L1, L2, L3) in rep_sets: 
+        for reps in rep_sets:
+            L1, L2, L3 = reps.L1, reps.L2, reps.L3 
             rng = np.random.default_rng(self.prng_seed)
             L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
             L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
             L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
             for impl in tp_implementations:
-                tc_name = f"({L1.to_string()})x({L2.to_string()})->({L3.to_string()}), {impl.name()}"
+                tc_name = f"{reps.to_string()}, {impl.name()}"
                 logger.info(f'Starting {tc_name}.')
 
-                tp_correctness = impl(L1, L2, L3, self.correctness_batch_size)
-                tp_bench = impl(L1, L2, L3, self.bench_batch_size)
+                tp_correctness = impl(reps, self.correctness_batch_size)
+                tp_bench = impl(reps, self.bench_batch_size)
 
                 tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
                 correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
@@ -78,9 +81,10 @@ class TestBenchmarkSuite:
                 logger.info(f'Finished {tc_name}.')
 
 def debug(tp_impl, config):
-    L1, L2, L3 = config_to_reps(config)
+    reps = config_to_rep_triple(config)
+    L1, L2, L3 = reps.L1, reps.L2, reps.L3
     batch_size = 10000
-    tp = tp_impl(L1, L2, L3, batch_size) 
+    tp = tp_impl(reps, batch_size) 
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
@@ -110,6 +114,8 @@ if __name__=='__main__':
 
     bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP])
+    #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
+    #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
     #bench_suite = TestBenchmarkSuite(default_tests)
     #bench_suite.run([ThreadTensorProduct,

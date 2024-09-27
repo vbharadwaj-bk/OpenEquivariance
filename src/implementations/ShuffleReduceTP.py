@@ -3,8 +3,9 @@ from build.kernel_wrapper import *
 from src.implementations.TensorProduct import TensorProduct
 
 class ShuffleReduceTensorProduct(TensorProduct):
-    def __init__(self, L1, L2, L3, batch_size, mode="opt"):
-        super().__init__(L1, L2, L3, batch_size)
+    def __init__(self, reps, batch_size, mode="opt"):
+        super().__init__(reps, batch_size)
+        L1, L2, L3 = self.L1, self.L2, self.L3
 
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
 
@@ -83,8 +84,7 @@ class ShuffleReduceTensorProduct(TensorProduct):
                 warp_values, l1_indices, l2_indices, red_lanes
 
         self.internal = ShuffleTensorProductImpl(
-            L1, L2, L3, 
-            warp_values, l1_indices, l2_indices, red_lanes)
+            self.reps, warp_values, l1_indices, l2_indices, red_lanes)
 
         self.mode = mode
 

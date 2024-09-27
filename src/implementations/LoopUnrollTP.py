@@ -1,12 +1,15 @@
 import numpy as np
 from build.kernel_wrapper import *
-from src.implementations.TensorProduct import TensorProduct
-
+from src.implementations.TensorProduct import TensorProduct, GPUInfo
+from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, PackageLoader, FileSystemLoader 
 
+logger = getLogger()
+
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, L1, L2, L3, batch_size):
-        super().__init__(L1, L2, L3, batch_size)
+    def __init__(self, reps, batch_size):
+        super().__init__(reps, batch_size)
+        L1, L2, L3 = self.L1, self.L2, self.L3
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         assert(L1.mult(0) == 32 and L2.mult(0) == 1 and L3.mult(0) == 32)
 
@@ -18,6 +21,12 @@ class LoopUnrollTP(TensorProduct):
         # =====================================================================
         env = Environment(loader=FileSystemLoader("src/templates"))
         template = env.get_template("loop_unroll.cuh")
+
+        config = KernelLaunchConfig()
+        config.num_blocks = GPUInfo.A100_SMS * 4 
+        # Warning: correctness check fail at 1024 threads 
+        config.num_threads = 512
+        self.launch_config = config 
 
         self.jit_kernel = template.render(
             L1_one_rep_len=L1.type(0) * 2 + 1,
@@ -39,7 +48,7 @@ class LoopUnrollTP(TensorProduct):
             coord3 = coord[2]
         ) 
 
-        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel)
+        self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
 
     @staticmethod
     def testcases():
@@ -50,6 +59,7 @@ class LoopUnrollTP(TensorProduct):
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         L1, L2, L3 = self.L1, self.L2, self.L3
+        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         def transpose_rep_mult(arr, rep, dir="forward"):
             i_shape = (arr.shape[0], rep.mult(0), 2 * rep.type(0) + 1)
