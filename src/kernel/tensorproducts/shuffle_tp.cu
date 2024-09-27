@@ -121,9 +121,7 @@ __global__ void shuffle_tp_kernel(
 }
 
 ShuffleTensorProductImpl::ShuffleTensorProductImpl(
-    Representation &L1_i,
-    Representation &L2_i,
-    Representation &L3_i,
+    RepTriple &reps,
     py::array_t<float> warp_values_py, 
     py::array_t<int> l1_indices_py, 
     py::array_t<int> l2_indices_py, 

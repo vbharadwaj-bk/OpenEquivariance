@@ -7,8 +7,9 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 logger = getLogger()
 
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, L1, L2, L3, batch_size):
-        super().__init__(L1, L2, L3, batch_size)
+    def __init__(self, reps, batch_size):
+        super().__init__(reps, batch_size)
+        L1, L2, L3 = self.L1, self.L2, self.L3
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         assert(L1.mult(0) == 32 and L2.mult(0) == 1 and L3.mult(0) == 32)
 
@@ -47,7 +48,7 @@ class LoopUnrollTP(TensorProduct):
             coord3 = coord[2]
         ) 
 
-        self.internal = UnrollTPImpl(L1, L2, L3, self.jit_kernel, self.launch_config)
+        self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
 
     @staticmethod
     def testcases():

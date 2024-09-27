@@ -14,15 +14,10 @@ class TensorProduct:
     Each class implementation of a TensorProduct uses
     a different internal representation, which it can
     initialize uniquely.
-
-    L1, L2, and L3 are pairs. A pair (32, 3) indicates 32 copies of the 
-    3-irrep.
     '''
-    def __init__(self, L1: Representation, L2: Representation, L3: Representation, batch_size = None):
-        self.internal = None
-        self.L1 = L1
-        self.L2 = L2
-        self.L3 = L3
+    def __init__(self, reps: RepTriple, batch_size=None):
+        self.reps = reps 
+        self.L1, self.L2, self.L3 = reps.L1, reps.L2, reps.L3
         self.batch_size = batch_size
 
     @staticmethod

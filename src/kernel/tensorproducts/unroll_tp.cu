@@ -12,9 +12,7 @@ using namespace std;
 #define THREAD_BLOCK_SIZE 512
 
 UnrollTPImpl::UnrollTPImpl(
-    Representation &L1_i,
-    Representation &L2_i,
-    Representation &L3_i,
+    RepTriple &reps,
     std::string jit_kernel,
     KernelLaunchConfig &config_i 
     ) :

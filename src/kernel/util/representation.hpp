@@ -113,10 +113,10 @@ public:
     }    
 };
 
+/*
+* A RepTriple encapsulates the three-cornered E3NN interaction graph. 
+*/
 class RepTriple {
-    /*
-    * A RepTriple encapsulates the three-cornered E3NN interaction graph. 
-    */
 public:
     Representation L1;
     Representation L2;
@@ -127,8 +127,10 @@ public:
     RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
         L1(L1_i),
         L2(L2_i),
-        L3(L3_i)
-    { }
+        L3(L3_i) { 
+        
+        // TODO: Need to fill interactions here 
+    }
 
     /*
     * Full decomposition up to LMax. 
@@ -144,8 +146,8 @@ public:
 
                 for(int k = lA - lB; k <= min(lA + lB, LMax); k++) {
                     // To-do: deal with even / oddness 
-                    L3.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
-                    interactions_i.emplace_back(i, j, L3.size() - 1);
+                    L3.irreps.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
+                    interactions_i.emplace_back(i, j, static_cast<int>(L3.num_irreps()) - 1);
                 }
             }
         }
