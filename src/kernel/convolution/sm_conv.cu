@@ -6,7 +6,7 @@
 using namespace std;
 
 #define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 256
+#define THREAD_BLOCK_SIZE 512
 #define WARPS_PER_BLOCK THREAD_BLOCK_SIZE / THREADS_PER_WARP
 
 #define A100_SMS 108
@@ -93,7 +93,6 @@ SMConvolve(Linfo L1, Linfo L2, Linfo L3, Graph g) {
         }
     }
 }
-
 
 void SMConvImpl::exec_conv(
         float* L1_in,

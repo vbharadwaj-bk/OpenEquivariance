@@ -110,7 +110,7 @@ class ConvBenchmarkSuite:
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{rnames[0]}_{rnames[1]}_{rnames[2]}_{impl.name()}.json")
+                fname = pathlib.Path(f"{output_folder}/{rnames[0]}_{rnames[1]}_{rnames[2]}_{impl.name()}_{graph.name}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)

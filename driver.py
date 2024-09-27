@@ -108,8 +108,9 @@ if __name__=='__main__':
             ((1, 4), (2, 3), (2, 5))
     ]
 
-    bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP])
+    #bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
+    bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
+    bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
     #bench_suite = TestBenchmarkSuite(default_tests)
     #bench_suite.run([ThreadTensorProduct,

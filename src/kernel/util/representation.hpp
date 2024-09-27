@@ -46,6 +46,8 @@ public:
         return get<2>(irreps[irrep_id]);
     }
 
+    Representation() = default; 
+
     Representation(string str_rep) {
         // String type must be of the form 32x1e + 1x2o, etc. 
 
@@ -112,16 +114,42 @@ public:
 };
 
 class RepTriple {
+    /*
+    * A RepTriple encapsulates the three-cornered E3NN interaction graph. 
+    */
 public:
     Representation L1;
     Representation L2;
     Representation L3;
+
+    vector<tuple<int, int, int>> interactions; 
 
     RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
         L1(L1_i),
         L2(L2_i),
         L3(L3_i)
     { }
+
+    /*
+    * Full decomposition up to LMax. 
+    */
+    RepTriple(Representation &L1_i, Representation &L2_i, int LMax) :
+        L1(L1_i),
+        L2(L2_i) {
+
+        for(int i = 0; i < L1.num_irreps(); i++) {
+            for(int j = 0; j < L2.num_irreps(); j++) {
+                int lA = max(L1.type(i), L2.type(j));
+                int lB = min(L1.type(i), L2.type(j));
+
+                for(int k = lA - lB; k <= lA + lB; k++) {
+                    // To-do: deal with even / oddness 
+                    L3.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
+                    interactions.emplace_back(i, j, L3.size() - 1);
+                }
+            }
+        }
+    }
 
     string to_string() {
         std::stringstream ss;
@@ -131,3 +159,5 @@ public:
         return ss.str();
     }
 };
+
+
