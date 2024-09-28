@@ -20,7 +20,7 @@ class LoopUnrollTP(TensorProduct):
 
         # =====================================================================
         env = Environment(loader=FileSystemLoader("src/templates"))
-        template = env.get_template("loop_unroll.cuh")
+        template = env.get_template("loop_unroll_multirep.cuh")
 
         config = KernelLaunchConfig()
         config.num_blocks = GPUInfo.A100_SMS * 4 
@@ -33,9 +33,9 @@ class LoopUnrollTP(TensorProduct):
             L2_one_rep_len=L2.type(0) * 2 + 1,
             L3_one_rep_len=L3.type(0) * 2 + 1,
 
-            L1_stride = L1.get_rep_length(),
-            L2_stride = L2.get_rep_length(),
-            L3_stride = L3.get_rep_length(),
+            L1_REP_LEN = L1.get_rep_length(),
+            L2_REP_LEN = L2.get_rep_length(),
+            L3_REP_LEN = L3.get_rep_length(),
 
             L1_mult = L1.mult(0),
             L2_mult = L2.mult(0),
@@ -45,7 +45,9 @@ class LoopUnrollTP(TensorProduct):
             values = str_values,
             coord1 = coord[0],
             coord2 = coord[1],
-            coord3 = coord[2]
+            coord3 = coord[2],
+
+            thread_block_size = config.num_threads
         ) 
 
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)

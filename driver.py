@@ -83,7 +83,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
-    batch_size = 10000
+    batch_size = 1
     tp = tp_impl(reps, batch_size) 
 
     rng = np.random.default_rng(12345)
@@ -112,8 +112,8 @@ if __name__=='__main__':
             ((1, 4), (2, 3), (2, 5))
     ]
 
-    bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP])
+    #bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
+    #bench_suite.run([LoopUnrollTP])
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
@@ -122,4 +122,4 @@ if __name__=='__main__':
     #                    GemmTensorProduct,
     #                    ShuffleReduceTensorProduct])
 
-    #debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
+    debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
