@@ -4,7 +4,6 @@
 #define THREAD_BLOCK_SIZE {{thread_block_size}}
 #define WARPS_PER_BLOCK THREAD_BLOCK_SIZE / THREADS_PER_WARP
 
-// TODO: This pragma needs to be rewritten!
 #define ROW_OPERATION(ROW_LEN, LOOP_VAR, ...) \
     _Pragma ("unroll") \
     for(int LOOP_VAR = 0; LOOP_VAR < ROW_LEN; LOOP_VAR += THREADS_PER_WARP) { \
