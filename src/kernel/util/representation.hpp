@@ -30,6 +30,17 @@ public:
         return rep_length;
     }
 
+    vector<int> get_irrep_offsets() {
+        vector<int> offsets(irreps.size(), 0);
+        int offset = 0;
+        offsets.push_back(offset);
+        for (auto& irrep : irreps) {
+            offset += get<0>(irrep) * (2 * get<1>(irrep) + 1);
+            offsets.push_back(offset);
+        }
+        return offsets;
+    }
+
     size_t num_irreps() {
         return irreps.size();
     }
