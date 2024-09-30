@@ -26,20 +26,16 @@ class LoopUnrollTP(TensorProduct):
         config.num_blocks = GPUInfo.A100_SMS * 4 
         # Warning: correctness check fail at 1024 threads 
         config.num_threads = 512
-        self.launch_config = config 
+        self.launch_config = config
+
+        class RepData:
+            def __init__(self, rep):
+                self.one_rep_len = rep.type(0) * 2 + 1 
+                self.rep_len = rep.get_rep_length()
+                self.mult = rep.mult(0)
 
         self.jit_kernel = template.render(
-            L1_one_rep_len=L1.type(0) * 2 + 1,
-            L2_one_rep_len=L2.type(0) * 2 + 1,
-            L3_one_rep_len=L3.type(0) * 2 + 1,
-
-            L1_REP_LEN = L1.get_rep_length(),
-            L2_REP_LEN = L2.get_rep_length(),
-            L3_REP_LEN = L3.get_rep_length(),
-
-            L1_mult = L1.mult(0),
-            L2_mult = L2.mult(0),
-            L3_mult = L3.mult(0),
+            L1=Repdata(L1), L2=RepData(L2), L3=RepData(L3),
 
             nnz = len(str_values),
             values = str_values,

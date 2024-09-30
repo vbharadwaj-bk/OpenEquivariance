@@ -25,16 +25,16 @@ __global__ void loop_unroll_many_to_one(
     float* L2_in,
     float* L3_out) {
 
-    __shared__ float L1_smem_full[WARPS_PER_BLOCK * {{L1_REP_LEN}}]; 
-    __shared__ float L2_smem_full[WARPS_PER_BLOCK * {{L2_REP_LEN}}];
+    __shared__ float L1_smem_full[WARPS_PER_BLOCK * {{L1.rep_len}}]; 
+    __shared__ float L2_smem_full[WARPS_PER_BLOCK * {{L2.rep_len}}];
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = idx / THREADS_PER_WARP;
     int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % (WARPS_PER_BLOCK);
 
-    float* L1_smem = L1_smem_full + warp_loc * {{ L1_REP_LEN }};
-    float* L2_smem = L2_smem_full + warp_loc * {{ L2_REP_LEN }};
+    float* L1_smem = L1_smem_full + warp_loc * {{ L1.rep_len }};
+    float* L2_smem = L2_smem_full + warp_loc * {{ L2.rep_len }};
 
     size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
     size_t nnz_per_warp = (num_products + warps_launched - 1) / warps_launched;
@@ -43,45 +43,45 @@ __global__ void loop_unroll_many_to_one(
     size_t end = min(start + nnz_per_warp, num_products);
 
     for(size_t i = start; i < end; i++) {
-        float* l1_shft = L1_in + i * {{L1_REP_LEN}} + lane_id;
-        float* l2_shft = L2_in + i * {{L2_REP_LEN}} + lane_id; 
-        float* l3_shft = L3_out + i * {{L3_REP_LEN}} + lane_id;
+        float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
+        float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
+        float* l3_shft = L3_out + i * {{L3.rep_len}} + lane_id;
 
-        ROW_OPERATION({{L1_REP_LEN}}, j,
+        ROW_OPERATION({{L1.rep_len}}, j,
             L1_smem[j + lane_id] = l1_shft[j];
         )
 
-        ROW_OPERATION({{L2_REP_LEN}}, j,
+        ROW_OPERATION({{L2.rep_len}}, j,
             L2_smem[j + lane_id] = l2_shft[j];
         )
 
-        float l1_vec[{{L1_one_rep_len}}];
-        float l2_vec[{{L2_one_rep_len}}];
-        float l3_vec[{{L3_one_rep_len}}];
+        float l1_vec[{{L1.one_rep_len}}];
+        float l2_vec[{{L2.one_rep_len}}];
+        float l3_vec[{{L3.one_rep_len}}];
 
         #pragma unroll
-        for(int j = 0; j < {{L1_one_rep_len}}; j++) {
-            l1_vec[j] = L1_smem[lane_id + {{L1_mult}} * j];
+        for(int j = 0; j < {{L1.one_rep_len}}; j++) {
+            l1_vec[j] = L1_smem[lane_id + {{L1.mult}} * j];
         }
 
         #pragma unroll
-        for(int j = 0; j < {{L2_one_rep_len}}; j++) {
-            l2_vec[j] = L2_smem[j];    
+        for(int j = 0; j < {{L2.one_rep_len}}; j++) {
+            l2_vec[j] = L2_smem[j];
         }
 
         #pragma unroll
-        for(int j = 0; j < {{L3_one_rep_len}}; j++) {
+        for(int j = 0; j < {{L3.one_rep_len}}; j++) {
             l3_vec[j] = 0.0f; 
         }
 
         {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
         {%- for i in range(nnz) %}
-        l3_vec[{{coord3[i]}}] += {{values[i]}} * l1_vec[{{coord1[i]}}] * l2_vec[{{coord2[i]}}];  
+        l3_vec[{{coord3[i]}}] += {{values[i]}} * l1_vec[{{coord1[i]}}] * l2_vec[{{coord2[i]}}];
         {%- endfor %}
 
         #pragma unroll
-        for(int j = 0; j < {{L3_one_rep_len}}; j++) {
-            l3_shft[{{L3_mult}} * j] = l3_vec[j];
+        for(int j = 0; j < {{L3.one_rep_len}}; j++) {
+            l3_shft[{{L3.mult}} * j] = l3_vec[j];
         }
     }
 }
