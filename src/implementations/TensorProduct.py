@@ -70,15 +70,15 @@ class TensorProduct:
         ground_truth = np.zeros((L1_in.shape[0], L3.get_rep_length()), dtype=np.float32)
 
         for i in range(reps.num_interactions()):
-            irr1, irr2, irr3 = reps.interaction(i)
+            irr1, irr2, irr3 = reps.interactions(i)
             cg_tensor = self.load_cg_tensor(L1.type(irr1), L2.type(irr2), L3.type(irr3))
             start1, end1 = offsets[1][irr1], offsets[1][irr1+1]
             start2, end2 = offsets[2][irr2], offsets[2][irr2+1]
             start3, end3 = offsets[3][irr3], offsets[3][irr3+1]
 
             ground_truth[:, start3:end3] += np.einsum('bui,bvj,ijk->buvk', 
-                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1.mult(irr1), 2 * L1.type(irr1) + 1)), 
-                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2.mult(irr2), 2 * L2.type(irr2) + 1)), 
+                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1.mult(irr1), 2 * L1.type(irr1) + 1)),
+                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2.mult(irr2), 2 * L2.type(irr2) + 1)),
                     cg_tensor).reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:

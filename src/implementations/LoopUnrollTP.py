@@ -10,7 +10,7 @@ class LoopUnrollTP(TensorProduct):
     def __init__(self, reps, batch_size):
         super().__init__(reps, batch_size)
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
+        #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         assert(L1.mult(0) == 32 and L2.mult(0) == 1 and L3.mult(0) == 32)
 
         tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
@@ -71,7 +71,9 @@ class LoopUnrollTP(TensorProduct):
 
             rs1 = arr.reshape(i_shape)
             rs1t = rs1.transpose([0, 2, 1])
-            return rs1t.reshape((arr.shape[0], -1)).copy() 
+            return rs1t.reshape((arr.shape[0], -1)).copy()
+
+        L1.transpose_irreps_cpu(L1_in, True)
 
         L1_in_copy = transpose_rep_mult(L1_in, L1, "forward") 
         L2_in_copy = transpose_rep_mult(L2_in, L2, "forward") 

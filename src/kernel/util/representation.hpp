@@ -5,12 +5,14 @@
 #include <tuple>
 #include <sstream>
 #include <algorithm>
+#include <iostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
 using namespace std;
+namespace py = pybind11;
 
-class Representation {
+class __attribute__((visibility("default"))) Representation {
 public:
     vector<tuple<int, int, int>> irreps; // Multiplicity, irrep type, even / oddness (0 if even )
 
@@ -31,12 +33,13 @@ public:
     }
 
     vector<int> get_irrep_offsets() {
-        vector<int> offsets(irreps.size(), 0);
+        vector<int> offsets(irreps.size() + 1, 0);
         int offset = 0;
         offsets.push_back(offset);
-        for (auto& irrep : irreps) {
+        for (int i = 0; i < irreps.size(); i++) {
+            auto &irrep = irreps[i];
             offset += get<0>(irrep) * (2 * get<1>(irrep) + 1);
-            offsets.push_back(offset);
+            offsets[i+1] = offset;
         }
         return offsets;
     }
@@ -121,7 +124,17 @@ public:
             first = false;
         }
         return ss.str();
-    }    
+    }
+
+    /*
+    * Given an N x REP_LEN matrix on the CPU, this function transposes
+    * the matrix reshaping of the irrep within each row. The transpose 
+    * is performed in place.
+    *
+    * If input is row major: for every submatrix of size MULT x IRREP_LEN,
+    * every contiguous block of IRREP_LEN elements forms a row of the submatrix.
+    */
+    void transpose_irreps_cpu(py::array_t<float> &rep_mat, bool row_major_in);
 };
 
 /*
@@ -139,8 +152,10 @@ public:
         L1(L1_i),
         L2(L2_i),
         L3(L3_i) { 
-        
-        // TODO: Need to fill interactions here 
+
+        if(L1.num_irreps() == 1 && L2.num_irreps() == 1 && L3.num_irreps() == 1) {
+            interactions_i.emplace_back(0, 0, 0);
+        }
     }
 
     /*
