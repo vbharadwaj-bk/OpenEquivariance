@@ -9,22 +9,23 @@ namespace py = pybind11;
 void Representation::transpose_irreps_cpu(py::array_t<float> &rep_mat_py, bool row_major_in) {
     Buffer<float> rep_mat(rep_mat_py);
     vector<int> offsets = get_irrep_offsets();
+    size_t rep_length = get_rep_length();
 
-//#pragma omp parallel
+#pragma omp parallel
 {
-    Buffer<float> temp({get_rep_length()});
+    Buffer<float> temp({rep_length});
 
-    //#pragma omp for 
+    #pragma omp for 
     for(size_t i = 0; i < rep_mat.shape[0]; i++) {
-        float* in_ptr = rep_mat.ptr + (i * get_rep_length());
+        float* in_ptr = rep_mat.ptr + (i * rep_length);
         for(int j = 0; j < irreps.size(); j++) {
             float* irrep_start = in_ptr + offsets[j];
-            float* temp_start = in_ptr + offsets[j];
+            float* temp_start = temp.ptr + offsets[j];
 
             int mult = get<0>(irreps[j]);
-            int irrep_len = offsets[j+1] - offsets[j]; 
+            int irrep_len = get<1>(irreps[j]) * 2 + 1;
 
-            // Transpose the irrep            
+            // Transpose irrep submatrix 
             for(int u = 0; u < irrep_len; u++) {
                 for(int v = 0; v < mult; v++) {
                     if(row_major_in) {
@@ -35,8 +36,8 @@ void Representation::transpose_irreps_cpu(py::array_t<float> &rep_mat_py, bool r
                     }
                 }
             }
-            std::copy(temp_start, temp_start + irrep_len, irrep_start);
         } 
+        std::copy(temp.ptr, temp.ptr + rep_length, in_ptr);
     }
 }
 

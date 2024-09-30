@@ -63,24 +63,14 @@ class LoopUnrollTP(TensorProduct):
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
-        def transpose_rep_mult(arr, rep, dir="forward"):
-            i_shape = (arr.shape[0], rep.mult(0), 2 * rep.type(0) + 1)
-
-            if dir == "backward":
-                i_shape = (i_shape[0], i_shape[2], i_shape[1]) 
-
-            rs1 = arr.reshape(i_shape)
-            rs1t = rs1.transpose([0, 2, 1])
-            return rs1t.reshape((arr.shape[0], -1)).copy()
-
         L1.transpose_irreps_cpu(L1_in, True)
+        L2.transpose_irreps_cpu(L2_in, True)
 
-        L1_in_copy = transpose_rep_mult(L1_in, L1, "forward") 
-        L2_in_copy = transpose_rep_mult(L2_in, L2, "forward") 
-        L3_out_copy = np.zeros_like(L3_out)
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
-        self.internal.exec_tensor_product_cpu(L1_in_copy, L2_in_copy, L3_out_copy) 
-        L3_out[:] = transpose_rep_mult(L3_out_copy, L3, "backward")
+        L1.transpose_irreps_cpu(L1_in, False)
+        L2.transpose_irreps_cpu(L2_in, False)
+        L3.transpose_irreps_cpu(L3_out, False)
 
     @staticmethod
     def name():
