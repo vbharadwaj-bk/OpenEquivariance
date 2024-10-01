@@ -16,8 +16,10 @@ def config_to_rep_triple(config):
     reps = None 
     if isinstance(config[0], tuple):
         reps = [Representation(config[i][0], config[i][1]) for i in range(3)]
-    elif isinstance(config[0], str):
-        reps = [Representation(config[i]) for i in range(3)] 
+    elif isinstance(config[0], str) and not isinstance(config[2], int):
+        reps = [Representation(config[i]) for i in range(3)]
+    elif isinstance(config[0], str) and isinstance(config[2], int):
+        return RepTriple(Representation(config[0]), Representation(config[1]), config[2])
     return RepTriple(reps[0], reps[1], reps[2])
 
 class TestBenchmarkSuite:
@@ -83,7 +85,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
-    batch_size = 10000
+    batch_size = 10000 
     tp = tp_impl(reps, batch_size) 
 
     rng = np.random.default_rng(12345)
@@ -112,8 +114,15 @@ if __name__=='__main__':
             ((1, 4), (2, 3), (2, 5))
     ]
 
-    bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
+    full_decomp_tests = [
+        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), # Last value is Lmax
+        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 4),
+        ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]
+
+    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP])
+
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
@@ -122,4 +131,5 @@ if __name__=='__main__':
     #                    GemmTensorProduct,
     #                    ShuffleReduceTensorProduct])
 
-    #debug(LoopUnrollTP, ((32, 4), (1, 3), (32, 5)))
+    #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
+    #debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))

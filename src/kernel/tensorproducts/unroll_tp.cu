@@ -18,7 +18,7 @@ UnrollTPImpl::UnrollTPImpl(
     ) :
         GenericTensorProductImpl(reps),
         jit(jit_kernel),
-        config(config_i) {  
+        config(config_i) {
     jit.compile("loop_unroll_many_to_one", {});
 }
 

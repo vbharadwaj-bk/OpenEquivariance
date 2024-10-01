@@ -10,6 +10,10 @@ class GPUInfo:
     A100_SMS = 108
 
 class TensorProduct:
+    tensors = None
+    with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
+        tensors = pickle.load(f) 
+
     '''
     Each class implementation of a TensorProduct uses
     a different internal representation, which it can
@@ -38,16 +42,9 @@ class TensorProduct:
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
     def load_cg_tensor(self, l1, l2, l3):
-        with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
-            tensors = pickle.load(f) 
-            return tensors[(l1, l2, l3)]
+        return TensorProduct.tensors[(l1, l2, l3)]
 
     def test_correctness(self, L1_in, L2_in, L3_out_comp):
-        '''
-        ATM, this only works for a single multiplicity in each dimension. 
-        '''
-        L1, L2, L3 = self.L1, self.L2, self.L3
-
         thresh = 5e-7
         result = {
             "shape_match": False,
@@ -56,13 +53,25 @@ class TensorProduct:
             "pass": False
         }
 
-        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        ground_truth = np.einsum('bui,bvj,ijk->buvk', 
-                L1_in.reshape((L1_in.shape[0], L1.mult(0), 2 * L1.type(0) + 1)), 
-                L2_in.reshape((L2_in.shape[0], L2.mult(0), 2 * L2.type(0) + 1)), 
-                cg_tensor)
-        ground_truth = ground_truth.reshape(L1_in.shape[0], -1)
+        L1, L2, L3 = self.L1, self.L2, self.L3
+        reps = self.reps
+        offsets = { 1: L1.get_irrep_offsets(), 
+                    2: L2.get_irrep_offsets(), 
+                    3: L3.get_irrep_offsets() }
+
+        ground_truth = np.zeros((L1_in.shape[0], L3.get_rep_length()), dtype=np.float32)
+
+        for i in range(reps.num_interactions()):
+            irr1, irr2, irr3 = reps.interactions(i)
+            cg_tensor = self.load_cg_tensor(L1.type(irr1), L2.type(irr2), L3.type(irr3))
+            start1, end1 = offsets[1][irr1], offsets[1][irr1+1]
+            start2, end2 = offsets[2][irr2], offsets[2][irr2+1]
+            start3, end3 = offsets[3][irr3], offsets[3][irr3+1]
+
+            ground_truth[:, start3:end3] += np.einsum('bui,bvj,ijk->buvk', 
+                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1.mult(irr1), 2 * L1.type(irr1) + 1)),
+                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2.mult(irr2), 2 * L2.type(irr2) + 1)),
+                    cg_tensor).reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
@@ -107,25 +116,32 @@ class TensorProduct:
         L3_out = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
 
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        nnz = len(np.nonzero(cg_tensor)[0])
+        interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
+
+
+        # Each multiplication requires two multiplications and one addition --> 3 
+        ops_per_nz = 3
+        ops_per_tp = 0
+        nnz = 0
+        for u, v, w in interactions:
+            tensor = self.load_cg_tensor(L1.type(u), L2.type(v), L3.type(w))
+            local_nnz = np.count_nonzero(tensor)
+            nnz += local_nnz
+            ops_per_tp += ops_per_nz * local_nnz * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
         # ==================================== 
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
-        # Each multiplication requires two multiplications and one addition --> 3 
-        ops_per_nz = 3 * self.L1.mult(0)
-        throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+        throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
 
         bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "cg tensor nnz": nnz,
-            "batch size": batch_size,
+            "total_cg_nnz": nnz,
+            "flops_per_tp": ops_per_tp,
             "L1": L1.to_string(),
             "L2": L2.to_string(),
             "L3": L3.to_string(),

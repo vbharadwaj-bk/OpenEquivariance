@@ -17,7 +17,9 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("num_irreps", &Representation::num_irreps)
         .def("mult", &Representation::mult)
         .def("type", &Representation::type)
-        .def("even", &Representation::even);
+        .def("even", &Representation::even) 
+        .def("get_irrep_offsets", &Representation::get_irrep_offsets) 
+        .def("transpose_irreps_cpu", &Representation::transpose_irreps_cpu);
     py::class_<RepTriple>(m, "RepTriple")
         .def(py::init<Representation&, Representation&, Representation&>())
         .def(py::init<Representation&, Representation&, int>())
