@@ -55,34 +55,35 @@ __global__ void loop_unroll_many_to_one(
             L2_smem[j + lane_id] = l2_shft[j];
         )
 
-        {%- for u, v, w in interactions %}
-            float l1_vec[{{L1.one_rep_len}}];
-            float l2_vec[{{L2.one_rep_len}}];
-            float l3_vec[{{L3.one_rep_len}}];
+        {%- for u, v, w, tensor in interactions %}
+            float l1_vec[{{L1.irrep_lengths[u]}}];
+            float l2_vec[{{L2.irrep_lengths[v]}}];
+            float l3_vec[{{L3.irrep_lengths[w]}}];
 
             #pragma unroll
             for(int j = 0; j < {{L1.one_rep_len}}; j++) {
-                l1_vec[j] = L1_smem[lane_id + {{L1.mult}} * j];
+                l1_vec[j] = L1_smem[lane_id + {{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
             }
 
             #pragma unroll
-            for(int j = 0; j < {{L2.one_rep_len}}; j++) {
-                l2_vec[j] = L2_smem[j];
+            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+                l2_vec[j] = L2_smem[j + L2.offsets[v]];
             }
 
             #pragma unroll
-            for(int j = 0; j < {{L3.one_rep_len}}; j++) {
-                l3_vec[j] = 0.0f; 
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+                l3_vec[j] = 0.0f;
             }
 
             {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
-            {%- for i in range(nnz) %}
-            l3_vec[{{coord3[i]}}] += {{values[i]}} * l1_vec[{{coord1[i]}}] * l2_vec[{{coord2[i]}}];
+            {%- for i in range(tensor.nnz) %}
+                l3_vec[{{tensor.coord3[i]}}] += {{tensor.values[i]}} * l1_vec[{{tensor.coord1[i]}}] * l2_vec[{{tensor.coord2[i]}}];
             {%- endfor %}
 
+            // TODO: Should change to += accumulate, buffer the output in shared memory. 
             #pragma unroll
-            for(int j = 0; j < {{L3.one_rep_len}}; j++) {
-                l3_shft[{{L3.mult}} * j] = l3_vec[j];
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+                l3_shft[{{L3.mults[w]}} * j + L3.offsets[w]] = l3_vec[j];
             }
         {%- endfor %}
     }

@@ -124,18 +124,22 @@ class TensorProduct:
         L3_out = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
 
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        nnz = len(np.nonzero(cg_tensor)[0])
+        interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
+
+
+        # Each multiplication requires two multiplications and one addition --> 3 
+        ops_per_nz = 3
+        ops_per_tp = 0
+        for u, v, w in interactions:
+            tensor = self.load_cg_tensor(L1.type(u), L2.type(v), L3.type(w))
+            ops_per_tp += ops_per_nz * np.count_nonzero(tensor) * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
         # ==================================== 
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
-        # Each multiplication requires two multiplications and one addition --> 3 
-        ops_per_nz = 3 * self.L1.mult(0)
-        throughputs_gflops = [float(el) for el in ops_per_nz * batch_size * nnz / (time_millis * 1e6)]
+        throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
 
         bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 

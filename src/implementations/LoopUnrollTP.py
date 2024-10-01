@@ -13,11 +13,6 @@ class LoopUnrollTP(TensorProduct):
         #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         assert(L1.mult(0) == 32 and L2.mult(0) == 1 and L3.mult(0) == 32)
 
-        tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        coord = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
-        float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
-        str_values = [str(float.hex(float(val))) + "f" for val in float_values] 
-
         # =====================================================================
         env = Environment(loader=FileSystemLoader("src/templates"))
         template = env.get_template("loop_unroll_multirep.cuh")
@@ -28,27 +23,30 @@ class LoopUnrollTP(TensorProduct):
         config.num_threads = 512
         self.launch_config = config
 
+        load_cg_tensor = self.load_cg_tensor
+
         class RepData:
             def __init__(self, rep):
                 self.num_irreps = rep.num_irreps()
                 self.rep_len = rep.get_rep_length()
                 self.irrep_lengths = [rep.type(i) * 2 + 1 for i in range(self.num_irreps)]
                 self.mults = [ rep.mult(i) for i in range(self.num_irreps)]
-                self.offsets = rep.get_irrep_offsets() 
+                self.offsets = rep.get_irrep_offsets()
 
-        # Triples that give the interacting representations 
+        class CGTensor:
+            def __init__(self, l1, l2, l3):
+                tensor = load_cg_tensor(l1, l2, l3)
+                self.coord = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
+                float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
+                self.values = [str(float.hex(float(val))) + "f" for val in float_values]
+                self.nnz = len(self.values)
+
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
+        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions] 
 
         self.jit_kernel = template.render(
             L1=Repdata(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
-
-            nnz = len(str_values),
-            values = str_values,
-            coord1 = coord[0],
-            coord2 = coord[1],
-            coord3 = coord[2],
-
             thread_block_size = config.num_threads
         ) 
 
