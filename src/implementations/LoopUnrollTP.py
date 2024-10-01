@@ -36,7 +36,7 @@ class LoopUnrollTP(TensorProduct):
         class CGTensor:
             def __init__(self, l1, l2, l3):
                 tensor = load_cg_tensor(l1, l2, l3)
-                self.coord = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
+                self.coord1, self.coord2, self.coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
                 float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
                 self.values = [str(float.hex(float(val))) + "f" for val in float_values]
                 self.nnz = len(self.values)
@@ -45,7 +45,7 @@ class LoopUnrollTP(TensorProduct):
         interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions] 
 
         self.jit_kernel = template.render(
-            L1=Repdata(L1), L2=RepData(L2), L3=RepData(L3),
+            L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
             thread_block_size = config.num_threads
         ) 

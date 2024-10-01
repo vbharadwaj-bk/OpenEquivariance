@@ -61,13 +61,13 @@ __global__ void loop_unroll_many_to_one(
             float l3_vec[{{L3.irrep_lengths[w]}}];
 
             #pragma unroll
-            for(int j = 0; j < {{L1.one_rep_len}}; j++) {
+            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
                 l1_vec[j] = L1_smem[lane_id + {{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
             }
 
             #pragma unroll
             for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
-                l2_vec[j] = L2_smem[j + L2.offsets[v]];
+                l2_vec[j] = L2_smem[j + {{L2.offsets[v]}}];
             }
 
             #pragma unroll
@@ -83,7 +83,7 @@ __global__ void loop_unroll_many_to_one(
             // TODO: Should change to += accumulate, buffer the output in shared memory. 
             #pragma unroll
             for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
-                l3_shft[{{L3.mults[w]}} * j + L3.offsets[w]] = l3_vec[j];
+                l3_shft[{{L3.mults[w]}} * j + {{L3.offsets[w]}}] = l3_vec[j];
             }
         {%- endfor %}
     }
