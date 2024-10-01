@@ -55,7 +55,7 @@ class LoopUnrollTP(TensorProduct):
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
             thread_block_size = config.num_threads
-        ) 
+        )
 
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
 

@@ -114,8 +114,15 @@ if __name__=='__main__':
             ((1, 4), (2, 3), (2, 5))
     ]
 
-    #bench_suite = TestBenchmarkSuite(LoopUnrollTP.testcases(), bench_batch_size=1000000)
-    #bench_suite.run([LoopUnrollTP])
+    full_decomp_tests = [
+        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), # Last value is Lmax
+        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 4),
+        ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]
+
+    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
+    bench_suite.run([LoopUnrollTP])
+
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
 
@@ -124,5 +131,5 @@ if __name__=='__main__':
     #                    GemmTensorProduct,
     #                    ShuffleReduceTensorProduct])
 
-    debug(LoopUnrollTP, ("32x3e", "1x2e", 5))
+    #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
     #debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))
