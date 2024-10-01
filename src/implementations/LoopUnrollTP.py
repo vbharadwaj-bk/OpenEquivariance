@@ -30,12 +30,18 @@ class LoopUnrollTP(TensorProduct):
 
         class RepData:
             def __init__(self, rep):
-                self.one_rep_len = rep.type(0) * 2 + 1 
+                self.num_irreps = rep.num_irreps()
                 self.rep_len = rep.get_rep_length()
-                self.mult = rep.mult(0)
+                self.irrep_lengths = [rep.type(i) * 2 + 1 for i in range(self.num_irreps)]
+                self.mults = [ rep.mult(i) for i in range(self.num_irreps)]
+                self.offsets = rep.get_irrep_offsets() 
+
+        # Triples that give the interacting representations 
+        interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
 
         self.jit_kernel = template.render(
             L1=Repdata(L1), L2=RepData(L2), L3=RepData(L3),
+            interactions=interactions,
 
             nnz = len(str_values),
             values = str_values,

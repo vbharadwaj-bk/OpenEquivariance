@@ -55,33 +55,35 @@ __global__ void loop_unroll_many_to_one(
             L2_smem[j + lane_id] = l2_shft[j];
         )
 
-        float l1_vec[{{L1.one_rep_len}}];
-        float l2_vec[{{L2.one_rep_len}}];
-        float l3_vec[{{L3.one_rep_len}}];
+        {%- for u, v, w in interactions %}
+            float l1_vec[{{L1.one_rep_len}}];
+            float l2_vec[{{L2.one_rep_len}}];
+            float l3_vec[{{L3.one_rep_len}}];
 
-        #pragma unroll
-        for(int j = 0; j < {{L1.one_rep_len}}; j++) {
-            l1_vec[j] = L1_smem[lane_id + {{L1.mult}} * j];
-        }
+            #pragma unroll
+            for(int j = 0; j < {{L1.one_rep_len}}; j++) {
+                l1_vec[j] = L1_smem[lane_id + {{L1.mult}} * j];
+            }
 
-        #pragma unroll
-        for(int j = 0; j < {{L2.one_rep_len}}; j++) {
-            l2_vec[j] = L2_smem[j];
-        }
+            #pragma unroll
+            for(int j = 0; j < {{L2.one_rep_len}}; j++) {
+                l2_vec[j] = L2_smem[j];
+            }
 
-        #pragma unroll
-        for(int j = 0; j < {{L3.one_rep_len}}; j++) {
-            l3_vec[j] = 0.0f; 
-        }
+            #pragma unroll
+            for(int j = 0; j < {{L3.one_rep_len}}; j++) {
+                l3_vec[j] = 0.0f; 
+            }
 
-        {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
-        {%- for i in range(nnz) %}
-        l3_vec[{{coord3[i]}}] += {{values[i]}} * l1_vec[{{coord1[i]}}] * l2_vec[{{coord2[i]}}];
+            {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
+            {%- for i in range(nnz) %}
+            l3_vec[{{coord3[i]}}] += {{values[i]}} * l1_vec[{{coord1[i]}}] * l2_vec[{{coord2[i]}}];
+            {%- endfor %}
+
+            #pragma unroll
+            for(int j = 0; j < {{L3.one_rep_len}}; j++) {
+                l3_shft[{{L3.mult}} * j] = l3_vec[j];
+            }
         {%- endfor %}
-
-        #pragma unroll
-        for(int j = 0; j < {{L3.one_rep_len}}; j++) {
-            l3_shft[{{L3.mult}} * j] = l3_vec[j];
-        }
     }
 }
