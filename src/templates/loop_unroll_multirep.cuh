@@ -56,6 +56,7 @@ __global__ void loop_unroll_many_to_one(
         )
 
         {%- for u, v, w, tensor in interactions %}
+        {
             float l1_vec[{{L1.irrep_lengths[u]}}];
             float l2_vec[{{L2.irrep_lengths[v]}}];
             float l3_vec[{{L3.irrep_lengths[w]}}];
@@ -85,6 +86,7 @@ __global__ void loop_unroll_many_to_one(
             for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
                 l3_shft[{{L3.mults[w]}} * j + {{L3.offsets[w]}}] = l3_vec[j];
             }
+        }
         {%- endfor %}
     }
 }

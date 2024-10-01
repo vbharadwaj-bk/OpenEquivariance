@@ -10,8 +10,15 @@ class LoopUnrollTP(TensorProduct):
     def __init__(self, reps, batch_size):
         super().__init__(reps, batch_size)
         L1, L2, L3 = self.L1, self.L2, self.L3
-        #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        assert(L1.mult(0) == 32 and L2.mult(0) == 1 and L3.mult(0) == 32)
+
+        for i in range(L1.num_irreps()):
+            assert(L1.mult(i) == 32)
+
+        for i in range(L2.num_irreps()):
+            assert(L2.mult(i) == 1)
+
+        for i in range(L3.num_irreps()):
+            assert(L3.mult(i) == 32)
 
         # =====================================================================
         env = Environment(loader=FileSystemLoader("src/templates"))

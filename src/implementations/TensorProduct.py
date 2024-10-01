@@ -130,9 +130,12 @@ class TensorProduct:
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
         ops_per_tp = 0
+        nnz = 0
         for u, v, w in interactions:
             tensor = self.load_cg_tensor(L1.type(u), L2.type(v), L3.type(w))
-            ops_per_tp += ops_per_nz * np.count_nonzero(tensor) * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
+            local_nnz = np.count_nonzero(tensor)
+            nnz += local_nnz
+            ops_per_tp += ops_per_nz * local_nnz * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
@@ -145,8 +148,8 @@ class TensorProduct:
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "cg tensor nnz": nnz,
-            "batch size": batch_size,
+            "total_cg_nnz": nnz,
+            "flops_per_tp": ops_per_tp,
             "L1": L1.to_string(),
             "L2": L2.to_string(),
             "L3": L3.to_string(),
