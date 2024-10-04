@@ -22,9 +22,9 @@ def compare_output_to_e3nn(config, batch_size):
 
     In1 = irreps_L1.randn(batch_size, -1)
     In2 = irreps_L2.randn(batch_size, -1)
-    L3_out_fast = np.zeros((1, triple.L3.get_rep_length() ), dtype=np.float32)
+    L3_out_fast = np.zeros((1, reps.L3.get_rep_length() ), dtype=np.float32)
 
     fast_tp.exec_tensor_product_cpu(In1.numpy(), In2.numpy(), L3_out_fast)
     e3nn_output = tp(In1, In2)
 
-    print(e3nn_output / (L3_out_fast * np.sqrt(5))) 
+    print(e3nn_output / (L3_out_fast)) 
