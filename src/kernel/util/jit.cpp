@@ -87,14 +87,30 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
         kernel_names.push_back(result);
     }
 
+    bool requiresCGheaders = true;
+    char *compileParams[1];
+    int numCompileOptions = 0;
+
+    if (requiresCGheaders)
+    {
+        std::string compileOptions;
+        //char *HeaderNames = "cooperative_groups.h";
+
+        compileOptions = "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/";
+
+        compileParams[0] = (char *) malloc(sizeof(char)* (compileOptions.length() + 1));
+        strcpy(compileParams[0], compileOptions.c_str());
+        numCompileOptions++;
+    }
+
     // =========================================================
     // Step 2: Add name expressions, compile 
     for (size_t i = 0; i < kernel_names.size(); ++i)
         NVRTC_SAFE_CALL(nvrtcAddNameExpression(prog, kernel_names[i].c_str()));
 
     nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
-                                                    0,     // numOptions
-                                                    NULL); // options
+                                                    numCompileOptions,     // numOptions
+                                                    compileParams); // options
 
     size_t logSize;
     NVRTC_SAFE_CALL(nvrtcGetProgramLogSize(prog, &logSize));
@@ -138,6 +154,9 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
         kernels.emplace_back();
         CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
     }
+
+    if (requiresCGheaders)
+        free(compileParams[0]);
 }
 
 void JITKernel::set_max_smem(uint32_t max_smem_bytes) {

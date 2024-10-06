@@ -1,5 +1,7 @@
 {# Jinja2 Template #}
 
+#include <cooperative_groups.h>
+
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE {{thread_block_size}}
 #define WARPS_PER_BLOCK THREAD_BLOCK_SIZE / THREADS_PER_WARP
