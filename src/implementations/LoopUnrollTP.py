@@ -6,14 +6,6 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 
 logger = getLogger()
 
-#def sizeof(dtype):
-#    if dtype in ["double"]:
-#        return 8
-#    elif dtype in ["float", "int", "unsigned int"]:
-#        return 4
-#    elif dtype in ["char"]:
-#        return 1
-
 class LoopUnrollTP(TensorProduct):
     def __init__(self, reps, batch_size):
         super().__init__(reps, batch_size)
@@ -60,7 +52,8 @@ class LoopUnrollTP(TensorProduct):
                 self.nnz = len(self.values)
 
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
-        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions] 
+        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
+        interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
