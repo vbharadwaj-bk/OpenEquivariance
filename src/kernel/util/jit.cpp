@@ -140,6 +140,12 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
     }
 }
 
+void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
+    cuFuncSetAttribute(kernels[0],
+                    CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
+                    max_smem_bytes);
+}
+
 void JITKernel::execute(uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem, CUstream hStream) {
 

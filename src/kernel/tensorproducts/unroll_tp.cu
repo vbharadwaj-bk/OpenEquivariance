@@ -8,9 +8,6 @@
 
 using namespace std;
 
-//#define THREADS_PER_WARP 32
-#define THREAD_BLOCK_SIZE 512
-
 UnrollTPImpl::UnrollTPImpl(
     RepTriple &reps,
     std::string jit_kernel,
@@ -20,6 +17,10 @@ UnrollTPImpl::UnrollTPImpl(
         jit(jit_kernel),
         config(config_i) {
     jit.compile("loop_unroll_many_to_one", {});
+
+    if(config.smem > 0) {
+        jit.set_max_smem(config.smem);
+    }
 }
 
 void UnrollTPImpl::exec_tensor_product(
@@ -29,6 +30,6 @@ void UnrollTPImpl::exec_tensor_product(
     float* L3_out) {
 
     void *args[] = { &num_products, &L1_in, &L2_in, &L3_out }; 
-    jit.execute(config.num_blocks, config.num_threads, args);
+    jit.execute(config.num_blocks, config.num_threads, args, config.smem);
 }
 

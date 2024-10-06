@@ -6,6 +6,14 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 
 logger = getLogger()
 
+#def sizeof(dtype):
+#    if dtype in ["double"]:
+#        return 8
+#    elif dtype in ["float", "int", "unsigned int"]:
+#        return 4
+#    elif dtype in ["char"]:
+#        return 1
+
 class LoopUnrollTP(TensorProduct):
     def __init__(self, reps, batch_size):
         super().__init__(reps, batch_size)
@@ -21,13 +29,16 @@ class LoopUnrollTP(TensorProduct):
             assert(L3.mult(i) == 32)
 
         # =====================================================================
-        env = Environment(loader=FileSystemLoader("src/templates"))
+        env = Environment(loader=FileSystemLoader("src/templates"), extensions=['jinja2.ext.do'])
+        #env.filters['sizeof'] = sizeof 
         template = env.get_template("loop_unroll_multirep.cuh")
 
         config = KernelLaunchConfig()
         config.num_blocks = GPUInfo.A100_SMS * 4 
         # Warning: correctness check fail at 1024 threads 
         config.num_threads = 512
+        config.smem = 163840
+
         self.launch_config = config
 
         load_cg_tensor = self.load_cg_tensor
@@ -56,6 +67,7 @@ class LoopUnrollTP(TensorProduct):
             interactions=interactions,
             thread_block_size = config.num_threads
         )
+        #print(self.jit_kernel)
 
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
 
