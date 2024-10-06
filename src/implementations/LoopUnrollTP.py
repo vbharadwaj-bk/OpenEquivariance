@@ -60,7 +60,9 @@ class LoopUnrollTP(TensorProduct):
             interactions=interactions,
             thread_block_size = config.num_threads
         )
+ 
         #print(self.jit_kernel)
+        #exit(1)
 
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
 
