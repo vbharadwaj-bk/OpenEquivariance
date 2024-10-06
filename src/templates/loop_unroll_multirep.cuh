@@ -17,7 +17,7 @@
         } \
     }
 
-{% macro smem_array(name, dtype, num_elements) -%}
+{%- macro smem_array(name, dtype, num_elements) -%}
     {{dtype}}* {{name}} = ({{dtype}}*) (s + {{ ns["offset"] }}); 
     {% do ns.update({"offset": ns["offset"] + " + " + num_elements + " * sizeof({})".format(dtype)}) %}
 {%- endmacro %}
@@ -31,7 +31,7 @@ __global__ void loop_unroll_many_to_one(
     float* L3_out) {
 
     extern __shared__ char s[];
-    {% set ns = {"offset": "0"} %}
+    {%- set ns = {"offset": "0"} %}
     {{ smem_array("L1_smem_full", "float", "WARPS_PER_BLOCK * " + L1.rep_len|string)}}
     {{ smem_array("L2_smem_full", "float", "WARPS_PER_BLOCK * " + L2.rep_len|string)}}
     {{ smem_array("L3_smem_full", "float", "WARPS_PER_BLOCK * " + L3.rep_len|string)}}
@@ -57,7 +57,7 @@ __global__ void loop_unroll_many_to_one(
         float* l3_shft = L3_out + i * {{L3.rep_len}} + lane_id;
 
         ROW_OPERATION({{L1.rep_len}}, j,
-            L1_smem[j] = l1_shft[j];
+            L1_smem[j] = L1_in[i * {{L1.rep_len}}  + lane_id + j];
         )
 
         ROW_OPERATION({{L2.rep_len}}, j,
@@ -73,31 +73,31 @@ __global__ void loop_unroll_many_to_one(
         float l2_vec[{{L2.irrep_lengths | max}}];
         float l3_vec[{{L3.irrep_lengths | max}}];
 
-        {% set num_interact = interactions | length %}
+        {%- set num_interact = interactions | length %}
         {%- for k in range(num_interact) %}
-            {% set u, v, w, tensor = interactions[k] %}
+            {%- set u, v, w, tensor = interactions[k] %}
 
             //==========================================
             {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
-            #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
-                l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
-            }
-            {% endif %}
+                #pragma unroll
+                for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
+                    l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+                }
+            {%- endif %}
 
             {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
-            #pragma unroll
-            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
-                l2_vec[j] = L2_smem[j + {{L2.offsets[v]}}];
-            }
-            {% endif %}
+                #pragma unroll
+                for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+                    l2_vec[j] = L2_smem[j + {{L2.offsets[v]}}];
+                }
+            {%- endif %}
 
             {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
-            #pragma unroll
-            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
-                l3_vec[j] = 0.0f;
-            }
-            {% endif %}
+                #pragma unroll
+                for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+                    l3_vec[j] = 0.0f;
+                }
+            {%- endif %}
 
             {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
             {%- for i in range(tensor.nnz) %}
@@ -106,11 +106,11 @@ __global__ void loop_unroll_many_to_one(
 
             // TODO: Should change to += accumulate, buffer the output in shared memory. 
             {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
-            #pragma unroll
-            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
-                L3_smem[{{L3.mults[w]}} * j + {{L3.offsets[w]}}] = l3_vec[j];
-            }
-            {% endif %}
+                #pragma unroll
+                for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+                    L3_smem[{{L3.mults[w]}} * j + {{L3.offsets[w]}}] = l3_vec[j];
+                }
+            {%- endif %}
         {%- endfor %}
 
         __syncwarp();

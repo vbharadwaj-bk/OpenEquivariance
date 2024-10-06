@@ -132,4 +132,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))
+    #debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))
