@@ -85,7 +85,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
-    batch_size = 10000 
+    batch_size = 10000
     tp = tp_impl(reps, batch_size) 
 
     rng = np.random.default_rng(12345)
@@ -115,7 +115,8 @@ if __name__=='__main__':
     ]
 
     full_decomp_tests = [
-        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3)#, # Last value is Lmax
+        ("32x5e", "1x5e", "32x3e")
+        #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),#, # Last value is Lmax
         #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 4),
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
@@ -132,4 +133,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    #debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))
+    #debug(LoopUnrollTP, ("32x1e", "1x1e", "32x1e"))

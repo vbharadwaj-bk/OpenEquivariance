@@ -26,7 +26,7 @@ class LoopUnrollTP(TensorProduct):
         template = env.get_template("loop_unroll_multirep.cuh")
 
         config = KernelLaunchConfig()
-        config.num_blocks = GPUInfo.A100_SMS * 4 
+        config.num_blocks = GPUInfo.A100_SMS * 4
         # Warning: correctness check fail at 1024 threads 
         config.num_threads = 512
         config.smem = 163840
@@ -64,7 +64,9 @@ class LoopUnrollTP(TensorProduct):
         #print(self.jit_kernel)
         #exit(1)
 
+        logger.info("Starting NVRTC")
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
+        logger.info("Kernel compiled!")
 
     @staticmethod
     def testcases():
