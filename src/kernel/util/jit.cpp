@@ -88,18 +88,19 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
     }
 
     bool requiresCGheaders = true;
-    char *compileParams[1];
+    char *compileParams[2];
     int numCompileOptions = 0;
 
     if (requiresCGheaders)
     {
-        std::string compileOptions;
-        //char *HeaderNames = "cooperative_groups.h";
-
-        compileOptions = "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/";
-
+        std::string compileOptions = "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/";
         compileParams[0] = (char *) malloc(sizeof(char)* (compileOptions.length() + 1));
         strcpy(compileParams[0], compileOptions.c_str());
+        numCompileOptions++;
+
+        std::string arch= "-arch=sm_80";
+        compileParams[1] = (char *) malloc(sizeof(char)* (arch.length() + 1));
+        strcpy(compileParams[1], arch.c_str());
         numCompileOptions++;
     }
 
@@ -155,8 +156,10 @@ void JITKernel::compile(string kernel_name, const vector<int> &template_params) 
         CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
     }
 
-    if (requiresCGheaders)
+    if (requiresCGheaders) {
         free(compileParams[0]);
+        free(compileParams[1]);
+    }
 }
 
 void JITKernel::set_max_smem(uint32_t max_smem_bytes) {

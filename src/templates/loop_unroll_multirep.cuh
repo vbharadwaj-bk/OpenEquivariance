@@ -1,6 +1,9 @@
 {# Jinja2 Template #}
 
-#include <cooperative_groups.h>
+#include <cooperative_groups/memcpy_async.h>
+#include <cuda/pipeline>
+
+using namespace cooperative_groups;
 
 #define THREADS_PER_WARP 32
 #define THREAD_BLOCK_SIZE {{thread_block_size}}
@@ -32,9 +35,12 @@ __global__ void loop_unroll_many_to_one(
     float* L2_in,
     float* L3_out) {
 
+    constexpr int num_stages = 2; 
+    cuda::pipeline<cuda::thread_scope_thread> pipe = cuda::make_pipeline();
+
     extern __shared__ char s[];
     {%- set ns = {"offset": "0"} %}
-    {{ smem_array("L1_smem_full", "float", "WARPS_PER_BLOCK * " + L1.rep_len|string)}}
+    {{ smem_array("L1_smem_full", "float", "WARPS_PER_BLOCK * num_stages * " + L1.rep_len|string)}}
     {{ smem_array("L2_smem_full", "float", "WARPS_PER_BLOCK * " + L2.rep_len|string)}}
     {{ smem_array("L3_smem_full", "float", "WARPS_PER_BLOCK * " + L3.rep_len|string)}}
 
@@ -43,7 +49,7 @@ __global__ void loop_unroll_many_to_one(
     int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % (WARPS_PER_BLOCK);
 
-    float* L1_smem = L1_smem_full + warp_loc * {{ L1.rep_len }} + lane_id;
+    float* L1_smem = L1_smem_full + warp_loc * {{ L1.rep_len }} * num_stages + lane_id;
     float* L2_smem = L2_smem_full + warp_loc * {{ L2.rep_len }};
     float* L3_smem = L3_smem_full + warp_loc * {{ L3.rep_len }} + lane_id;
 
@@ -53,14 +59,31 @@ __global__ void loop_unroll_many_to_one(
     size_t start = nnz_per_warp * ((size_t) warp_id);
     size_t end = min(start + nnz_per_warp, num_products);
 
+    // Fill pipeline for data loading
+    for (int stage = 0; stage < num_stages; ++stage) {
+        pipe.producer_acquire();
+        float* L1_smem_stage = L1_smem + stage * {{ L1.rep_len }};
+        float* l1_shft = L1_in + (start + stage) * {{L1.rep_len}} + lane_id;
+
+        ROW_OPERATION({{L1.rep_len}}, j,
+            cuda::memcpy_async(L1_smem_stage + j, l1_shft + j, sizeof(float), pipe);
+        )
+        pipe.producer_commit();
+    }
+
+    int stage = 0;
     for(size_t i = start; i < end; i++) {
-        float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
+        float* L1_smem_stage = L1_smem + stage * {{ L1.rep_len }};
+
+        //float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
         float* l3_shft = L3_out + i * {{L3.rep_len}} + lane_id;
 
-        ROW_OPERATION({{L1.rep_len}}, j,
+        cuda::pipeline_consumer_wait_prior<num_stages - 1>(pipe);
+
+        /*ROW_OPERATION({{L1.rep_len}}, j,
             L1_smem[j] = L1_in[i * {{L1.rep_len}}  + lane_id + j];
-        )
+        )*/
 
         ROW_OPERATION({{L2.rep_len}}, j,
             L2_smem[j + lane_id] = l2_shft[j];
@@ -83,7 +106,7 @@ __global__ void loop_unroll_many_to_one(
             {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
                 #pragma unroll
                 for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
-                    l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+                    l1_vec[j] = L1_smem_stage[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
                 }
             {%- endif %}
 
@@ -117,8 +140,22 @@ __global__ void loop_unroll_many_to_one(
 
         __syncwarp();
 
+
+        pipe.consumer_release();
+        pipe.producer_acquire();
+
+        // =========== Pre-fetch data for next stage =========
+        float* l1_shft = L1_in + (start + num_stages) * {{L1.rep_len}} + lane_id;
+
+        ROW_OPERATION({{L1.rep_len}}, j,
+            cuda::memcpy_async(L1_smem_stage + j, l1_shft + j, sizeof(float), pipe);
+        )
+        // =========== End Pre-fetch =========
+
         ROW_OPERATION({{L3.rep_len}}, j,
             l3_shft[j] = L3_smem[j]; 
         )
+
+        stage = (stage + 1) % num_stages;
     }
 }
