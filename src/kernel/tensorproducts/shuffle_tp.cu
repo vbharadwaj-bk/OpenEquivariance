@@ -153,5 +153,5 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     Linfo L2_info = {L2_in, static_cast<uint32_t>(L2.get_rep_length())};
     Linfo L3_info = {L3_out, static_cast<uint32_t>(L3.get_rep_length())};
     void *args[] = { &num_products, &L1_info, &L2_info, &L3_info, &warp_values.ptr, &l1_indices.ptr, &l2_indices.ptr, &red_lanes.ptr };
-    jit.execute(A100_SMS * 2, THREAD_BLOCK_SIZE, args);
+    jit.execute(0, A100_SMS * 2, THREAD_BLOCK_SIZE, args);
 }

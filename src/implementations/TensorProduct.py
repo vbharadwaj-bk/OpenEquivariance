@@ -118,7 +118,6 @@ class TensorProduct:
         L1, L2, L3 = self.L1, self.L2, self.L3
         interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
 
-
         # Each multiplication requires two multiplications and one addition --> 3 
         ops_per_nz = 3
         ops_per_tp = 0

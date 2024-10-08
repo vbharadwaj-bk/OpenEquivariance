@@ -71,20 +71,36 @@ JITKernel::JITKernel(string gpu_program) :
 }
 
 void JITKernel::compile(string kernel_name, const vector<int> &template_params) {
-    // Step 1: Generate kernel names from the template parameters 
-    if(template_params.size() == 0) {
-        kernel_names.push_back(kernel_name);
+    vector<string> kernel_names = {kernel_name};
+    vector<vector<int>> template_param_list = {template_params};
+    compile(kernel_names, template_param_list);
+}
+
+void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &template_param_list) {
+    if(compiled) {
+        throw std::logic_error("JIT object has already been compiled!");
     }
-    else {
-        std::string result = kernel_name + "<";
-        for(int i = 0; i < template_params.size(); i++) {
-            result += std::to_string(template_params[i]); 
-            if(i != template_params.size() - 1) {
-                result += ",";
-            }
+
+    for(int kernel = 0; kernel < kernel_names_i.size(); kernel++) {
+        string kernel_name = kernel_names_i[kernel];
+        vector<int> &template_params = template_param_list[kernel];
+
+        // Step 1: Generate kernel names from the template parameters 
+        if(template_params.size() == 0) {
+            kernel_names.push_back(kernel_name);
         }
-        result += ">";
-        kernel_names.push_back(result);
+        else {
+            std::string result = kernel_name + "<";
+            for(int i = 0; i < template_params.size(); i++) {
+                result += std::to_string(template_params[i]); 
+                if(i != template_params.size() - 1) {
+                    result += ",";
+                }
+            }
+            result += ">";
+            kernel_names.push_back(result);
+        }
+
     }
 
     bool requiresCGheaders = true;
@@ -168,10 +184,10 @@ void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
                     max_smem_bytes);
 }
 
-void JITKernel::execute(uint32_t num_blocks, uint32_t num_threads, 
+void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem, CUstream hStream) {
 
-    cuLaunchKernel( kernels[0],
+    cuLaunchKernel( kernels[kernel_id],
                     num_blocks, 1, 1,    // grid dim
                     num_threads, 1, 1,   // block dim
                     smem, hStream,       // shared mem and stream
@@ -204,5 +220,5 @@ void test_jit() {
     jit.compile("f3", { 3 });
     int test = 5;
     void *args[] = { &test };
-    jit.execute(1, 32, args);
+    jit.execute(0, 1, 32, args);
 }
