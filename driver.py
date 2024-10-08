@@ -85,12 +85,12 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config, direction="forward"):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
-    batch_size = 10000 
-    tp = tp_impl(reps, batch_size) 
+    batch_size = 10000
+    tp = tp_impl(reps, batch_size)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32)
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32)
     L3_out = np.zeros((batch_size, L3.get_rep_length() ), dtype=np.float32)
 
     if direction == "forward":
@@ -98,8 +98,9 @@ def debug(tp_impl, config, direction="forward"):
         _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
         print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
     elif direction == "backward":
-        L3_grad = L3_out 
-        tp.backward_cpu(L1_in, L2_in, L3_grad)
+        L3_grad = L3_out
+        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())))
+        tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
     else:
         assert(False)
 
@@ -123,8 +124,8 @@ if __name__=='__main__':
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP])
+    #bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
+    #bench_suite.run([LoopUnrollTP])
 
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
@@ -135,4 +136,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    #debug(LoopUnrollTP, ("32x1e", "1x1e", "32x1e"))
+    debug(LoopUnrollTP, ("32x1e", "1x1e", "32x1e"), direction="backward")

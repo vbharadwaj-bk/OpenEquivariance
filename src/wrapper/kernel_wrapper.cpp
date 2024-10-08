@@ -26,6 +26,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("to_string", &RepTriple::to_string)
         .def("num_interactions", &RepTriple::num_interactions)
         .def("interactions", &RepTriple::interactions)
+        .def("num_trainable_weights", &RepTriple::num_trainable_weights)
         .def_readwrite("L1", &RepTriple::L1) 
         .def_readwrite("L2", &RepTriple::L2)
         .def_readwrite("L3", &RepTriple::L3);

@@ -53,7 +53,9 @@ class TensorProduct:
         self.internal.backward_cpu(L1_in, L1_grad, 
                 L2_in, L2_grad,
                 weights, weights_grad, 
-                L3_out) 
+                L3_grad)
+
+        return L1_grad, L2_grad, weights_grad
 
     def load_cg_tensor(self, l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]

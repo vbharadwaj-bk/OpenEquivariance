@@ -58,10 +58,8 @@ public:
             float* L2_in, float* L2_grad,
             float* weight, float* weight_grad,
             float* L3_grad) {
-        
-        cout << "Executing tensor product!" << endl;
 
-        //throw std::logic_error("Backward pass not implemented yet!");
+        throw std::logic_error("Backward pass not implemented yet!");
     }
 
     void backward_cpu(
@@ -70,9 +68,9 @@ public:
             py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
             py::array_t<float> L3_grad_py) {
 
-        Buffer<float> L1_grad_host(L1_out_py);
-        Buffer<float> L2_grad_host(L2_out_py);
-        Buffer<float> L3_grad_host(L3_out_py);
+        Buffer<float> L1_grad_host(L1_grad_py);
+        Buffer<float> L2_grad_host(L2_grad_py);
+        Buffer<float> L3_grad_host(L3_grad_py);
         Buffer<float> weight_grad_host(weight_grad_py);
 
         // Copies data to device 

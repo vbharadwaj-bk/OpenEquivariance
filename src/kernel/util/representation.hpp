@@ -182,6 +182,16 @@ public:
         return interactions_i.size();
     }
 
+    int num_trainable_weights() {
+        // Assumes all "uvu" interactions 
+        int total_weights = 0;
+
+        for(auto triple : interactions_i) {
+            total_weights += L1.mult(get<0>(triple)) * L2.mult(get<1>(triple));
+        }
+        return total_weights;
+    }
+
     tuple<int, int, int> interactions(int i) {
         return interactions_i[i]; 
     }
