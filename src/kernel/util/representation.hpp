@@ -171,8 +171,7 @@ public:
                 int lB = min(L1.type(i), L2.type(j));
 
                 for(int k = lA - lB; k <= min(lA + lB, LMax); k++) {
-                    // To-do: deal with even / oddness 
-                    L3.irreps.emplace_back(L1.mult(i) * L2.mult(j), k, 0);
+                    L3.irreps.emplace_back(L1.mult(i) * L2.mult(j), k, (L1.even(i) + L2.even(j)) % 2);
                     interactions_i.emplace_back(i, j, static_cast<int>(L3.num_irreps()) - 1);
                 }
             }

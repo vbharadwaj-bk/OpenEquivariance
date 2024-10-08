@@ -115,9 +115,10 @@ if __name__=='__main__':
     ]
 
     full_decomp_tests = [
-        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), # Last value is Lmax
-        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 4),
-        ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        ("32x5e", "1x5e", "32x3e")
+        #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),#, # Last value is Lmax
+        #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 4),
+        #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
@@ -132,4 +133,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    #debug(LoopUnrollTP, ("32x4e", "1x3e", "32x5e"))
+    #debug(LoopUnrollTP, ("32x1e", "1x1e", "32x1e"))

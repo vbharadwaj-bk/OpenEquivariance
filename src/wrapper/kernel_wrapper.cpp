@@ -32,7 +32,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
-        .def_readwrite("num_threads", &KernelLaunchConfig::num_threads);
+        .def_readwrite("num_threads", &KernelLaunchConfig::num_threads)
+        .def_readwrite("smem", &KernelLaunchConfig::smem);
 
     //=========== Batch tensor products =========
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")

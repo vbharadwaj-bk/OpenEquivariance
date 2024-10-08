@@ -21,13 +21,16 @@ class LoopUnrollTP(TensorProduct):
             assert(L3.mult(i) == 32)
 
         # =====================================================================
-        env = Environment(loader=FileSystemLoader("src/templates"))
+        env = Environment(loader=FileSystemLoader("src/templates"), extensions=['jinja2.ext.do'])
+        #env.filters['sizeof'] = sizeof 
         template = env.get_template("loop_unroll_multirep.cuh")
 
         config = KernelLaunchConfig()
-        config.num_blocks = GPUInfo.A100_SMS * 4 
+        config.num_blocks = GPUInfo.A100_SMS * 4
         # Warning: correctness check fail at 1024 threads 
         config.num_threads = 512
+        config.smem = 163840
+
         self.launch_config = config
 
         load_cg_tensor = self.load_cg_tensor
@@ -49,15 +52,21 @@ class LoopUnrollTP(TensorProduct):
                 self.nnz = len(self.values)
 
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
-        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions] 
+        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
+        interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
             thread_block_size = config.num_threads
         )
+ 
+        #print(self.jit_kernel)
+        #exit(1)
 
+        logger.info("Starting NVRTC")
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
+        logger.info("Kernel compiled!")
 
     @staticmethod
     def testcases():
