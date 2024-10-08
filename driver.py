@@ -82,7 +82,7 @@ class TestBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}.')
 
-def debug(tp_impl, config):
+def debug(tp_impl, config, direction="forward"):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
     batch_size = 10000 
@@ -93,13 +93,15 @@ def debug(tp_impl, config):
     L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32) 
     L3_out = np.zeros((batch_size, L3.get_rep_length() ), dtype=np.float32)
 
-    tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-    _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
-
-    #print(L3_out) 
-    #print(ground_truth) 
-    #print(L3_out - ground_truth)
-    print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+    if direction == "forward":
+        tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
+        _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+    elif direction == "backward":
+        L3_grad = L3_out 
+        tp.backward_cpu(L1_in, L2_in, L3_grad)
+    else:
+        assert(False)
 
 if __name__=='__main__':
     default_tests = [

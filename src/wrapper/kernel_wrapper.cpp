@@ -39,6 +39,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product)
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
+        .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
         .def("benchmark_cpu", &GenericTensorProductImpl::benchmark_cpu);
     py::class_<ThreadTensorProductImpl, GenericTensorProductImpl>(m, "ThreadTensorProductImpl")
         .def(py::init<RepTriple&, 

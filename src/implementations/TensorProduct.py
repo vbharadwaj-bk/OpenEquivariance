@@ -41,6 +41,20 @@ class TensorProduct:
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
 
+    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
+        '''
+        We break from convention here by allocating and returning
+        the appropriate buffers. 
+        '''
+        L1_grad = np.zeros_like(L1_in)
+        L2_grad = np.zeros_like(L2_in)
+        weights_grad = np.zeros_like(weights)
+
+        self.internal.backward_cpu(L1_in, L1_grad, 
+                L2_in, L2_grad,
+                weights, weights_grad, 
+                L3_out) 
+
     def load_cg_tensor(self, l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
