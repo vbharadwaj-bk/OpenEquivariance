@@ -103,7 +103,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &temp
 
     }
 
-    bool requiresCGheaders = true;
+    constexpr bool requiresCGheaders = false;
     char *compileParams[2];
     int numCompileOptions = 0;
 
