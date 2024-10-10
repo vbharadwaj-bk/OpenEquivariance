@@ -6,6 +6,18 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 
 logger = getLogger()
 
+def raise_helper(msg):
+    raise Exception(msg)
+
+def divide(numerator, denominator):
+    return numerator // denominator 
+
+def sizeof(dtype):
+    if dtype in ["float", "int", "unsigned int"]:
+        return 4
+    else:
+        raise Exception("Provided undefined datatype to sizeof!")
+
 class LoopUnrollTP(TensorProduct):
     def __init__(self, reps, batch_size):
         super().__init__(reps, batch_size)
@@ -22,7 +34,9 @@ class LoopUnrollTP(TensorProduct):
 
         # =====================================================================
         env = Environment(loader=FileSystemLoader("src/templates"), extensions=['jinja2.ext.do'])
-        #env.filters['sizeof'] = sizeof 
+        env.globals['raise'] = raise_helper 
+        env.globals['divide'] = divide 
+        env.globals['sizeof'] = sizeof 
         template = env.get_template("loop_unroll_multirep.cuh")
 
         config = KernelLaunchConfig()
@@ -32,7 +46,6 @@ class LoopUnrollTP(TensorProduct):
         config.smem = 163840
 
         self.launch_config = config
-
         load_cg_tensor = self.load_cg_tensor
 
         class RepData:
@@ -58,11 +71,9 @@ class LoopUnrollTP(TensorProduct):
         self.jit_kernel = template.render(
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
-            thread_block_size = config.num_threads
+            THREAD_BLOCK_SIZE= config.num_threads,
+            max_smem_bytes=config.smem
         )
- 
-        #print(self.jit_kernel)
-        #exit(1)
 
         logger.info("Starting NVRTC")
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)

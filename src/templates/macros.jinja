@@ -1,0 +1,31 @@
+{#
+First input argument consists of a dictionary with keys _common_ and _per_warp_.
+Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
+#}
+{%- macro declare_smem_arrays(arrays, warp_loc_var) %}
+    extern __shared__ char s[];
+    {%- set ns = {"offset": 0, "total_warp_bytes": 0} %}
+    {%- for name, dtype, num_elements in arrays["common"] %}
+        {{dtype}}* {{name}} = ({{dtype}}*) (s + {{ ns["offset"] }});
+        {% do ns.update({"offset": ns["offset"] + num_elements * sizeof(dtype)}) %}
+        {% if ns["offset"] >= max_smem_bytes %}
+            {{ raise("Error, required shared memory exceeds allocation maximum!") }}
+        {% endif %}
+    {%- endfor %}
+
+    {%- for name, dtype, num_elements in arrays["per_warp"] %}
+        {% do ns.update({"total_warp_bytes": ns["total_warp_bytes"] + num_elements * sizeof(dtype)}) %}
+    {%- endfor %}
+
+    {%- if ns["offset"] + ns["total_warp_bytes"] * WARPS_PER_BLOCK >= max_smem_bytes %}
+        {{ raise("Error, required shared memory exceeds allocation maximum!") }}
+    {%- endif %}
+
+    char* per_warp_smem = s + {{ns["offset"]}} + {{ns["total_warp_bytes"]}} * {{ warp_loc_var }};
+
+    {%- do ns.update({"offset": 0}) %}
+    {%- for name, dtype, num_elements in arrays["per_warp"] %}
+        {{dtype}}* {{name}} = ({{dtype}}*) (per_warp_smem + {{ ns["offset"] }});
+        {% do ns.update({"offset": ns["offset"] + num_elements * sizeof(dtype)}) %}
+    {%- endfor %}
+{%- endmacro %}
