@@ -91,24 +91,74 @@ __global__ void loop_unroll_many_to_one(
         float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
         float* l3_shft = L3_out + i * {{L3.rep_len}} + lane_id;
 
-        ROW_OPERATION({{L1.rep_len}}, j,
-            L1_smem[j + lane_id] = L1_in[i * {{L1.rep_len}}  + lane_id + j];
-        )
-
-        ROW_OPERATION({{L2.rep_len}}, j,
-            L2_smem[j + lane_id] = l2_shft[j];
-        )
-
-        ROW_OPERATION({{L3.rep_len}}, j,
-            L3_smem[j + lane_id] = 0.0f; 
-        )
+        ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
+        ROW_OPERATION({{L2.rep_len}}, j, L2_smem[j + lane_id] = l2_shft[j];)
+        ROW_OPERATION({{L3.rep_len}}, j, L3_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
         forward_loop_unroll(L1_smem + lane_id, L2_smem, L3_smem + lane_id);
         __syncwarp();
 
-        ROW_OPERATION({{L3.rep_len}}, j,
-            l3_shft[j] = L3_smem[j + lane_id]; 
-        )
+        ROW_OPERATION({{L3.rep_len}}, j, l3_shft[j] = L3_smem[j + lane_id];)
     }
 }
+
+/*
+* Backward pass kernel. Currently assumes that each tensor product
+* has a unique set of weights. 
+* 
+* Inputs:
+*   L1_in, L2_in, weights, L3_grad
+* Outputs:
+*   L1_grad, L2_grad, weights_grad 
+*/
+__global__ void loop_unroll_backward(
+    size_t num_products,
+    float* L1_in, float* L1_grad,
+    float* L2_in, float* L2_grad,
+    float* weights, float* weights_grad,
+    float* L3_grad) {
+
+    {{ set_launch_bound_variables() }}
+
+    {{ declare_smem_arrays({
+        "common": [],
+        "per_warp": [
+            ("L1_in_smem", "float", L1.rep_len),
+            ("L1_grad_smem", "float", L1.rep_len),
+            ("L2_in_smem", "float", L2.rep_len),
+            ("L2_grad_smem", "float", L2.rep_len),
+            ("weights_smem", "float", weights.total_len),
+            ("weights_grad_smem", "float", weights.total_len),
+            ("L3_grad_smem", "float", L3.rep_len)
+        ]}, "warp_loc")}}
+
+    for(size_t i = start; i < end; i++) {
+        float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
+        float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
+        float* l3_shft = L3_grad + i * {{L3.rep_len}} + lane_id;
+        float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
+
+        ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
+        ROW_OPERATION({{L2.rep_len}}, j, L2_smem[j + lane_id] = l2_shft[j];)
+        ROW_OPERATION({{L3.rep_len}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
+        ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+
+        ROW_OPERATION({{L1.rep_len}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{L2.rep_len}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
+
+        __syncwarp();
+        // Computation here!
+        __syncwarp();
+
+        float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
+        float* l2_grad_shft = L2_grad + i * {{L2.rep_len}} + lane_id; 
+        float* weights_grad_shft = weights_grad + i * {{weights.total_len}} + lane_id;
+
+        ROW_OPERATION({{L1.rep_len}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
+        ROW_OPERATION({{L2.rep_len}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
+        ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id] = 0.0f;)
+    }
+}
+
