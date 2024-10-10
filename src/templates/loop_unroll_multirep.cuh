@@ -26,6 +26,7 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
     float l1_vec[{{L1.irrep_lengths | max}}];
     float l2_vec[{{L2.irrep_lengths | max}}];
     float l3_vec[{{L3.irrep_lengths | max}}];
+    float weight, weight_grad = 0.0;
 
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
@@ -34,26 +35,22 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
         //==========================================
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
             #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
+            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++)
                 l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
-            }
         {%- endif %}
 
         {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
             #pragma unroll
-            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++)
                 l2_vec[j] = L2_smem[j + {{L2.offsets[v]}}];
-            }
         {%- endif %}
 
         {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
             #pragma unroll
-            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++)
                 l3_vec[j] = 0.0f;
-            }
         {%- endif %}
 
-        {# Value, L1_idx, L2_idx, L3_idx in each tuple #}
         {%- for i in range(tensor.nnz) %}
             l3_vec[{{tensor.coord3[i]}}] += {{tensor.values[i]}} * l1_vec[{{tensor.coord1[i]}}] * l2_vec[{{tensor.coord2[i]}}];
         {%- endfor %}
@@ -61,9 +58,8 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
         // TODO: Should change to += accumulate, buffer the output in shared memory. 
         {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
             #pragma unroll
-            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++) {
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++)
                 L3_smem[{{L3.mults[w]}} * j + {{L3.offsets[w]}}] = l3_vec[j];
-            }
         {%- endif %}
     {%- endfor %}
 }
@@ -71,10 +67,7 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
 // Assumes all reps in L1 have multiplicity 32, all reps in L2 have multiplicity 1. 
 // column-major data layout 
 __global__ void loop_unroll_many_to_one(
-    size_t num_products,
-    float* L1_in,
-    float* L2_in,
-    float* L3_out) {
+    size_t num_products, float* L1_in, float* L2_in, float* L3_out) {
 
     {{ set_launch_bound_variables() }}
 
@@ -103,6 +96,80 @@ __global__ void loop_unroll_many_to_one(
     }
 }
 
+__device__ __forceinline__ void backward_loop_unroll(
+        const float* __restrict__ L1_smem,
+        const float* __restrict__ L2_smem,
+        const float* __restrict__ weights_smem,
+        const float* __restrict__ L3_grad_smem,
+
+        float* __restrict__ L1_grad_smem,
+        float* __restrict__ L2_grad_smem,
+        float* __restrict__ weights_grad_smem) {
+
+    float l1_vec[{{L1.irrep_lengths  | max}}]; 
+    float l1_grad[{{L1.irrep_lengths | max}}]; 
+    float l2_vec[{{L2.irrep_lengths  | max}}];
+    float l2_grad[{{L1.irrep_lengths | max}}]; 
+    float l3_vec[{{L3.irrep_lengths  | max}}];
+
+    {% set num_scratch_reg = 5 %}
+    float scratch[{{num_scratch_reg}}];
+    float weight, weight_grad;
+
+    {%- set num_interact = interactions | length %}
+    {%- for k in range(num_interact) %}
+        {%- set u, v, w, tensor = interactions[k] %}
+        weight = weights_smem[{{weights.offset[k]}}]
+        weight_grad = weights_grad_smem[{{weights.offset[k]}}]
+
+        //==========================================
+        {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
+            #pragma unroll
+            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
+                l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+                l1_grad[j] = L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+            }
+        {%- endif %}
+
+        {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
+            #pragma unroll
+            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+                l2_vec[j] = L2_smem[j + {{L2.offsets[v]}}];
+                l2_grad[j] = L2_grad_smem[j + {{L2.offsets[v]}}];
+            }
+        {%- endif %}
+
+        {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
+            #pragma unroll
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++)
+                l3_vec[j] = L3_smem[{{L3.mults[u]}} * j + {{ L3.offsets[u]}}];
+        {%- endif %}
+
+        {%- for i in range(tensor.nnz) %}
+            // TODO: Computation! 
+            //l3_vec[{{tensor.coord3[i]}}] += {{tensor.values[i]}} * l1_vec[{{tensor.coord1[i]}}] * l2_vec[{{tensor.coord2[i]}}];
+        {%- endfor %}
+
+        // Storeback
+        {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
+            #pragma unroll
+            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
+                L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}] = l1_grad[j];
+            }
+        {%- endif %}
+
+        {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
+            #pragma unroll
+            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+                L2_grad_smem[j + {{L2.offsets[v]}}] = l2_grad[j];
+            }
+        {%- endif %}
+
+        weights_smem[{{weights.offset[k]}}] = weight;
+        weights_grad_smem[{{weights.offset[k]}}] = weight_grad; 
+    {%- endfor %}
+}
+
 /*
 * Backward pass kernel. Currently assumes that each tensor product
 * has a unique set of weights. 
@@ -124,9 +191,9 @@ __global__ void loop_unroll_backward(
     {{ declare_smem_arrays({
         "common": [],
         "per_warp": [
-            ("L1_in_smem", "float", L1.rep_len),
+            ("L1_smem", "float", L1.rep_len),
             ("L1_grad_smem", "float", L1.rep_len),
-            ("L2_in_smem", "float", L2.rep_len),
+            ("L2_smem", "float", L2.rep_len),
             ("L2_grad_smem", "float", L2.rep_len),
             ("weights_smem", "float", weights.total_len),
             ("weights_grad_smem", "float", weights.total_len),
@@ -149,7 +216,8 @@ __global__ void loop_unroll_backward(
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        // Computation here!
+        backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
+                L1_grad + lane_id, L2_grad, weights_grad + lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
