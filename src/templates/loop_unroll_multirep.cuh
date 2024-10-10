@@ -110,11 +110,13 @@ __device__ __forceinline__ void backward_loop_unroll(
     float l1_grad[{{L1.irrep_lengths | max}}]; 
     float l2_vec[{{L2.irrep_lengths  | max}}];
     float l2_grad[{{L1.irrep_lengths | max}}]; 
-    float l3_vec[{{L3.irrep_lengths  | max}}];
+    float l3_grad[{{L3.irrep_lengths | max}}];
 
-    {% set num_scratch_reg = 5 %}
-    float scratch[{{num_scratch_reg}}];
     float weight, weight_grad;
+
+    {% set num_scratch_reg = 2 %}
+    float scratch1[{{num_scratch_reg}}];
+    float scratch2[{{num_scratch_reg}}];
 
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
@@ -142,27 +144,28 @@ __device__ __forceinline__ void backward_loop_unroll(
         {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
             #pragma unroll
             for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++)
-                l3_vec[j] = L3_smem[{{L3.mults[u]}} * j + {{ L3.offsets[u]}}];
+                l3_grad[j] = L3_grad_smem[{{L3.mults[u]}} * j + {{ L3.offsets[u]}}];
         {%- endif %}
 
         {%- for i in range(tensor.nnz) %}
-            // TODO: Computation! 
-            //l3_vec[{{tensor.coord3[i]}}] += {{tensor.values[i]}} * l1_vec[{{tensor.coord1[i]}}] * l2_vec[{{tensor.coord2[i]}}];
+            scratch1[{{i % num_scratch_reg}}] = l3_grad[{{tensor.coord3[i]}}] * {{tensor.values[i]}}; 
+            weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{tensor.coord2[i]}}] * l1_vec[{{tensor.coord1[i]}}];
+            scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
+            l2_grad[{{tensor.coord2[i]}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{tensor.coord1[i]}}];
+            l1_grad[{{tensor.coord2[i]}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{tensor.coord2[i]}}];
         {%- endfor %}
 
         // Storeback
         {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
             #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
+            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++)
                 L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}] = l1_grad[j];
-            }
         {%- endif %}
 
         {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
             #pragma unroll
-            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++)
                 L2_grad_smem[j + {{L2.offsets[v]}}] = l2_grad[j];
-            }
         {%- endif %}
 
         weights_smem[{{weights.offset[k]}}] = weight;
@@ -229,4 +232,3 @@ __global__ void loop_unroll_backward(
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id] = 0.0f;)
     }
 }
-
