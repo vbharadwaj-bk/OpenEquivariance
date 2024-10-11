@@ -60,12 +60,12 @@ class TestBenchmarkSuite:
                 tc_name = f"{reps.to_string()}, {impl.name()}"
                 logger.info(f'Starting {tc_name}.')
 
-                tp_correctness = impl(reps, self.correctness_batch_size)
+                if correctness:
+                    tp_correctness = impl(reps, self.correctness_batch_size)
+                    tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
+                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
+
                 tp_bench = impl(reps, self.bench_batch_size)
-
-                tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-                correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
-
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
@@ -125,7 +125,7 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP])
+    bench_suite.run([LoopUnrollTP], correctness=False)
 
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])

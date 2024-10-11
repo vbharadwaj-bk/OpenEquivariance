@@ -11,16 +11,13 @@ using namespace std;
 UnrollTPImpl::UnrollTPImpl(
     RepTriple &reps,
     std::string jit_kernel,
-    KernelLaunchConfig &config_i 
-    ) :
+    KernelLaunchConfig &forward_config_i,
+    KernelLaunchConfig &backward_config_i) :
         GenericTensorProductImpl(reps),
         jit(jit_kernel),
-        config(config_i) {
+        forward_config(forward_config_i),  
+        backward_config(backward_config_i) {
     jit.compile("loop_unroll_many_to_one", {});
-
-    if(config.smem > 0) {
-        jit.set_max_smem(config.smem);
-    }
 }
 
 void UnrollTPImpl::exec_tensor_product(
@@ -29,7 +26,11 @@ void UnrollTPImpl::exec_tensor_product(
     float* L2_in,
     float* L3_out) {
 
+    if(forward_config.smem > 0) {
+        jit.set_max_smem(forward_config.smem);
+    }
+
     void *args[] = { &num_products, &L1_in, &L2_in, &L3_out }; 
-    jit.execute(0, config.num_blocks, config.num_threads, args, config.smem);
+    jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
 }
 

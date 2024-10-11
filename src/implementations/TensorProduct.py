@@ -8,6 +8,8 @@ logger = getLogger()
 
 class GPUInfo:
     A100_SMS = 108
+    max_smem = 163840 - 1
+    warp_size = 32
 
 class TensorProduct:
     tensors = None
@@ -160,6 +162,14 @@ class TensorProduct:
             "L1": L1.to_string(),
             "L2": L2.to_string(),
             "L3": L3.to_string(),
+
+            "L1_rep_len": L1.get_rep_length(),
+            "L2_rep_len": L2.get_rep_length(),
+            "L3_rep_len": L3.get_rep_length(),
+
+            "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
+            "arithmetic_intensity (FLOPs / byte)": ops_per_tp / (4 * (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length())),
+
             "num_warmup": num_warmup,
             "num_iter": num_iter,
             "prng_seed": prng_seed,

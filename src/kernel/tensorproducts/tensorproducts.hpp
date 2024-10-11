@@ -233,12 +233,14 @@ public:
 class __attribute__ ((visibility ("default"))) UnrollTPImpl : public GenericTensorProductImpl {
 public:
     JITKernel jit;
-    KernelLaunchConfig &config; 
+    KernelLaunchConfig &forward_config; 
+    KernelLaunchConfig &backward_config; 
 
     UnrollTPImpl(
         RepTriple &reps,
         std::string jit_kernel,    
-        KernelLaunchConfig &config_i);
+        KernelLaunchConfig &forward_config_i,  
+        KernelLaunchConfig &backward_config_i);
 
     void exec_tensor_product(
             uint64_t num_products,

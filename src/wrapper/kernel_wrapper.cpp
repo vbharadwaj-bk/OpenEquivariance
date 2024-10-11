@@ -33,6 +33,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
+        .def_readwrite("warp_size", &KernelLaunchConfig::warp_size)
         .def_readwrite("num_threads", &KernelLaunchConfig::num_threads)
         .def_readwrite("smem", &KernelLaunchConfig::smem);
 
@@ -50,7 +51,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<ShuffleTensorProductImpl, GenericTensorProductImpl>(m, "ShuffleTensorProductImpl")
         .def(py::init<RepTriple&, py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
     py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
-        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&>());
+        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")

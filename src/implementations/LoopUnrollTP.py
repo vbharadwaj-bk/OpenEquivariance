@@ -39,13 +39,29 @@ class LoopUnrollTP(TensorProduct):
         env.globals['sizeof'] = sizeof 
         template = env.get_template("loop_unroll_multirep.cuh")
 
-        config = KernelLaunchConfig()
-        config.num_blocks = GPUInfo.A100_SMS * 4
-        # Warning: correctness check fail at 1024 threads 
-        config.num_threads = 512
-        config.smem = 163840
+        # =====================================================================
 
-        self.launch_config = config
+        forward_config = KernelLaunchConfig()
+        forward_config.num_blocks = GPUInfo.A100_SMS * 4
+        forward_config.num_threads = 256
+        forward_config.smem = (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length())  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+
+        if forward_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+
+
+        backward_config = KernelLaunchConfig()
+        backward_config.num_blocks = GPUInfo.A100_SMS * 4
+        backward_config.num_threads = 256
+        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
+
+        if backward_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+
+        # =====================================================================
+
+        self.forward_config = forward_config
+        self.backward_config = backward_config 
         load_cg_tensor = self.load_cg_tensor
 
         class RepData:
@@ -59,10 +75,13 @@ class LoopUnrollTP(TensorProduct):
         class CGTensor:
             def __init__(self, l1, l2, l3):
                 tensor = load_cg_tensor(l1, l2, l3)
-                self.coord1, self.coord2, self.coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
+                coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
                 float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
-                self.values = [str(float.hex(float(val))) + "f" for val in float_values]
-                self.nnz = len(self.values)
+                values = [str(float.hex(float(val))) + "f" for val in float_values]
+
+                self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
+                self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
+                self.nnz = len(values)
 
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
         interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
@@ -71,20 +90,13 @@ class LoopUnrollTP(TensorProduct):
         self.jit_kernel = template.render(
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
             interactions=interactions,
-            THREAD_BLOCK_SIZE= config.num_threads,
-            max_smem_bytes=config.smem
+            forward_config=forward_config,
+            backward_config=backward_config
         )
 
         logger.info("Starting NVRTC")
-        self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.launch_config)
+        self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
-
-    @staticmethod
-    def testcases():
-        return [("32x5e", "1x5e", "32x3e"),
-                ("32x2e", "1x2e", "32x2e"),
-                ("32x4e", "1x3e", "32x1e"),
-                ("32x4e", "1x3e", "32x5e")]
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         L1, L2, L3 = self.L1, self.L2, self.L3
