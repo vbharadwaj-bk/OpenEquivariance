@@ -125,7 +125,7 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], correctness=False)
+    bench_suite.run([LoopUnrollTP])
 
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])

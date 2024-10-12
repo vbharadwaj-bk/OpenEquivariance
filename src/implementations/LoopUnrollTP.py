@@ -83,12 +83,27 @@ class LoopUnrollTP(TensorProduct):
                 self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
                 self.nnz = len(values)
 
+        class Weights:
+            def __init__(self, reps):
+                '''
+                For now, assumes all "uvu" connections, and that all outputs
+                have trainable weights.
+                '''
+                weight_counts = [reps.L3.mult(i) for i in range(reps.L3.num_irreps())]
+                self.total_len = sum(weight_counts)                 
+                self.offsets = [0]
+                offset = 0
+                for count in weight_counts:
+                    offset += count
+                    self.offsets.append(offset) 
+
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
         interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
             L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
+            weights=Weights(reps),
             interactions=interactions,
             forward_config=forward_config,
             backward_config=backward_config
