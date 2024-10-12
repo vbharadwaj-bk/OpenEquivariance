@@ -127,6 +127,28 @@ class LoopUnrollTP(TensorProduct):
         L2.transpose_irreps_cpu(L2_in, False)
         L3.transpose_irreps_cpu(L3_out, False)
 
+    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
+        L1_grad = np.zeros_like(L1_in)
+        L2_grad = np.zeros_like(L2_in)
+        weights_grad = np.zeros_like(weights)
+
+        L1, L2, L3 = self.L1, self.L2, self.L3
+        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
+
+        L1.transpose_irreps_cpu(L1_in, True)
+        L2.transpose_irreps_cpu(L2_in, True)
+        L3.transpose_irreps_cpu(L3_grad, True)
+
+        self.internal.backward_cpu(L1_in, L1_grad, 
+                L2_in, L2_grad,
+                weights, weights_grad, 
+                L3_grad)
+
+        L1.transpose_irreps_cpu(L1_grad, False)
+        L2.transpose_irreps_cpu(L2_grad, False)
+
+        return L1_grad, L2_grad, weights_grad
+
     @staticmethod
     def name():
         return "LoopUnrollTP"

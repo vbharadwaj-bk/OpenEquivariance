@@ -85,7 +85,7 @@ class TestBenchmarkSuite:
 def debug(tp_impl, config, direction="forward"):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
-    batch_size = 10000
+    batch_size = 1
     tp = tp_impl(reps, batch_size)
 
     rng = np.random.default_rng(12345)
@@ -100,7 +100,10 @@ def debug(tp_impl, config, direction="forward"):
     elif direction == "backward":
         L3_grad = L3_out
         weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())))
-        tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
+        L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
+        print(L1_grad)
+        print(L2_grad)
+        print(weights_grad)
     else:
         assert(False)
 
@@ -136,4 +139,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="forward")
+    debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")

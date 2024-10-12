@@ -35,7 +35,6 @@ void UnrollTPImpl::exec_tensor_product(
     jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
 }
 
-
 void UnrollTPImpl::backward(
         uint64_t num_products,
         float* L1_in, float* L1_grad,

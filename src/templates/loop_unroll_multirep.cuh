@@ -7,12 +7,12 @@
 
 #define THREADS_PER_WARP {{ forward_config.warp_size }}
 
-{%- macro set_launch_bound_variables() %}
+{%- macro set_launch_bound_variables(config) %}
     int t_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int warp_id = t_idx / {{ forward_config.warp_size }};
-    int lane_id = t_idx % {{ forward_config.warp_size }};
+    int warp_id = t_idx / THREADS_PER_WARP;
+    int lane_id = t_idx % THREADS_PER_WARP;
     int warp_loc = warp_id % {{ warps_per_block_forward }};
-    size_t warps_launched = blockDim.x * gridDim.x / {{ forward_config.warp_size }};
+    size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
     size_t nnz_per_warp = (num_products + warps_launched - 1) / warps_launched;
 
     size_t start = nnz_per_warp * ((size_t) warp_id);
@@ -66,7 +66,7 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
 __global__ void loop_unroll_many_to_one(
     size_t num_products, float* L1_in, float* L2_in, float* L3_out) {
 
-    {{ set_launch_bound_variables() }}
+    {{ set_launch_bound_variables(forward_config) }}
 
     {{ declare_smem_arrays({
         "common": [],
