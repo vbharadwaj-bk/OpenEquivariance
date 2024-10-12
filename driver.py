@@ -99,7 +99,7 @@ def debug(tp_impl, config, direction="forward"):
         print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
     elif direction == "backward":
         L3_grad = L3_out
-        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())))
+        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32)
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
         print(L1_grad)
         print(L2_grad)

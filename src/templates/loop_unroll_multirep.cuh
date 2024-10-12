@@ -216,8 +216,8 @@ __global__ void loop_unroll_backward(
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-                L1_grad + lane_id, L2_grad, weights_grad + lane_id);
+        //backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
+        //        L1_grad + lane_id, L2_grad, weights_grad + lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
@@ -226,6 +226,6 @@ __global__ void loop_unroll_backward(
 
         ROW_OPERATION({{L1.rep_len}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
         ROW_OPERATION({{L2.rep_len}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
-        ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
     }
 }
