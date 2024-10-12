@@ -13,8 +13,8 @@ public:
    JITKernel(ifstream& ifile); 
    JITKernel(string gpu_program);
 
-   void compile(string kernel_name, const vector<int> &template_params);
-   void compile(vector<string> kernel_name, vector<vector<int>> &template_params);
+   void compile(string kernel_name, const vector<int> template_params);
+   void compile(vector<string> kernel_name, vector<vector<int>> template_params);
 
    void set_max_smem(uint32_t max_smem_bytes);
 

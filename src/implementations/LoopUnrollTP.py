@@ -90,7 +90,8 @@ class LoopUnrollTP(TensorProduct):
                 have trainable weights.
                 '''
                 weight_counts = [reps.L3.mult(i) for i in range(reps.L3.num_irreps())]
-                self.total_len = sum(weight_counts)                 
+                self.total_len = sum(weight_counts)
+                assert(reps.num_trainable_weights() == self.total_len) 
                 self.offsets = [0]
                 offset = 0
                 for count in weight_counts:

@@ -17,8 +17,8 @@ UnrollTPImpl::UnrollTPImpl(
         jit(jit_kernel),
         forward_config(forward_config_i),  
         backward_config(backward_config_i) {
-    //jit.compile({"loop_unroll_many_to_one", "loop_unroll_backward"}, {{}, {}});
-    jit.compile("loop_unroll_many_to_one", {}); 
+    vector<string> kernels = {"loop_unroll_many_to_one", "loop_unroll_backward"};
+    jit.compile(kernels, {{}, {}}); 
 }
 
 void UnrollTPImpl::exec_tensor_product(

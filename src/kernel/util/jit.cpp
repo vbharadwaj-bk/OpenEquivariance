@@ -70,13 +70,13 @@ JITKernel::JITKernel(string gpu_program) :
                         NULL));               // includeNames
 }
 
-void JITKernel::compile(string kernel_name, const vector<int> &template_params) {
+void JITKernel::compile(string kernel_name, const vector<int> template_params) {
     vector<string> kernel_names = {kernel_name};
     vector<vector<int>> template_param_list = {template_params};
     compile(kernel_names, template_param_list);
 }
 
-void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &template_param_list) {
+void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> template_param_list) {
     if(compiled) {
         throw std::logic_error("JIT object has already been compiled!");
     }
