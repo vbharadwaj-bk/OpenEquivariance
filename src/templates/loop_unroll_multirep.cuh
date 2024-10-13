@@ -120,8 +120,8 @@ __device__ __forceinline__ void backward_loop_unroll(
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
         {%- set u, v, w, tensor = interactions[k] %}
-        weight = weights_smem[{{weights.offsets[k]}} * THREADS_PER_WARP];
-        weight_grad = weights_grad_smem[{{weights.offsets[k]}} * THREADS_PER_WARP];
+        weight = weights_smem[{{weights.offsets[k]}}];
+        weight_grad = weights_grad_smem[{{weights.offsets[k]}}];
 
         //==========================================
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
@@ -143,7 +143,7 @@ __device__ __forceinline__ void backward_loop_unroll(
         {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
             #pragma unroll
             for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++)
-                l3_grad[j] = L3_grad_smem[{{L3.mults[u]}} * j + {{ L3.offsets[u]}}];
+                l3_grad[j] = L3_grad_smem[{{L3.mults[w]}} * j + {{ L3.offsets[w]}}];
         {%- endif %}
 
         {%- for i in range(tensor.nnz) %} 
@@ -180,7 +180,7 @@ __device__ __forceinline__ void backward_loop_unroll(
             __syncwarp();
         {%- endif %}
 
-        weights_grad_smem[{{weights.offsets[k]}} * THREADS_PER_WARP] = weight_grad; 
+        weights_grad_smem[{{weights.offsets[k]}}] = weight_grad; 
     {%- endfor %}
 }
 

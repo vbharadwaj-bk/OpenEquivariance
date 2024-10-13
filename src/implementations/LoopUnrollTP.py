@@ -97,6 +97,7 @@ class LoopUnrollTP(TensorProduct):
                 for count in weight_counts:
                     offset += count
                     self.offsets.append(offset) 
+                print(self.offsets)
 
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
         interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
