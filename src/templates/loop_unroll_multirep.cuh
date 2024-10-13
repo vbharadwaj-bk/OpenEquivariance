@@ -94,14 +94,14 @@ __global__ void loop_unroll_many_to_one(
 }
 
 __device__ __forceinline__ void backward_loop_unroll(
-        const float* __restrict__ L1_smem,
-        const float* __restrict__ L2_smem,
-        const float* __restrict__ weights_smem,
-        const float* __restrict__ L3_grad_smem,
+        const float* L1_smem,
+        const float* L2_smem,
+        const float* weights_smem,
+        const float* L3_grad_smem,
 
-        float* __restrict__ L1_grad_smem,
-        float* __restrict__ L2_grad_smem,
-        float* __restrict__ weights_grad_smem) {
+        float* L1_grad_smem,
+        float* L2_grad_smem,
+        float* weights_grad_smem) {
 
     float l1_vec[{{L1.irrep_lengths  | max}}]; 
     float l1_grad[{{L1.irrep_lengths | max}}]; 
@@ -150,7 +150,7 @@ __device__ __forceinline__ void backward_loop_unroll(
             weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
             scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
             l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
-            l1_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
+            l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
         {%- endfor %}
 
         // Storeback
@@ -160,6 +160,7 @@ __device__ __forceinline__ void backward_loop_unroll(
                 L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}] = l1_grad[j];
         {%- endif %}
 
+        // TODO: Need atomics or some other  
         {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
             #pragma unroll
             for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++)
@@ -216,8 +217,8 @@ __global__ void loop_unroll_backward(
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        //backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-        //        L1_grad + lane_id, L2_grad, weights_grad + lane_id);
+        backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
+                L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
