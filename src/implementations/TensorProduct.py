@@ -107,18 +107,25 @@ class TensorProduct:
 
         return result, ground_truth
 
-    def benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction):
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction):
         '''
         Returns the total time for num_iter iterations of the core inner loop
         after num_warmup warmup iterations. Can override for other implementations
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
-        self.internal.benchmark_cpu(
-                L1_in,
-                L2_in,
-                L3_out,
-                num_warmup,
-                time_millis)
+
+        if direction == "forward":
+            self.internal.benchmark_forward_cpu(
+                    L1_in, L2_in, L3_buffer,
+                    num_warmup, time_millis)
+        
+        elif direction == "backward":
+            self.internal.benchmark_backward_cpu(
+                    L1_in, L1_grad,
+                    L2_in, L2_grad,
+                    weights, weights_grad,
+                    L3_buffer,
+                    num_warmup, time_millis)
 
         return time_millis
 
@@ -129,6 +136,8 @@ class TensorProduct:
         '''
         assert(direction == "forward" or direction == "backward")
         rng = np.random.default_rng(prng_seed)
+        L1, L2, L3 = self.L1, self.L2, self.L3
+        interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
 
         L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
         L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
@@ -137,20 +146,16 @@ class TensorProduct:
         weights, L1_grad, L2_grad, weights_grad = [None] * 4
         if direction == "backward":
             L3_buffer[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
-            weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32)
+            weights = np.array(rng.uniform(size=(batch_size, self.reps.num_trainable_weights())), dtype=np.float32)
 
             L1_grad = np.zeros_like(L1_in)
             L2_grad = np.zeros_like(L2_in)
             weights_grad = np.zeros_like(weights)
 
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
-
         # Forward: Requires two multiplications and one addition --> 3, 4 if weights are included (not yet)
         # Backward: Requires 6 multiplications and 3 additions (including the weight, implemented)
         ops_per_nz, total_data_streamed  = None, None
-        if direction == "forward:"
+        if direction == "forward":
             ops_per_nz = 3
             total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes 
         elif direction == "backward":
@@ -172,7 +177,7 @@ class TensorProduct:
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
-        bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
+        bandwidth_gbps_rough = [float(el) for el in total_data_streamed / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {

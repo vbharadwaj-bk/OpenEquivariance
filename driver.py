@@ -37,7 +37,9 @@ class TestBenchmarkSuite:
         self.bench_batch_size = bench_batch_size 
         self.prng_seed = 12345
 
-    def run(self, tp_implementations, correctness=True):        
+    def run(self, tp_implementations, direction, correctness=True):        
+        assert(direction == "forward" or direction == "backward")
+
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -57,19 +59,20 @@ class TestBenchmarkSuite:
             L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
             L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
             for impl in tp_implementations:
-                tc_name = f"{reps.to_string()}, {impl.name()}"
+                tc_name = f"{reps.to_string()}, {impl.name()}, {direction}"
                 logger.info(f'Starting {tc_name}.')
 
-                if correctness:
+                if correctness and direction == "forward":
                     tp_correctness = impl(reps, self.correctness_batch_size)
                     tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
                     correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
 
                 tp_bench = impl(reps, self.bench_batch_size)
-                benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, prng_seed=self.prng_seed) 
+                benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
-                    "config": rnames, 
+                    "config": rnames,
+                    "direction": direction, 
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
@@ -128,8 +131,8 @@ if __name__=='__main__':
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    #bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    #bench_suite.run([LoopUnrollTP])
+    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
+    bench_suite.run([LoopUnrollTP], direction="backward")
 
     #bench_suite = TestBenchmarkSuite(default_tests, bench_batch_size=32000000)
     #bench_suite.run([ThreadTensorProduct, GemmTensorProduct, ShuffleReduceTensorProduct])
@@ -140,4 +143,4 @@ if __name__=='__main__':
     #                    ShuffleReduceTensorProduct])
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")
+    #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")
