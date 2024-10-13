@@ -107,7 +107,7 @@ class TensorProduct:
 
         return result, ground_truth
 
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_out):
+    def benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction):
         '''
         Returns the total time for num_iter iterations of the core inner loop
         after num_warmup warmup iterations. Can override for other implementations
@@ -122,22 +122,42 @@ class TensorProduct:
 
         return time_millis
 
-    def benchmark(self, num_warmup, num_iter, batch_size, prng_seed=12345):
+    def benchmark(self, num_warmup, num_iter, batch_size, direction, prng_seed=12345):
         '''
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
+        assert(direction == "forward" or direction == "backward")
         rng = np.random.default_rng(prng_seed)
 
         L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
         L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
-        L3_out = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
+        L3_buffer = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
+
+        weights, L1_grad, L2_grad, weights_grad = [None] * 4
+        if direction == "backward":
+            L3_buffer[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
+            weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32)
+
+            L1_grad = np.zeros_like(L1_in)
+            L2_grad = np.zeros_like(L2_in)
+            weights_grad = np.zeros_like(weights)
+
 
         L1, L2, L3 = self.L1, self.L2, self.L3
         interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
 
-        # Each multiplication requires two multiplications and one addition --> 3 
-        ops_per_nz = 3
+        # Forward: Requires two multiplications and one addition --> 3, 4 if weights are included (not yet)
+        # Backward: Requires 6 multiplications and 3 additions (including the weight, implemented)
+        ops_per_nz, total_data_streamed  = None, None
+        if direction == "forward:"
+            ops_per_nz = 3
+            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes 
+        elif direction == "backward":
+            ops_per_nz = 9
+            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes + weights.nbytes \
+                    + L1_grad.nbytes + L2_grad.nbytes + weights_grad.nbytes
+
         ops_per_tp = 0
         nnz = 0
         for u, v, w in interactions:
@@ -147,16 +167,16 @@ class TensorProduct:
             ops_per_tp += ops_per_nz * local_nnz * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
 
         # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out)
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction)
         # ==================================== 
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
-
         bandwidth_gbps_rough = [float(el) for el in (L1_in.nbytes + L2_in.nbytes + L3_out.nbytes) / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {
+            "tp_direction": direction,
             "total_cg_nnz": nnz,
             "flops_per_tp": ops_per_tp,
             "L1": L1.to_string(),
@@ -168,7 +188,7 @@ class TensorProduct:
             "L3_rep_len": L3.get_rep_length(),
 
             "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": ops_per_tp / (4 * (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length())),
+            "arithmetic_intensity (FLOPs / byte)": ops_per_tp * batch_size / total_data_streamed, 
 
             "num_warmup": num_warmup,
             "num_iter": num_iter,
