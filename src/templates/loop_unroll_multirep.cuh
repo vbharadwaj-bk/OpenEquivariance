@@ -6,6 +6,7 @@
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
 #define THREADS_PER_WARP {{ forward_config.warp_size }}
+#define FULL_MASK 0xffffffff
 
 {%- macro set_launch_bound_variables(config) %}
     int t_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -101,7 +102,8 @@ __device__ __forceinline__ void backward_loop_unroll(
 
         float* L1_grad_smem,
         float* L2_grad_smem,
-        float* weights_grad_smem) {
+        float* weights_grad_smem,
+        int lane_id) {
 
     float l1_vec[{{L1.irrep_lengths  | max}}]; 
     float l1_grad[{{L1.irrep_lengths | max}}]; 
@@ -160,11 +162,22 @@ __device__ __forceinline__ void backward_loop_unroll(
                 L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}] = l1_grad[j];
         {%- endif %}
 
-        // TODO: Need atomics or some other  
         {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
+            // This assumes that all 32 threads are hit the same l2 vector. 
             #pragma unroll
-            for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++)
-                L2_grad_smem[j + {{L2.offsets[v]}}] = l2_grad[j];
+            for (int offset = 16; offset > 0; offset /= 2) {
+                #pragma unroll
+                for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++) {
+                    l2_grad[j] += __shfl_down_sync(FULL_MASK, l2_grad[j], offset);
+                } 
+            }
+
+            if(lane_id == 0) {
+                #pragma unroll 
+                for(int j = 0; j < {{L2.irrep_lengths[v]}}; j++)
+                    L2_grad_smem[j + {{L2.offsets[v]}}] = l2_grad[j];
+            }
+            __syncwarp();
         {%- endif %}
 
         weights_grad_smem[{{weights.offsets[k]}} * THREADS_PER_WARP] = weight_grad; 
@@ -218,7 +231,7 @@ __global__ void loop_unroll_backward(
 
         __syncwarp();
         backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-                L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id);
+                L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
