@@ -14,6 +14,7 @@
 
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
+    RepTriple reps;
     Representation &L1;
     Representation &L2;
     Representation &L3;
@@ -21,10 +22,9 @@ public:
     bool record_internal_stats = false;
 
     GenericTensorProductImpl(
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i) :
-        L1(L1_i), L2(L2_i), L3(L3_i)
+        RepTriple &reps_i) :
+        reps(reps_i),
+        L1(reps.L1), L2(reps.L2), L3(reps.L3)
         { }
 
     virtual void exec_tensor_product(
@@ -32,7 +32,7 @@ public:
             float* L1_in,
             float* L2_in,
             float* L3_out) = 0;
-
+            
     // Executes function with CPU inputs from Python. Issues
     // memcpy to / from device. 
     void exec_tensor_product_cpu(
@@ -52,14 +52,64 @@ public:
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
+    virtual void backward(
+            size_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad) {
+
+        throw std::logic_error("Backward pass not implemented yet!");
+    }
+
+    void backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py) {
+
+        Buffer<float> L1_grad_host(L1_grad_py);
+        Buffer<float> L2_grad_host(L2_grad_py);
+        Buffer<float> L3_grad_host(L3_grad_py);
+        Buffer<float> weight_grad_host(weight_grad_py);
+
+        // Copies data to device 
+        DeviceBuffer<float> L1_in(L1_in_py);
+        DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> weight(weight_py);
+        DeviceBuffer<float> L3_grad(L3_grad_py);
+
+        DeviceBuffer<float> L1_grad(L1_grad_py.size());
+        DeviceBuffer<float> L2_grad(L2_grad_py.size());
+        DeviceBuffer<float> weight_grad(weight_grad_py.size());
+
+        backward(L3_grad_host.shape[0], 
+                L1_in.ptr, L1_grad.ptr,
+                L2_in.ptr, L2_grad.ptr,
+                weight.ptr, weight_grad.ptr,
+                L3_grad.ptr);
+
+        L1_grad.copy_to_host_buffer(L1_grad_host);
+        L2_grad.copy_to_host_buffer(L2_grad_host);
+        weight_grad.copy_to_host_buffer(weight_grad_host);
+    }
+
     /*
     * This benchmarking function does not clear cache, etc. between runs. It copies
     * data from the CPU to the GPU, but only once. This time is not included in benchmarking.
     */
-    void benchmark_cpu(
+    void benchmark_forward_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
+
+    void benchmark_backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -80,15 +130,13 @@ public:
     DeviceBuffer<float> values;
 
     ThreadTensorProductImpl(
-        Representation &L1,
-        Representation &L2,
-        Representation &L3,
+        RepTriple &reps,
         py::array_t<uint8_t> coord1_py, 
         py::array_t<uint8_t> coord2_py,
         py::array_t<uint8_t> coord3_py,
         py::array_t<float> values_py 
         ) :
-        GenericTensorProductImpl(L1, L2, L3),
+        GenericTensorProductImpl(reps),
         coord1(coord1_py),
         coord2(coord2_py),
         coord3(coord3_py),
@@ -130,13 +178,11 @@ public:
     cublasLtMatmulHeuristicResult_t heuristicResult {};
 
     GemmTensorProductImpl(
+        RepTriple &reps,
         uint64_t num_products1,
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i,
         py::array_t<float> cg_coeffs_py 
         ) :
-        GenericTensorProductImpl(L1_i, L2_i, L3_i),
+        GenericTensorProductImpl(reps),
         workspace(workspaceSize),
         num_products(num_products1),
         cg_coeffs(cg_coeffs_py), 
@@ -172,9 +218,7 @@ public:
     JITKernel jit;
 
     ShuffleTensorProductImpl(
-        Representation &L1_i,
-        Representation &L2_i,
-        Representation &L3_i,
+        RepTriple &reps,
         py::array_t<float> warp_values_py, 
         py::array_t<int> l1_indices_py, 
         py::array_t<int> l2_indices_py, 
@@ -189,38 +233,22 @@ public:
     ~ShuffleTensorProductImpl() = default; 
 };
 
+
 //=========================================================================
-
 /*
-* A simple implementation that gets each thread 
-* to handle each tensor product based on a coordinate format. 
+* A tensor product where we write out all instructions into a JIT-compiled kernel.
 */
-class __attribute__ ((visibility ("default"))) MultiplicityOuterProductTensorProductImpl : public GenericTensorProductImpl {
+class __attribute__ ((visibility ("default"))) UnrollTPImpl : public GenericTensorProductImpl {
 public:
-    DeviceBuffer<uint8_t> coord1; 
-    DeviceBuffer<uint8_t> coord2; 
-    DeviceBuffer<uint8_t> coord3; 
-    DeviceBuffer<float> values;
+    JITKernel jit;
+    KernelLaunchConfig &forward_config; 
+    KernelLaunchConfig &backward_config; 
 
-    MultiplicityOuterProductTensorProductImpl(
-        Representation &L1,
-        Representation &L2,
-        Representation &L3,
-        py::array_t<uint8_t> coord1_py, 
-        py::array_t<uint8_t> coord2_py,
-        py::array_t<uint8_t> coord3_py,
-        py::array_t<float> values_py 
-        ) :
-        GenericTensorProductImpl(L1, L2, L3),
-        coord1(coord1_py),
-        coord2(coord2_py),
-        coord3(coord3_py),
-        values(values_py)
-        { 
-            if(L1.irreps.size() != 1 || L2.irreps.size() != 1 || L3.irreps.size() != 1) {
-                throw std::invalid_argument("MultiplicityOuterProductTensorProductImpl only supports single irreps");
-            }
-        }
+    UnrollTPImpl(
+        RepTriple &reps,
+        std::string jit_kernel,    
+        KernelLaunchConfig &forward_config_i,  
+        KernelLaunchConfig &backward_config_i);
 
     void exec_tensor_product(
             uint64_t num_products,
@@ -228,5 +256,13 @@ public:
             float* L2_in,
             float* L3_out);
 
-    ~MultiplicityOuterProductTensorProductImpl() = default;
+    void backward(
+            uint64_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad); 
+
+    ~UnrollTPImpl() = default; 
 };
+

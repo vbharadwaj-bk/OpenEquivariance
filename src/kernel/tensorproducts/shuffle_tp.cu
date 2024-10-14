@@ -6,8 +6,6 @@
 #include "gpu_util.hpp"
 #include "jit.hpp"
 
-#define A100_SMS 108
-
 using namespace std;
 
 #define THREADS_PER_WARP 32
@@ -123,14 +121,12 @@ __global__ void shuffle_tp_kernel(
 }
 
 ShuffleTensorProductImpl::ShuffleTensorProductImpl(
-    Representation &L1_i,
-    Representation &L2_i,
-    Representation &L3_i,
+    RepTriple &reps,
     py::array_t<float> warp_values_py, 
     py::array_t<int> l1_indices_py, 
     py::array_t<int> l2_indices_py, 
     py::array_t<int> red_lanes_py) :
-            GenericTensorProductImpl(L1_i, L2_i, L3_i),
+            GenericTensorProductImpl(reps),
             warp_values(warp_values_py),
             l1_indices(l1_indices_py),
             l2_indices(l2_indices_py),
@@ -157,5 +153,5 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     Linfo L2_info = {L2_in, static_cast<uint32_t>(L2.get_rep_length())};
     Linfo L3_info = {L3_out, static_cast<uint32_t>(L3.get_rep_length())};
     void *args[] = { &num_products, &L1_info, &L2_info, &L3_info, &warp_values.ptr, &l1_indices.ptr, &l2_indices.ptr, &red_lanes.ptr };
-    jit.execute(A100_SMS * 2, THREAD_BLOCK_SIZE, args);
+    jit.execute(0, A100_SMS * 2, THREAD_BLOCK_SIZE, args);
 }
