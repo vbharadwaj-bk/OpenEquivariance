@@ -52,7 +52,7 @@ class LoopUnrollTP(TensorProduct):
 
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_config.num_threads = 192
+        backward_config.num_threads = 64
         backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
 
         if backward_config.smem > GPUInfo.max_smem:
