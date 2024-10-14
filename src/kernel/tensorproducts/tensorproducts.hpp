@@ -32,7 +32,7 @@ public:
             float* L1_in,
             float* L2_in,
             float* L3_out) = 0;
-
+            
     // Executes function with CPU inputs from Python. Issues
     // memcpy to / from device. 
     void exec_tensor_product_cpu(
@@ -52,14 +52,64 @@ public:
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
+    virtual void backward(
+            size_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad) {
+
+        throw std::logic_error("Backward pass not implemented yet!");
+    }
+
+    void backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py) {
+
+        Buffer<float> L1_grad_host(L1_grad_py);
+        Buffer<float> L2_grad_host(L2_grad_py);
+        Buffer<float> L3_grad_host(L3_grad_py);
+        Buffer<float> weight_grad_host(weight_grad_py);
+
+        // Copies data to device 
+        DeviceBuffer<float> L1_in(L1_in_py);
+        DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> weight(weight_py);
+        DeviceBuffer<float> L3_grad(L3_grad_py);
+
+        DeviceBuffer<float> L1_grad(L1_grad_py.size());
+        DeviceBuffer<float> L2_grad(L2_grad_py.size());
+        DeviceBuffer<float> weight_grad(weight_grad_py.size());
+
+        backward(L3_grad_host.shape[0], 
+                L1_in.ptr, L1_grad.ptr,
+                L2_in.ptr, L2_grad.ptr,
+                weight.ptr, weight_grad.ptr,
+                L3_grad.ptr);
+
+        L1_grad.copy_to_host_buffer(L1_grad_host);
+        L2_grad.copy_to_host_buffer(L2_grad_host);
+        weight_grad.copy_to_host_buffer(weight_grad_host);
+    }
+
     /*
     * This benchmarking function does not clear cache, etc. between runs. It copies
     * data from the CPU to the GPU, but only once. This time is not included in benchmarking.
     */
-    void benchmark_cpu(
+    void benchmark_forward_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
+
+    void benchmark_backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -191,18 +241,27 @@ public:
 class __attribute__ ((visibility ("default"))) UnrollTPImpl : public GenericTensorProductImpl {
 public:
     JITKernel jit;
-    KernelLaunchConfig &config; 
+    KernelLaunchConfig &forward_config; 
+    KernelLaunchConfig &backward_config; 
 
     UnrollTPImpl(
         RepTriple &reps,
         std::string jit_kernel,    
-        KernelLaunchConfig &config_i);
+        KernelLaunchConfig &forward_config_i,  
+        KernelLaunchConfig &backward_config_i);
 
     void exec_tensor_product(
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
             float* L3_out);
+
+    void backward(
+            uint64_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad); 
 
     ~UnrollTPImpl() = default; 
 };

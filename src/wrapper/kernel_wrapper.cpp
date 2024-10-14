@@ -26,12 +26,14 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("to_string", &RepTriple::to_string)
         .def("num_interactions", &RepTriple::num_interactions)
         .def("interactions", &RepTriple::interactions)
+        .def("num_trainable_weights", &RepTriple::num_trainable_weights)
         .def_readwrite("L1", &RepTriple::L1) 
         .def_readwrite("L2", &RepTriple::L2)
         .def_readwrite("L3", &RepTriple::L3);
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
+        .def_readwrite("warp_size", &KernelLaunchConfig::warp_size)
         .def_readwrite("num_threads", &KernelLaunchConfig::num_threads)
         .def_readwrite("smem", &KernelLaunchConfig::smem);
 
@@ -39,7 +41,9 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product)
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
-        .def("benchmark_cpu", &GenericTensorProductImpl::benchmark_cpu);
+        .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
+        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu) 
+        .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
     py::class_<ThreadTensorProductImpl, GenericTensorProductImpl>(m, "ThreadTensorProductImpl")
         .def(py::init<RepTriple&, 
             py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
@@ -48,7 +52,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<ShuffleTensorProductImpl, GenericTensorProductImpl>(m, "ShuffleTensorProductImpl")
         .def(py::init<RepTriple&, py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
     py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
-        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&>());
+        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")

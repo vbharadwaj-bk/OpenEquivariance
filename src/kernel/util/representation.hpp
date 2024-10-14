@@ -70,9 +70,6 @@ public:
         std::string delim1 = "+";
         std::string delim2 = "x";
 
-        auto start = 0U;
-        auto end = str_rep.find(delim1);
-
         // Create a lambda called process_token that will operate on the contents
         //of the while loop
         
@@ -103,12 +100,15 @@ public:
             irreps.emplace_back(mult, irrep, even);
         };
 
+        auto start = 0U;
+        auto end = str_rep.find(delim1);
+
         while (end != std::string::npos)
         {
-            string s = str_rep.substr(start, end - start);
-            process_token(s);
+            string token = str_rep.substr(start, end - start);
+            process_token(token);
             start = end + delim1.length();
-            end = s.find(delim1, start);
+            end = str_rep.find(delim1, start);
         }
         process_token(str_rep.substr(start, end));
     }
@@ -180,6 +180,16 @@ public:
 
     int num_interactions() {
         return interactions_i.size();
+    }
+
+    int num_trainable_weights() {
+        // Assumes all "uvu" interactions 
+        int total_weights = 0;
+
+        for(auto triple : interactions_i) {
+            total_weights += L1.mult(get<0>(triple)) * L2.mult(get<1>(triple));
+        }
+        return total_weights;
     }
 
     tuple<int, int, int> interactions(int i) {

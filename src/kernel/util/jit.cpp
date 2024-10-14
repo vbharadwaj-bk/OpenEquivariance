@@ -70,13 +70,13 @@ JITKernel::JITKernel(string gpu_program) :
                         NULL));               // includeNames
 }
 
-void JITKernel::compile(string kernel_name, const vector<int> &template_params) {
+void JITKernel::compile(string kernel_name, const vector<int> template_params) {
     vector<string> kernel_names = {kernel_name};
     vector<vector<int>> template_param_list = {template_params};
     compile(kernel_names, template_param_list);
 }
 
-void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &template_param_list) {
+void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> template_param_list) {
     if(compiled) {
         throw std::logic_error("JIT object has already been compiled!");
     }
@@ -103,7 +103,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &temp
 
     }
 
-    bool requiresCGheaders = true;
+    constexpr bool requiresCGheaders = false;
     char *compileParams[2];
     int numCompileOptions = 0;
 
@@ -178,8 +178,11 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> &temp
     }
 }
 
-void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
-    cuFuncSetAttribute(kernels[0],
+void JITKernel::set_max_smem(int kernel_id, uint32_t max_smem_bytes) {
+    if(kernel_id >= kernels.size())
+        throw std::logic_error("Kernel index out of range!");
+
+    cuFuncSetAttribute(kernels[kernel_id],
                     CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
                     max_smem_bytes);
 }
@@ -187,11 +190,16 @@ void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
 void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem, CUstream hStream) {
 
-    cuLaunchKernel( kernels[kernel_id],
-                    num_blocks, 1, 1,    // grid dim
-                    num_threads, 1, 1,   // block dim
-                    smem, hStream,       // shared mem and stream
-                    args, 0);            // arguments
+    if(kernel_id >= kernels.size())
+        throw std::logic_error("Kernel index out of range!");
+
+    CUDA_SAFE_CALL(
+        cuLaunchKernel( kernels[kernel_id],
+                        num_blocks, 1, 1,    // grid dim
+                        num_threads, 1, 1,   // block dim
+                        smem, hStream,       // shared mem and stream
+                        args, NULL)            // arguments
+    );            
 }
 
 JITKernel::~JITKernel() {
