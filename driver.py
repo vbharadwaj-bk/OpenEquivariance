@@ -5,6 +5,7 @@ from build.kernel_wrapper import *
 from src.implementations.GemmTP import *
 from src.implementations.ThreadTP import *
 from src.implementations.ShuffleReduceTP import *
+from src.implementations.LoopUnrollTP import *
 
 import numpy as np
 import numpy.linalg as la
@@ -22,22 +23,18 @@ def config_to_rep_triple(config):
     return RepTriple(reps[0], reps[1], reps[2])
 
 class TestBenchmarkSuite:
-    def __init__(self):
-        self.configs = [
-            ((1, 5), (1, 5), (1, 3)),
-            ((1, 2), (1, 2), (1, 2)),
-            ((1, 4), (1, 3), (1, 1)),
-            ((1, 4), (1, 3), (1, 5)),
-
-            #((2, 4), (2, 3), (4, 5)),
-            #((2, 4), (1, 3), (2, 5)),
-            #((1, 4), (2, 3), (2, 5)),
-            ] # Multiplicity, irrep-type pairs
-
-        self.num_warmup = 10
-        self.num_iter = 30
-        self.correctness_batch_size = 100000
-        self.bench_batch_size = 10000000
+    def __init__(self, configs,
+        num_warmup = 10,
+        num_iter = 30,
+        correctness_batch_size = 10000,
+        bench_batch_size = 10000000,
+        prng_seed = 12345
+    ):
+        self.configs = configs 
+        self.num_warmup = num_warmup
+        self.num_iter = num_iter
+        self.correctness_batch_size = correctness_batch_size 
+        self.bench_batch_size = bench_batch_size 
         self.prng_seed = 12345
 
     def run(self, tp_implementations, direction, correctness=True):        
@@ -115,10 +112,27 @@ def debug(tp_impl, config, direction="forward"):
         assert(False)
 
 if __name__=='__main__':
-    bench_suite = TestBenchmarkSuite()
-    bench_suite.run([
-        ThreadTensorProduct, 
-        GemmTensorProduct,
-        ShuffleReduceTensorProduct
-        ])
-    #debug(ShuffleReduceTensorProduct, ((1, 4), (1, 3), (1, 5)))
+    default_tests = [
+            ((1, 5), (1, 5), (1, 3)),
+            ((1, 2), (1, 2), (1, 2)),
+            ((1, 4), (1, 3), (1, 1)),
+            ((1, 4), (1, 3), (1, 5))]
+
+    multiplicity_tests = [
+            ((2, 4), (2, 3), (4, 5)),
+            ((2, 4), (1, 3), (2, 5)),
+            ((1, 4), (2, 3), (2, 5))
+    ]
+
+    full_decomp_tests = [
+        ("32x5e", "1x5e", "32x3e"),
+        ("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]
+
+    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
+    bench_suite.run([LoopUnrollTP], direction="backward")
+
+    #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
+    #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")
