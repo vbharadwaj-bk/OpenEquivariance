@@ -1,18 +1,17 @@
 {# Jinja2 Template #}
 
-{%- set warps_per_block_forward = divide(forward_config.num_threads, forward_config.warp_size) %}
-
 {% include 'common.cuh' %}
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
-#define THREADS_PER_WARP {{ forward_config.warp_size }}
+#define THREADS_PER_WARP {{ forward_config.warp_size }} // Warp size should be the same for forward and backward
 #define FULL_MASK 0xffffffff
 
 {%- macro set_launch_bound_variables(config) %}
+    {%- set warps_per_block = divide(config.num_threads, config.warp_size) %}
     int t_idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = t_idx / THREADS_PER_WARP;
     int lane_id = t_idx % THREADS_PER_WARP;
-    int warp_loc = warp_id % {{ warps_per_block_forward }};
+    int warp_loc = warp_id % {{ warps_per_block }};
     size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
     size_t nnz_per_warp = (num_products + warps_launched - 1) / warps_launched;
 
@@ -200,7 +199,7 @@ __global__ void loop_unroll_backward(
     float* weights, float* weights_grad,
     float* L3_grad) {
 
-    {{ set_launch_bound_variables() }}
+    {{ set_launch_bound_variables(backward_config) }}
 
     {{ declare_smem_arrays({
         "common": [],
@@ -220,26 +219,26 @@ __global__ void loop_unroll_backward(
         float* l3_shft = L3_grad + i * {{L3.rep_len}} + lane_id;
         float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
 
-        //ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
+        ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.rep_len}}, j, L2_smem[j + lane_id] = l2_shft[j];)
-        //ROW_OPERATION({{L3.rep_len}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
-        //ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+        ROW_OPERATION({{L3.rep_len}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
+        ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
-        //ROW_OPERATION({{L1.rep_len}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
-        //ROW_OPERATION({{L2.rep_len}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
-        //ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{L1.rep_len}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{L2.rep_len}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        //backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-        //        L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
+        backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
+                L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
         float* l2_grad_shft = L2_grad + i * {{L2.rep_len}} + lane_id; 
         float* weights_grad_shft = weights_grad + i * {{weights.total_len}} + lane_id;
 
-        //ROW_OPERATION({{L1.rep_len}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
-        //ROW_OPERATION({{L2.rep_len}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
-        //ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
+        ROW_OPERATION({{L1.rep_len}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
+        ROW_OPERATION({{L2.rep_len}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
+        ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
     }
 }

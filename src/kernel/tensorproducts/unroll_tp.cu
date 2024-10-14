@@ -36,7 +36,7 @@ void UnrollTPImpl::exec_tensor_product(
 }
 
 void UnrollTPImpl::backward(
-        uint64_t num_products,
+        size_t num_products,
         float* L1_in, float* L1_grad,
         float* L2_in, float* L2_grad,
         float* weight, float* weight_grad,

@@ -53,7 +53,7 @@ public:
     }
 
     virtual void backward(
-            uint64_t num_products,
+            size_t num_products,
             float* L1_in, float* L1_grad,
             float* L2_in, float* L2_grad,
             float* weight, float* weight_grad,
