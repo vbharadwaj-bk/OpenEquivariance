@@ -52,11 +52,11 @@ class LoopUnrollTP(TensorProduct):
 
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_config.num_threads = 256
+        backward_config.num_threads = 128
         backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
 
         if backward_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+            raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
 
         # =====================================================================
 
@@ -96,7 +96,8 @@ class LoopUnrollTP(TensorProduct):
                 offset = 0
                 for count in weight_counts:
                     offset += count
-                    self.offsets.append(offset) 
+                    self.offsets.append(offset)
+
                 print(self.offsets)
 
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]

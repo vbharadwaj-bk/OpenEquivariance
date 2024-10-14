@@ -187,11 +187,13 @@ void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
 void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem, CUstream hStream) {
 
-    cuLaunchKernel( kernels[kernel_id],
-                    num_blocks, 1, 1,    // grid dim
-                    num_threads, 1, 1,   // block dim
-                    smem, hStream,       // shared mem and stream
-                    args, 0);            // arguments
+    CUDA_SAFE_CALL(
+        cuLaunchKernel( kernels[kernel_id],
+                        num_blocks, 1, 1,    // grid dim
+                        num_threads, 1, 1,   // block dim
+                        smem, hStream,       // shared mem and stream
+                        args, NULL)            // arguments
+    );            
 }
 
 JITKernel::~JITKernel() {
