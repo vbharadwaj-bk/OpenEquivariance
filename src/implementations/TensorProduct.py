@@ -152,6 +152,8 @@ class TensorProduct:
             L2_grad = np.zeros_like(L2_in)
             weights_grad = np.zeros_like(weights)
 
+        logger.info("Initialized input / output data.")
+
         # Forward: Requires two multiplications and one addition --> 3, 4 if weights are included (not yet)
         # Backward: Requires 6 multiplications and 3 additions (including the weight, implemented)
         ops_per_nz, total_data_streamed  = None, None

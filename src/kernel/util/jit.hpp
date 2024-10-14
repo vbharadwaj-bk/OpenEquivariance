@@ -16,7 +16,7 @@ public:
    void compile(string kernel_name, const vector<int> template_params);
    void compile(vector<string> kernel_name, vector<vector<int>> template_params);
 
-   void set_max_smem(uint32_t max_smem_bytes);
+   void set_max_smem(int kernel_id, uint32_t max_smem_bytes);
 
    void execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem=0, CUstream hStream=NULL);

@@ -178,14 +178,20 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     }
 }
 
-void JITKernel::set_max_smem(uint32_t max_smem_bytes) {
-    cuFuncSetAttribute(kernels[0],
+void JITKernel::set_max_smem(int kernel_id, uint32_t max_smem_bytes) {
+    if(kernel_id >= kernels.size())
+        throw std::logic_error("Kernel index out of range!");
+
+    cuFuncSetAttribute(kernels[kernel_id],
                     CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
                     max_smem_bytes);
 }
 
 void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
          void* args[], uint32_t smem, CUstream hStream) {
+
+    if(kernel_id >= kernels.size())
+        throw std::logic_error("Kernel index out of range!");
 
     CUDA_SAFE_CALL(
         cuLaunchKernel( kernels[kernel_id],
