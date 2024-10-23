@@ -30,13 +30,13 @@ class TensorProduct:
     def name():
         raise NotImplementedError()
 
-    def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out):
+    def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out, weights):
         '''
         This function assumes you've already put your arrays on the gpu
         '''
-        self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out) 
+        #self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out) 
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
+    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
         '''
         All state initialization for the internal class occurs inside the
         constructor. 
@@ -62,7 +62,7 @@ class TensorProduct:
     def load_cg_tensor(self, l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
-    def test_correctness(self, L1_in, L2_in, L3_out_comp):
+    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp):
         thresh = 5e-7
         result = {
             "shape_match": False,
@@ -79,6 +79,13 @@ class TensorProduct:
 
         ground_truth = np.zeros((L1_in.shape[0], L3.get_rep_length()), dtype=np.float32)
 
+        # Should fold this into the tripartite graph class
+        weight_counts = [L3.mult(i) for i in range(reps.L3.num_irreps())]
+        assert(reps.num_trainable_weights() == sum(weight_counts)) 
+        weight_offsets = [0] 
+        for count in weight_counts:
+            weight_offsets.append(weight_offsets[-1] + count)
+
         for i in range(reps.num_interactions()):
             irr1, irr2, irr3 = reps.interactions(i)
             cg_tensor = self.load_cg_tensor(L1.type(irr1), L2.type(irr2), L3.type(irr3))
@@ -86,9 +93,11 @@ class TensorProduct:
             start2, end2 = offsets[2][irr2], offsets[2][irr2+1]
             start3, end3 = offsets[3][irr3], offsets[3][irr3+1]
 
-            ground_truth[:, start3:end3] += np.einsum('bui,bvj,ijk->buvk', 
+            # Assumes uvu interactions for the weights 
+            ground_truth[:, start3:end3] += np.einsum('bui,bvj,buv,ijk->buvk', 
                     L1_in[:, start1:end1].reshape((L1_in.shape[0], L1.mult(irr1), 2 * L1.type(irr1) + 1)),
                     L2_in[:, start2:end2].reshape((L2_in.shape[0], L2.mult(irr2), 2 * L2.type(irr2) + 1)),
+                    weights[:, weight_offsets[i]:weight_offsets[i+1]].reshape((L1_in.shape[0], L1.mult(irr1), L2.mult(irr2) )),
                     cg_tensor).reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:
@@ -116,7 +125,7 @@ class TensorProduct:
 
         if direction == "forward":
             self.internal.benchmark_forward_cpu(
-                    L1_in, L2_in, L3_buffer,
+                    L1_in, L2_in, L3_buffer, weights,
                     num_warmup, time_millis)
         
         elif direction == "backward":
@@ -142,12 +151,11 @@ class TensorProduct:
         L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
         L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
         L3_buffer = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(batch_size, self.reps.num_trainable_weights())), dtype=np.float32)
 
-        weights, L1_grad, L2_grad, weights_grad = [None] * 4
+        L1_grad, L2_grad, weights_grad = [None] * 3
         if direction == "backward":
             L3_buffer[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
-            weights = np.array(rng.uniform(size=(batch_size, self.reps.num_trainable_weights())), dtype=np.float32)
-
             L1_grad = np.zeros_like(L1_in)
             L2_grad = np.zeros_like(L2_in)
             weights_grad = np.zeros_like(weights)
@@ -159,7 +167,7 @@ class TensorProduct:
         ops_per_nz, total_data_streamed  = None, None
         if direction == "forward":
             ops_per_nz = 3
-            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes 
+            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes + weights.nbytes 
         elif direction == "backward":
             ops_per_nz = 9
             total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes + weights.nbytes \
@@ -172,6 +180,8 @@ class TensorProduct:
             local_nnz = np.count_nonzero(tensor)
             nnz += local_nnz
             ops_per_tp += ops_per_nz * local_nnz * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
+            ops_per_tp += L3.mult(w) * (2 * L3.type(w) + 1) # FLOPS for weights, assuming "uvu" 
+
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction)

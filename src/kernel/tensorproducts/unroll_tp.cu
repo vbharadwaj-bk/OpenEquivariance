@@ -33,7 +33,8 @@ void UnrollTPImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
     float* L2_in,
-    float* L3_out) {
+    float* L3_out,
+    float* weights) {
 
     void *args[] = { &num_products, &L1_in, &L2_in, &L3_out }; 
     jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);

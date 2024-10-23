@@ -116,14 +116,14 @@ class LoopUnrollTP(TensorProduct):
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
+    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1.transpose_irreps_cpu(L1_in, True)
         L2.transpose_irreps_cpu(L2_in, True)
 
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
 
         L1.transpose_irreps_cpu(L1_in, False)
         L2.transpose_irreps_cpu(L2_in, False)
