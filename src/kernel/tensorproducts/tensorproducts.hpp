@@ -134,6 +134,14 @@ public:
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
+    void benchmark_backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
+
     virtual ~GenericTensorProductImpl() {};
 };
 
@@ -280,6 +288,13 @@ public:
             float* L2_in,
             float* L3_out,
             float* weights);
+
+    void backward(
+            uint64_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad); 
 
     void backward(
             uint64_t num_products,
