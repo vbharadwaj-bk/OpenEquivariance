@@ -31,24 +31,44 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
-            float* L3_out) = 0;
-            
+            float* L3_out,
+            float* weights) = 0;
+
+    void exec_tensor_product_device_rawptrs(
+            uint64_t num_products,
+            uint64_t L1_in,
+            uint64_t L2_in,
+            uint64_t L3_out,
+            uint64_t weights) {
+        
+        exec_tensor_product(
+            num_products,
+            reinterpret_cast<float*>(L1_in),
+            reinterpret_cast<float*>(L2_in),
+            reinterpret_cast<float*>(L3_out),
+            reinterpret_cast<float*>(weights));
+    } 
+
     // Executes function with CPU inputs from Python. Issues
-    // memcpy to / from device. 
+    // memcpy to / from device. This function fills the weight matrix
+    // with ones for now. 
     void exec_tensor_product_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
-            py::array_t<float> L3_out_py) {
+            py::array_t<float> L3_out_py,
+            py::array_t<float> weights_py) {
         
         // To get batch dimension 
         Buffer<float> L3_out_host(L3_out_py);
+        auto batch_dim = L3_out_host.shape[0];
 
         // Copies data to device 
         DeviceBuffer<float> L1_in(L1_in_py);
         DeviceBuffer<float> L2_in(L2_in_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
+        DeviceBuffer<float> weights(weights_py);
 
-        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
+        exec_tensor_product(batch_dim, L1_in.ptr, L2_in.ptr, L3_out.ptr, weights.ptr);
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
@@ -102,6 +122,15 @@ public:
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
+            py::array_t<float> weights_py,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
+
+    void benchmark_backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -151,7 +180,8 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
-            float* L3_out);
+            float* L3_out,
+            float* weights);
 
     ~ThreadTensorProductImpl() = default;
 };
@@ -195,7 +225,8 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
-            float* L3_out);
+            float* L3_out,
+            float* weights);
 
     ~GemmTensorProductImpl(); 
 };
@@ -228,7 +259,8 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
-            float* L3_out);
+            float* L3_out,
+            float* weights);
 
     ~ShuffleTensorProductImpl() = default; 
 };
@@ -254,7 +286,15 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
-            float* L3_out);
+            float* L3_out,
+            float* weights);
+
+    void backward(
+            uint64_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad); 
 
     void backward(
             uint64_t num_products,

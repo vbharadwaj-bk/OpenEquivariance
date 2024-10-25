@@ -12,6 +12,7 @@ void GenericTensorProductImpl::benchmark_forward_cpu(
         py::array_t<float> L1_in_py,
         py::array_t<float> L2_in_py,
         py::array_t<float> L3_out_py,
+        py::array_t<float> weights_py,
         uint64_t num_warmup,
         py::array_t<float> time_millis_py) {
 
@@ -22,12 +23,13 @@ void GenericTensorProductImpl::benchmark_forward_cpu(
 
     DeviceBuffer<float> L1_in(L1_in_py);
     DeviceBuffer<float> L2_in(L2_in_py);
+    DeviceBuffer<float> weights(weights_py);
     DeviceBuffer<float> L3_out(L3_out_host.size());
 
     record_internal_stats = false;
 
     for(int i = 0; i < num_warmup; i++) {
-        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
+        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr, weights.ptr);
     }
 
     record_internal_stats = true;
@@ -35,7 +37,7 @@ void GenericTensorProductImpl::benchmark_forward_cpu(
     // kernel execution is small. 
     for(int i = 0; i < time_millis.shape[0]; i++) {
         timer.start();
-        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
+        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr, weights.ptr);
         float elapsed = timer.stop_clock_get_elapsed();
         time_millis[i] = elapsed;
     }

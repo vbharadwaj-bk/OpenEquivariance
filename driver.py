@@ -56,7 +56,8 @@ class TestBenchmarkSuite:
             L1, L2, L3 = reps.L1, reps.L2, reps.L3 
             rng = np.random.default_rng(self.prng_seed)
             L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32)
+            weights = np.array(rng.uniform(size=(self.correctness_batch_size, reps.num_trainable_weights())), dtype=np.float32) # Assumes weights are not shared 
             L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
             for impl in tp_implementations:
                 tc_name = f"{reps.to_string()}, {impl.name()}, {direction}"
@@ -64,8 +65,8 @@ class TestBenchmarkSuite:
 
                 if correctness and direction == "forward":
                     tp_correctness = impl(reps, self.correctness_batch_size)
-                    tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, L3_out)
+                    tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
+                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out)
 
                 tp_bench = impl(reps, self.bench_batch_size)
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 
@@ -103,7 +104,7 @@ def debug(tp_impl, config, direction="forward"):
     elif direction == "backward":
         L3_grad = L3_out
         L3_grad[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
-        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32) # Assumes no shared weights
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
         print(L1_grad)
         print(L2_grad)
@@ -125,14 +126,14 @@ if __name__=='__main__':
     ]
 
     full_decomp_tests = [
-        ("32x5e", "1x5e", "32x3e"),
+        #("32x5e", "1x5e", "32x3e"),
         ("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
         ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="backward")
+    bench_suite.run([LoopUnrollTP], direction="forward")
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
     #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")

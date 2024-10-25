@@ -44,17 +44,16 @@ class LoopUnrollTP(TensorProduct):
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
         forward_config.num_threads = 256
-        forward_config.smem = (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length())  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+        forward_config.smem = (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length() + reps.num_trainable_weights())  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+        logger.info(f"Forward pass needs {forward_config.smem} bytes of shared memory.")
 
         if forward_config.smem > GPUInfo.max_smem:
             raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
 
-
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
         backward_config.num_threads = 192
-        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
-
+        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
         logger.info(f"Backward pass needs {backward_config.smem} bytes of shared memory.")
 
         if backward_config.smem > GPUInfo.max_smem:
@@ -116,14 +115,14 @@ class LoopUnrollTP(TensorProduct):
         self.internal = UnrollTPImpl(self.reps, self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
+    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1.transpose_irreps_cpu(L1_in, True)
         L2.transpose_irreps_cpu(L2_in, True)
 
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
 
         L1.transpose_irreps_cpu(L1_in, False)
         L2.transpose_irreps_cpu(L2_in, False)
