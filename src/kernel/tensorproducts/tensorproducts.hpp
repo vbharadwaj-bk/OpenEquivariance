@@ -33,7 +33,22 @@ public:
             float* L2_in,
             float* L3_out,
             float* weights) = 0;
-            
+
+    void exec_tensor_product_device_rawptrs(
+            uint64_t num_products,
+            uint64_t L1_in,
+            uint64_t L2_in,
+            uint64_t L3_out,
+            uint64_t weights) {
+        
+        exec_tensor_product(
+            num_products,
+            reinterpret_cast<float*>(L1_in),
+            reinterpret_cast<float*>(L2_in),
+            reinterpret_cast<float*>(L3_out),
+            reinterpret_cast<float*>(weights));
+    } 
+
     // Executes function with CPU inputs from Python. Issues
     // memcpy to / from device. This function fills the weight matrix
     // with ones for now. 

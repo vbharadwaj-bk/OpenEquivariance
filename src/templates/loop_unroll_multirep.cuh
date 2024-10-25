@@ -24,12 +24,13 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
     float l1_vec[{{L1.irrep_lengths | max}}];
     float l2_vec[{{L2.irrep_lengths | max}}];
     float l3_vec[{{L3.irrep_lengths | max}}];
+    float weight;
 
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
         {%- set u, v, w, tensor = interactions[k] %}
 
-        float weight = weights_smem[{{weights.offsets[k]}}];
+        weight = weights_smem[{{weights.offsets[k]}}];
 
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
             #pragma unroll
