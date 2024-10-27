@@ -30,18 +30,42 @@ class TensorProduct:
     def name():
         raise NotImplementedError()
 
-    def exec_tensor_product(self, batch : int, L1_in, L2_in, L3_out, weights):
+    def exec_tensor_product(self,
+            batch : np.uint64,
+            L1_in: np.uint64,
+            L2_in: np.uint64,
+            L3_out: np.uint64,
+            weights: np.uint64):
         '''
-        This function assumes you've already put your arrays on the gpu
+        Inputs are integers representing device pointers.
         '''
-        #self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out, weights) 
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
+    def exec_tensor_product_cpu(self, 
+        L1_in: np.ndarray, 
+        L2_in: np.ndarray, 
+        L3_out: np.ndarray, 
+        weights: np.ndarray):
         '''
         All state initialization for the internal class occurs inside the
         constructor. 
         '''
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
+
+    def backward(self, batch_size: np.uint64,
+                L1_in: np.uint64, L1_grad: np.uint64, 
+                L2_in: np.uint64, L2_grad: np.uint64,
+                weights: np.uint64, weights_grad: np.uint64,
+                L3_grad: np.uint64):
+        '''
+        Inputs are integers representing device pointers.
+        '''
+        self.internal.backward(
+                batch_size,
+                L1_in, L1_grad,
+                L2_in, L2_grad,
+                weights, weights_grad,
+                L3_grad)
 
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
         '''

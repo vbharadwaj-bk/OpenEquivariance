@@ -82,6 +82,22 @@ public:
         throw std::logic_error("Backward pass not implemented yet!");
     }
 
+    void backward_device_rawptrs(
+            uint64_t num_products,
+            uint64_t L1_in, uint64_t L1_grad,
+            uint64_t L2_in, uint64_t L2_grad, 
+            uint64_t weight, uint64_t weight_grad,
+            uint64_t L3_grad) {
+
+        backward(
+            num_products,
+            reinterpret_cast<float*>(L1_in), reinterpret_cast<float*>(L1_grad),
+            reinterpret_cast<float*>(L2_in), reinterpret_cast<float*>(L2_grad),
+            reinterpret_cast<float*>(weight), reinterpret_cast<float*>(weight_grad),
+            reinterpret_cast<float*>(L3_grad)
+        );
+    }
+
     void backward_cpu(
             py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
             py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
@@ -123,14 +139,6 @@ public:
             py::array_t<float> L2_in_py,
             py::array_t<float> L3_out_py,
             py::array_t<float> weights_py,
-            uint64_t num_warmup,
-            py::array_t<float> time_millis_py);
-
-    void benchmark_backward_cpu(
-            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
-            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
-            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
-            py::array_t<float> L3_grad_py,
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -288,13 +296,6 @@ public:
             float* L2_in,
             float* L3_out,
             float* weights);
-
-    void backward(
-            uint64_t num_products,
-            float* L1_in, float* L1_grad,
-            float* L2_in, float* L2_grad,
-            float* weight, float* weight_grad,
-            float* L3_grad); 
 
     void backward(
             uint64_t num_products,
