@@ -1,4 +1,4 @@
-import e3nn
+import torch, e3nn
 from e3nn import o3
 
 import sys, os
@@ -46,3 +46,32 @@ def compare_output_to_e3nn(config, batch_size):
     print("Backward Comparison")
     print(In1.grad.numpy() / L1_grad)
     print(In2.grad.numpy() / L2_grad)
+
+
+def test_drive_torch_module():
+    torch.set_default_device('cuda')
+    irreps_L1 = o3.Irreps("32x5e")
+    irreps_L2 = o3.Irreps("1x5e")
+    irreps_L3 = o3.Irreps("32x3e")
+        
+    In1 = irreps_L1.randn(1, -1)
+    In2 = irreps_L2.randn(1, -1)
+    weights = torch.ones(32, dtype=torch.float32)
+
+    In1.to(device='cuda')
+    In2.to(device='cuda')
+    weights.to(device='cuda')
+
+    In1.requires_grad_()
+    In2.requires_grad_()
+    weights.requires_grad_()
+
+    reps = RepTriple(Representation("32x5e"), Representation("1x5e"), Representation("32x3e"))
+    fast_tp = LoopUnrollTP(reps, torch_op=True)
+    result_ours = fast_tp.forward(In1, In2, weights)
+
+    random_grad = irreps_L3.randn(1, -1)
+    result_ours.backward(random_grad, inputs=[In1, In2])
+
+    print(In1.grad)
+    print(In2.grad)

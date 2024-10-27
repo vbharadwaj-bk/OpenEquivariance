@@ -12,6 +12,7 @@ class GPUInfo:
     warp_size = 32
 
 class TensorProduct:
+    next_tp_id = 0 # Used to assign unique IDs to each TP instance 
     tensors = None
     with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
         tensors = pickle.load(f) 
@@ -21,10 +22,16 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely.
     '''
-    def __init__(self, reps: RepTriple, batch_size=None):
+    def __init__(self, reps: RepTriple, batch_size=None, torch_op=False):
         self.reps = reps 
         self.L1, self.L2, self.L3 = reps.L1, reps.L2, reps.L3
         self.batch_size = batch_size
+
+        self.tp_id = TensorProduct.next_tp_id
+        TensorProduct.next_tp_id += 1
+
+        if torch_op:
+            self.setup_torch_module()
 
     @staticmethod
     def name():
@@ -241,3 +248,48 @@ class TensorProduct:
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
 
         return result
+
+    def setup_torch_module(self):
+        import torch, typing
+
+        # ----------------- Forward pass -----------------
+        @torch.library.custom_op(f"fast_tp::forward{self.tp_id}", mutates_args=(), device_types="cuda")
+        def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
+            L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
+            L3_out = torch.zeros((L1_in_c.shape[0], self.reps.L3.get_rep_length() ), dtype=torch.float32, device='cuda')
+            self.exec_tensor_product(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
+            return L3_out
+        
+        @forward.register_fake
+        def _(L1_in, L2_in, weights):
+            return L1_in.new_empty(L1_in.shape[0], self.reps.L3.get_rep_length())
+        
+        self.forward = forward
+        
+        # ---------------- Backward pass -----------------
+        @torch.library.custom_op(f"fast_tp::backward{self.tp_id}", mutates_args=(), device_types="cuda")
+        def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                     weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
+            L1_grad = torch.zeros_like(L1_in)
+            L2_grad = torch.zeros_like(L2_in)
+            weights_grad = torch.zeros_like(weights)
+            
+            self.backward( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
+                        L2_in.data_ptr(), L2_grad.data_ptr(),
+                        weights.data_ptr(), weights_grad.data_ptr(),
+                        L3_grad.data_ptr() )
+            
+            return [L1_grad, L2_grad, weights_grad]
+        
+        @backward_helper.register_fake
+        def _(L1_in, L2_in, weights, L3_grad):
+            return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
+        
+        def setup_context(ctx, inputs, output):
+            ctx.L1_in, ctx.L2_in, ctx.weights = inputs
+        
+        def backward(ctx, grad_output):
+            result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
+            return result[0], result[1], result[2]
+        
+        self.forward.register_autograd(backward, setup_context=setup_context)

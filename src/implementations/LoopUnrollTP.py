@@ -19,8 +19,8 @@ def sizeof(dtype):
         raise Exception("Provided undefined datatype to sizeof!")
 
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, reps, batch_size):
-        super().__init__(reps, batch_size)
+    def __init__(self, reps, torch_op=False):
+        super().__init__(reps, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3
 
         for i in range(L1.num_irreps()):

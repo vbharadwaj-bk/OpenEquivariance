@@ -2,9 +2,6 @@ import json, os, time, pathlib
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
-from src.implementations.GemmTP import *
-from src.implementations.ThreadTP import *
-from src.implementations.ShuffleReduceTP import *
 from src.implementations.LoopUnrollTP import *
 
 import numpy as np
@@ -64,11 +61,11 @@ class TestBenchmarkSuite:
                 logger.info(f'Starting {tc_name}.')
 
                 if correctness and direction == "forward":
-                    tp_correctness = impl(reps, self.correctness_batch_size)
+                    tp_correctness = impl(reps)
                     tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
                     correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out)
 
-                tp_bench = impl(reps, self.bench_batch_size)
+                tp_bench = impl(reps)
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 
                 rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
@@ -90,7 +87,8 @@ def debug(tp_impl, config, direction="forward"):
     reps = config_to_rep_triple(config)
     L1, L2, L3 = reps.L1, reps.L2, reps.L3
     batch_size = 1
-    tp = tp_impl(reps, batch_size)
+
+    tp = tp_impl(reps)
 
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32)
@@ -133,7 +131,7 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="forward")
+    bench_suite.run([LoopUnrollTP], direction="backward")
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
     #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")
