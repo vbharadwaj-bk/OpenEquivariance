@@ -4,6 +4,7 @@ from e3nn import o3
 import sys, os
 from build.kernel_wrapper import *
 from src.implementations.LoopUnrollTP import *
+from src.torch_modules.irrep_transposer import *
 
 def compare_output_to_e3nn(config, batch_size):
     reps = None
@@ -66,12 +67,12 @@ def test_drive_torch_module():
     In2.requires_grad_()
     weights.requires_grad_()
 
+    L1T = IrrepTransposer(reps.L1)
+    L3T = IrrepTransposer(reps.L3)
+
     reps = RepTriple(Representation("32x5e"), Representation("1x5e"), Representation("32x3e"))
     fast_tp = LoopUnrollTP(reps, torch_op=True)
-    result_ours = fast_tp.forward(In1, In2, weights)
+    result_ours = L3T(fast_tp.forward(L1T(In1, True), In2, weights), False)
 
     random_grad = irreps_L3.randn(1, -1)
     result_ours.backward(random_grad, inputs=[In1, In2])
-
-    print(In1.grad)
-    print(In2.grad)

@@ -253,7 +253,7 @@ class TensorProduct:
         import torch, typing
 
         # ----------------- Forward pass -----------------
-        @torch.library.custom_op(f"fast_tp::forward{self.tp_id}", mutates_args=(), device_types="cuda")
+        @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
             L3_out = torch.zeros((L1_in_c.shape[0], self.reps.L3.get_rep_length() ), dtype=torch.float32, device='cuda')
@@ -267,7 +267,7 @@ class TensorProduct:
         self.forward = forward
         
         # ---------------- Backward pass -----------------
-        @torch.library.custom_op(f"fast_tp::backward{self.tp_id}", mutates_args=(), device_types="cuda")
+        @torch.library.custom_op(f"fast_tp::tp_backward{self.tp_id}", mutates_args=(), device_types="cuda")
         def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                      weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
             L1_grad = torch.zeros_like(L1_in)

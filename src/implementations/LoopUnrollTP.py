@@ -74,10 +74,10 @@ class LoopUnrollTP(TensorProduct):
                 self.offsets = rep.get_irrep_offsets()
 
         class CGTensor:
-            def __init__(self, l1, l2, l3):
+            def __init__(self, l1, l2, l3, normalization_factor):
                 tensor = load_cg_tensor(l1, l2, l3)
                 coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
-                float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
+                float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy() * normalization_factor
                 values = [str(float.hex(float(val))) + "f" for val in float_values]
 
                 self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
@@ -99,8 +99,71 @@ class LoopUnrollTP(TensorProduct):
                     offset += count
                     self.offsets.append(offset)
 
+        # --------- Hasty attempt at normalization coefficients --------------
+        irrep_normalization, path_normalization = 'component', 'element'
         interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
-        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
+        normalization_coefficients = []
+
+        def dim(mul_ir):
+            return mul_ir[1] * 2 + 1
+
+        #def num_elements(connection_mode):
+        #    return {
+        #        "uvw": (self.irreps_in1[ins.i_in1].mul * self.irreps_in2[ins.i_in2].mul),
+        #        "uvu": self.irreps_in2[ins.i_in2].mul,
+        #        "uvv": self.irreps_in1[ins.i_in1].mul,
+        #        "uuw": self.irreps_in1[ins.i_in1].mul,
+        #        "uuu": 1,
+        #        "uvuv": 1,
+        #        "uvu<v": 1,
+        #        "u<vw": self.irreps_in1[ins.i_in1].mul * (self.irreps_in2[ins.i_in2].mul - 1) // 2,
+        #    }[connection_mode]
+
+        for (u, v, w) in interactions:
+            mul_ir_in1 = (L1.mult(u), L1.type(u))
+            mul_ir_in2 = (L2.mult(v), L2.type(v))
+            mul_ir_out = (L3.mult(w), L3.type(w)) 
+            #assert mul_ir_in1.ir.p * mul_ir_in2.ir.p == mul_ir_out.ir.p
+            #assert abs(mul_ir_in1.ir.l - mul_ir_in2.ir.l) <= mul_ir_out.ir.l <= mul_ir_in1.ir.l + mul_ir_in2.ir.l
+            #assert ins.connection_mode in ['uvw', 'uvu', 'uvv', 'uuw', 'uuu', 'uvuv', 'uvu<v', 'u<vw']
+
+            if irrep_normalization == 'component':
+                alpha = dim(mul_ir_out)
+            if irrep_normalization == 'norm':
+                alpha = dim(mul_ir_in1) * dim(mul_ir_in2) 
+            if irrep_normalization == 'none':
+                alpha = 1
+
+            if path_normalization == 'element':
+                x = sum(
+                    1.0 #in1_var[i.i_in1] * in2_var[i.i_in2] * num_elements("uvu")
+                    for (u_other, v_other, w_other) in interactions 
+                    if w_other == w 
+                )
+            #elif path_normalization == 'path':
+            #    x = in1_var[ins.i_in1] * in2_var[ins.i_in2] * num_elements("uvu")
+            #    x *= len([i for i in instructions if i.i_out == ins.i_out])
+            #elif path_normalization == 'none':
+            #    x = 1
+
+            if x > 0.0:
+                alpha /= x
+
+            alpha *= 1.0 # out_var[ins.i_out]
+
+            # For now, we don't allow manually setting path weights
+            # alpha *= ins.path_weight
+
+            normalization_coefficients += [np.sqrt(alpha)]
+
+        print(normalization_coefficients)
+
+        interactions = [(u, v, w, 
+                CGTensor(L1.type(u), L2.type(v), L3.type(w), normalization_coefficients[i])) 
+                for i, (u, v, w) in enumerate(interactions)]
+        # --------------------------------------------------------------------
+
+
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
