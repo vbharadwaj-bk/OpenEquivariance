@@ -156,8 +156,6 @@ class LoopUnrollTP(TensorProduct):
 
             normalization_coefficients += [np.sqrt(alpha)]
 
-        print(normalization_coefficients)
-
         interactions = [(u, v, w, 
                 CGTensor(L1.type(u), L2.type(v), L3.type(w), normalization_coefficients[i])) 
                 for i, (u, v, w) in enumerate(interactions)]
