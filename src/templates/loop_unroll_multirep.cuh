@@ -113,7 +113,7 @@ __device__ __forceinline__ void backward_loop_unroll(
     float l1_vec[{{L1.irrep_lengths  | max}}]; 
     float l1_grad[{{L1.irrep_lengths | max}}]; 
     float l2_vec[{{L2.irrep_lengths  | max}}];
-    float l2_grad[{{L1.irrep_lengths | max}}]; 
+    float l2_grad[{{L2.irrep_lengths | max}}]; 
     float l3_grad[{{L3.irrep_lengths | max}}];
 
     float weight, weight_grad;
