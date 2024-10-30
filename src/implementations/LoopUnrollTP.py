@@ -118,7 +118,7 @@ class LoopUnrollTP(TensorProduct):
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
         L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
+        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1.transpose_irreps_cpu(L1_in, True)
         L2.transpose_irreps_cpu(L2_in, True)
@@ -135,7 +135,7 @@ class LoopUnrollTP(TensorProduct):
         weights_grad = np.zeros_like(weights)
 
         L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
+        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1.transpose_irreps_cpu(L1_in, True)
         L2.transpose_irreps_cpu(L2_in, True)
