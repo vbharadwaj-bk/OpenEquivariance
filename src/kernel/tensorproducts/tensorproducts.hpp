@@ -203,6 +203,40 @@ public:
 
 //=========================================================================
 /*
+* Austin's Tensor Simple Tensor product where I'm doing multiplicty outer prodcut in the inner loop
+*/
+class __attribute__ ((visibility ("default"))) MultTPImpl : public GenericTensorProductImpl {
+public:
+    JITKernel jit;
+    KernelLaunchConfig &forward_config;
+    KernelLaunchConfig &backward_config; 
+
+    MultTPImpl(
+        RepTriple &reps,
+        std::string jit_kernel,    
+        KernelLaunchConfig &forward_config_i,
+        KernelLaunchConfig &backward_config_i
+        );
+
+    void exec_tensor_product(
+            uint64_t num_products,
+            float* L1_in,
+            float* L2_in,
+            float* L3_out);
+
+    void backward(
+            uint64_t num_products,
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad); 
+
+    ~MultTPImpl() = default; 
+};
+
+
+//=========================================================================
+/*
 * A tensor product that uses shuffle primitives. Each tensor product is 
 * assigned to a single warp. 
 */

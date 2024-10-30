@@ -17,6 +17,7 @@ add_library(espmm SHARED
   tensorproducts/gemm_tp.cu
   tensorproducts/shuffle_tp.cu
   tensorproducts/unroll_tp.cu
+  tensorproducts/mult_tp.cu
 
   convolution/convolution.hpp
   convolution/atomic_conv.cu

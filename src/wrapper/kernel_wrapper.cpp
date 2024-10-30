@@ -53,7 +53,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def(py::init<RepTriple&, py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
     py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
         .def(py::init<RepTriple&, std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
-
+    py::class_<MultTPImpl, GenericTensorProductImpl>(m, "MultTPImpl")
+        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
         .def("exec_conv_cpu", &ConvolutionImpl::exec_conv_cpu)
