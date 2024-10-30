@@ -16,3 +16,5 @@ nvidia-mathdx*
 .vscode/*
 *.ncu-rep
 mace
+valid_indices*
+MACE_models/*

@@ -267,8 +267,8 @@ class TensorProduct:
         self.forward = forward
         
         # ---------------- Backward pass -----------------
-        @torch.library.custom_op(f"fast_tp::tp_backward{self.tp_id}", mutates_args=(), device_types="cuda")
-        def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+        @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
+        def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                      weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
             L1_grad = torch.zeros_like(L1_in)
             L2_grad = torch.zeros_like(L2_in)
@@ -281,15 +281,17 @@ class TensorProduct:
             
             return [L1_grad, L2_grad, weights_grad]
         
-        @backward_helper.register_fake
+        @grad_helper.register_fake
         def _(L1_in, L2_in, weights, L3_grad):
             return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
-        
+
+        grad_helper.register_autograd(lambda ctx, grad_output: (None, None, None, None), setup_context=lambda ctx, inputs, output: None)
+
         def setup_context(ctx, inputs, output):
             ctx.L1_in, ctx.L2_in, ctx.weights = inputs
         
         def backward(ctx, grad_output):
-            result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
+            result = grad_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
             return result[0], result[1], result[2]
         
         self.forward.register_autograd(backward, setup_context=setup_context)
