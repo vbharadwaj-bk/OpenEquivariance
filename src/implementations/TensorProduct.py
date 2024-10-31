@@ -285,13 +285,31 @@ class TensorProduct:
         def _(L1_in, L2_in, weights, L3_grad):
             return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
-        grad_helper.register_autograd(lambda ctx, grad_output: (None, None, None, None), setup_context=lambda ctx, inputs, output: None)
-
         def setup_context(ctx, inputs, output):
             ctx.L1_in, ctx.L2_in, ctx.weights = inputs
         
         def backward(ctx, grad_output):
             result = grad_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
             return result[0], result[1], result[2]
-        
+
         self.forward.register_autograd(backward, setup_context=setup_context)
+
+        # Setup for higher derivatives
+        def setup_context_grad_helper(ctx, inputs, output):
+            ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad = inputs 
+
+        def grad_helper_backward(ctx, grad_output):
+            A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
+            E, F, G = grad_output[0], grad_output[1], grad_output[2]
+
+            op1 = grad_helper(A, B, D, C)
+            op2 = grad_helper(A, B, G, C)
+            op3 = forward(E, B, D)
+            op4 = grad_helper(E, B, D, C) # op4 and op5 could be combined with op3 and op6 
+            op5 = grad_helper(A, F, D, C) 
+            op6 = forward(A, F, D)
+            op7 = forward(A, B, G)
+
+            return op1[0] + op2[0], op1[1] + op2[1], op4[2] + op5[2], op3 + op6 + op7
+
+        grad_helper.register_autograd(grad_helper_backward, setup_context=setup_context_grad_helper)
