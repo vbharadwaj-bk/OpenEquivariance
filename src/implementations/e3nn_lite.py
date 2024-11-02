@@ -1,4 +1,16 @@
-from typing import NamedTuple, Union, List, Any, Optional
+from typing import Tuple, NamedTuple, Union, List, Any, Optional
+from math import sqrt, prod
+
+'''
+This file contains lightly modified code from E3NN. The code has been modified to remove
+all dependency on Pytorch.
+
+https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_tensor_product/_tensor_product.py
+https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_tensor_product/_instruction.py
+https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_irreps.py.
+
+The TensorProductProblem class does not maintain any internal weights.
+'''
 
 class Irrep(tuple):
     def __new__(cls, l: Union[int, "Irrep", str, tuple], p=None):
@@ -312,7 +324,7 @@ class Instruction(NamedTuple):
     path_shape: tuple
 
 
-class TensorProductProblem: 
+class TPProblem: 
     instructions: List[Any]
     shared_weights: bool
     internal_weights: bool
@@ -462,3 +474,10 @@ class TensorProductProblem:
             f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()} "
             f"-> {self.irreps_out.simplify()} | {npath} paths | {self.weight_numel} weights)"
         )
+
+    def weight_range_and_shape_for_instruction_mod(self, instruction: int) -> Tuple[int, int, tuple]: 
+        if not self.instructions[instruction].has_weight:
+            raise ValueError(f"Instruction {instruction} has no weights.")
+        offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
+        ins = self.instructions[instruction]
+        return offset, offset + prod(ins.path_shape), ins.path_shape

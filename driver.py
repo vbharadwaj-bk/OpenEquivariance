@@ -3,21 +3,56 @@ import json, os, time, pathlib
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
 from src.implementations.LoopUnrollTP import *
+from src.implementations.e3nn_lite import *
 
 import numpy as np
 import numpy.linalg as la
 
 logger = getLogger()
 
-def config_to_rep_triple(config):
-    reps = None 
-    if isinstance(config[0], tuple):
-        reps = [Representation(config[i][0], config[i][1]) for i in range(3)]
-    elif isinstance(config[0], str) and not isinstance(config[2], int):
-        reps = [Representation(config[i]) for i in range(3)]
-    elif isinstance(config[0], str) and isinstance(config[2], int):
-        return RepTriple(Representation(config[0]), Representation(config[1]), config[2])
-    return RepTriple(reps[0], reps[1], reps[2])
+def mace_conf(irreps1, irreps2, lmax):
+    '''
+    Modified from mace/mace/modules/irreps_tools.py.
+    '''
+    trainable = True
+    irreps1 = Irreps(irreps1)
+    irreps2 = Irreps(irreps2)
+
+    # Collect possible irreps and their instructions
+    irreps_out_list = [] 
+    instructions = []
+    for i, (mul, ir_in) in enumerate(irreps1):
+        for j, (_, ir_edge) in enumerate(irreps2):
+            for ir_out in ir_in * ir_edge:  # | l1 - l2 | <= l <= l1 + l2
+                if ir_out.l <= lmax: 
+                    k = len(irreps_out_list)  # instruction index
+                    irreps_out_list.append((mul, ir_out))
+                    instructions.append((i, j, k, "uvu", trainable))
+
+    irreps_out = Irreps(irreps_out_list)
+    irreps_out, permut, _ = irreps_out.sort()
+
+    instructions = [
+        (i_in1, i_in2, permut[i_out], mode, train)
+        for i_in1, i_in2, i_out, mode, train in instructions
+    ]
+
+    instructions = sorted(instructions, key=lambda x: x[2])
+    result = TPProblem(irreps1, irreps2, irreps_out, instructions)
+    result.metadata = f"mace_conf_{irreps1}__{irreps2}_{lmax}"
+    result.metadata = result.metadata.replace(' ', '')
+    return result
+
+def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable):
+    irreps1 = Irreps(irreps1)
+    irreps2 = Irreps(irreps2)
+    irreps_out = Irreps(irreps_out)
+    instructions = [(0, 0, 0, mode, trainable)]
+
+    result = TPProblem(irreps1, irreps2, irreps_out, instructions)
+    result.metadata = f"single_inst_conf_{irreps1}__{irreps2}__{irreps_out}"
+    result.metadata = result.metadata.replace(' ', '')
+    return TPProblem(irreps1, irreps2, irreps_out, instructions)
 
 class TestBenchmarkSuite:
     def __init__(self, configs,
@@ -41,23 +76,24 @@ class TestBenchmarkSuite:
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
-        rep_sets = [config_to_rep_triple(config) for config in self.configs] 
         metadata = {
-            "configs": [set.to_string() for set in rep_sets], 
+            "configs": [config.metadata for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations]
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for reps in rep_sets:
-            L1, L2, L3 = reps.L1, reps.L2, reps.L3 
+        for config in configs:
+            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
             rng = np.random.default_rng(self.prng_seed)
-            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.get_rep_length())), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.get_rep_length())), dtype=np.float32)
-            weights = np.array(rng.uniform(size=(self.correctness_batch_size, reps.num_trainable_weights())), dtype=np.float32) # Assumes weights are not shared 
-            L3_out = np.zeros((self.correctness_batch_size, L3.get_rep_length()), dtype=np.float32)
+            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.dim)), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.dim)), dtype=np.float32)
+
+            # Assumes weights are not shared 
+            weights = np.array(rng.uniform(size=(self.correctness_batch_size, config.weight_numel)), dtype=np.float32) 
+            L3_out = np.zeros((self.correctness_batch_size, L3.dim), dtype=np.float32)
             for impl in tp_implementations:
-                tc_name = f"{reps.to_string()}, {impl.name()}, {direction}"
+                tc_name = f"{config.metadata}, {impl.name()}, {direction}"
                 logger.info(f'Starting {tc_name}.')
 
                 if correctness and direction == "forward":
@@ -65,11 +101,10 @@ class TestBenchmarkSuite:
                     tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
                     correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out)
 
-                tp_bench = impl(reps)
+                tp_bench = impl(config)
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 
-                rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
-                    "config": rnames,
+                    "config": config.metadata,
                     "direction": direction, 
                     "name": impl.name(),
                     "correctness": correctness,
@@ -83,17 +118,16 @@ class TestBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}.')
 
-def debug(tp_impl, config, direction="forward"):
-    reps = config_to_rep_triple(config)
-    L1, L2, L3 = reps.L1, reps.L2, reps.L3
+def debug(tp_impl, config, direction="forward"): 
+    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
     batch_size = 1
 
-    tp = tp_impl(reps)
+    tp = tp_impl(config)
 
     rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.get_rep_length())), dtype=np.float32)
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.get_rep_length())), dtype=np.float32)
-    L3_out = np.zeros((batch_size, L3.get_rep_length() ), dtype=np.float32)
+    L1_in  = np.array(rng.uniform(size=(batch_size, L1.dim)), dtype=np.float32)
+    L2_in  = np.array(rng.uniform(size=(batch_size, L2.dim)), dtype=np.float32)
+    L3_out = np.zeros((batch_size, L3.dim), dtype=np.float32)
 
     if direction == "forward":
         tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
@@ -102,7 +136,7 @@ def debug(tp_impl, config, direction="forward"):
     elif direction == "backward":
         L3_grad = L3_out
         L3_grad[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
-        weights = np.array(rng.uniform(size=(batch_size, reps.num_trainable_weights())), dtype=np.float32) # Assumes no shared weights
+        weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) # Assumes no shared weights
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
         print(L1_grad)
         print(L2_grad)
@@ -111,26 +145,14 @@ def debug(tp_impl, config, direction="forward"):
         assert(False)
 
 if __name__=='__main__':
-    default_tests = [
-            ((1, 5), (1, 5), (1, 3)),
-            ((1, 2), (1, 2), (1, 2)),
-            ((1, 4), (1, 3), (1, 1)),
-            ((1, 4), (1, 3), (1, 5))]
-
-    multiplicity_tests = [
-            ((2, 4), (2, 3), (4, 5)),
-            ((2, 4), (1, 3), (2, 5)),
-            ((1, 4), (2, 3), (2, 5))
-    ]
-
-    full_decomp_tests = [
-        ("32x5e", "1x5e", "32x3e"),
+    tests = [
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
         #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    bench_suite = TestBenchmarkSuite(full_decomp_tests, bench_batch_size=1000000)
+    bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP], direction="backward")
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
