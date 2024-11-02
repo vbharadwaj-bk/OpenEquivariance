@@ -19,8 +19,8 @@ def sizeof(dtype):
         raise Exception("Provided undefined datatype to sizeof!")
 
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, reps, torch_op=False):
-        super().__init__(reps, torch_op=torch_op)
+    def __init__(self, config, torch_op=False):
+        super().__init__(config, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
         config = self.config
 
@@ -104,10 +104,6 @@ class LoopUnrollTP(TensorProduct):
                 CGTensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l, path_weight)) 
                 for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
 
-        path_weights = [path_weight
-                for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
-        print(path_weights)
-
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
@@ -143,19 +139,21 @@ class LoopUnrollTP(TensorProduct):
         weights_grad = np.zeros_like(weights)
 
         L1, L2, L3 = self.L1, self.L2, self.L3
+        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
+
         logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
-        #L1.transpose_irreps_cpu(L1_in, True)
-        #L2.transpose_irreps_cpu(L2_in, True)
-        #L3.transpose_irreps_cpu(L3_grad, True)
+        L1Rep.transpose_irreps_cpu(L1_in, True)
+        L2Rep.transpose_irreps_cpu(L2_in, True)
+        L3Rep.transpose_irreps_cpu(L3_grad, True)
 
         self.internal.backward_cpu(L1_in, L1_grad, 
                 L2_in, L2_grad,
                 weights, weights_grad, 
                 L3_grad)
 
-        #L1.transpose_irreps_cpu(L1_grad, False)
-        #L2.transpose_irreps_cpu(L2_grad, False)
+        L1Rep.transpose_irreps_cpu(L1_grad, False)
+        L2Rep.transpose_irreps_cpu(L2_grad, False)
 
         return L1_grad, L2_grad, weights_grad
 
