@@ -38,7 +38,9 @@ def mace_conf(irreps1, irreps2, lmax):
     ]
 
     instructions = sorted(instructions, key=lambda x: x[2])
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions)
+    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
+        internal_weights=False,
+        shared_weights=False)
     result.metadata = f"mace_conf_{irreps1}__{irreps2}_{lmax}"
     result.metadata = result.metadata.replace(' ', '')
     return result
@@ -49,7 +51,9 @@ def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable):
     irreps_out = Irreps(irreps_out)
     instructions = [(0, 0, 0, mode, trainable)]
 
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions)
+    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
+        internal_weights=False,
+        shared_weights=False)
     result.metadata = f"single_inst_conf_{irreps1}__{irreps2}__{irreps_out}"
     result.metadata = result.metadata.replace(' ', '')
     return result 
@@ -111,7 +115,7 @@ class TestBenchmarkSuite:
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{config.metadata}.json")
+                fname = pathlib.Path(f"{output_folder}/{config.metadata}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
@@ -127,15 +131,18 @@ def debug(tp_impl, config, direction="forward"):
     rng = np.random.default_rng(12345)
     L1_in  = np.array(rng.uniform(size=(batch_size, L1.dim)), dtype=np.float32)
     L2_in  = np.array(rng.uniform(size=(batch_size, L2.dim)), dtype=np.float32)
+    weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) 
+
     L3_out = np.zeros((batch_size, L3.dim), dtype=np.float32)
 
     if direction == "forward":
-        tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out)
-        _ , ground_truth = tp.test_correctness(L1_in, L2_in, L3_out)
+        tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
+        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out)
         print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+        print(L3_out / ground_truth)
     elif direction == "backward":
         L3_grad = L3_out
-        L3_grad[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
+        L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
         weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) # Assumes no shared weights
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
         print(L1_grad)
@@ -155,5 +162,4 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP], direction="forward")
 
-    #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
-    #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")
+    #debug(LoopUnrollTP, tests[0], direction="forward")

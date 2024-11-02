@@ -104,6 +104,10 @@ class LoopUnrollTP(TensorProduct):
                 CGTensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l, path_weight)) 
                 for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
 
+        path_weights = [path_weight
+                for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
+        print(path_weights)
+
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
@@ -122,14 +126,16 @@ class LoopUnrollTP(TensorProduct):
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
-        #L1.transpose_irreps_cpu(L1_in, True)
-        #L2.transpose_irreps_cpu(L2_in, True)
+        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
+
+        L1Rep.transpose_irreps_cpu(L1_in, True)
+        L2Rep.transpose_irreps_cpu(L2_in, True)
 
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
 
-        #L1.transpose_irreps_cpu(L1_in, False)
-        #L2.transpose_irreps_cpu(L2_in, False)
-        #L3.transpose_irreps_cpu(L3_out, False)
+        L1Rep.transpose_irreps_cpu(L1_in, False)
+        L2Rep.transpose_irreps_cpu(L2_in, False)
+        L3Rep.transpose_irreps_cpu(L3_out, False)
 
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
         L1_grad = np.zeros_like(L1_in)

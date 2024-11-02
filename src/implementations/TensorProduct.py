@@ -116,9 +116,9 @@ class TensorProduct:
             weight_offsets.append(weight_offsets[-1] + count)
 
         for i in range(len(config.instructions)):
-            (irr1, irr2, irr3, *_) = config.instructions[i] 
-            cg_tensor = self.load_cg_tensor(L1[irr1].ir.l, L2[irr2].ir.l, L3[irr3].ir.l)
-
+            (irr1, irr2, irr3, _, _, path_weight, _) = config.instructions[i] 
+            cg_tensor = self.load_cg_tensor(L1[irr1].ir.l, L2[irr2].ir.l, L3[irr3].ir.l) * path_weight
+            
             start1, end1 = slices[1][irr1].start, slices[1][irr1].stop
             start2, end2 = slices[2][irr2].start, slices[2][irr2].stop
             start3, end3 = slices[3][irr3].start, slices[3][irr3].stop
