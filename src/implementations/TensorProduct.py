@@ -22,10 +22,9 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely.
     '''
-    def __init__(self, reps: RepTriple, batch_size=None, torch_op=False):
-        self.reps = reps 
-        self.L1, self.L2, self.L3 = reps.L1, reps.L2, reps.L3
-        self.batch_size = batch_size
+    def __init__(self, config, torch_op=False):
+        self.config = config 
+        self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
 
         self.tp_id = TensorProduct.next_tp_id
         TensorProduct.next_tp_id += 1
@@ -103,32 +102,32 @@ class TensorProduct:
         }
 
         L1, L2, L3 = self.L1, self.L2, self.L3
-        reps = self.reps
-        offsets = { 1: L1.get_irrep_offsets(), 
-                    2: L2.get_irrep_offsets(), 
-                    3: L3.get_irrep_offsets() }
+        config = self.config 
+        slices = { 1: L1.slices(), 
+                    2: L2.slices(), 
+                    3: L3.slices() }
 
-        ground_truth = np.zeros((L1_in.shape[0], L3.get_rep_length()), dtype=np.float32)
+        ground_truth = np.zeros((L1_in.shape[0], L3.dim), dtype=np.float32)
 
         # Should fold this into the tripartite graph class
-        weight_counts = [L3.mult(i) for i in range(reps.L3.num_irreps())]
-        assert(reps.num_trainable_weights() == sum(weight_counts)) 
+        weight_counts = [mul for (mul, _) in L3]
         weight_offsets = [0] 
         for count in weight_counts:
             weight_offsets.append(weight_offsets[-1] + count)
 
-        for i in range(reps.num_interactions()):
-            irr1, irr2, irr3 = reps.interactions(i)
-            cg_tensor = self.load_cg_tensor(L1.type(irr1), L2.type(irr2), L3.type(irr3))
-            start1, end1 = offsets[1][irr1], offsets[1][irr1+1]
-            start2, end2 = offsets[2][irr2], offsets[2][irr2+1]
-            start3, end3 = offsets[3][irr3], offsets[3][irr3+1]
+        for i in range(len(config.instructions)):
+            (irr1, irr2, irr3, *_) = config.instructions[i] 
+            cg_tensor = self.load_cg_tensor(L1[irr1].ir.l, L2[irr2].ir.l, L3[irr3].ir.l)
+
+            start1, end1 = slices[1][irr1].start, slices[1][irr1].stop
+            start2, end2 = slices[2][irr2].start, slices[2][irr2].stop
+            start3, end3 = slices[3][irr3].start, slices[3][irr3].stop
 
             # Assumes uvu interactions for the weights 
             ground_truth[:, start3:end3] += np.einsum('bui,bvj,buv,ijk->buvk', 
-                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1.mult(irr1), 2 * L1.type(irr1) + 1)),
-                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2.mult(irr2), 2 * L2.type(irr2) + 1)),
-                    weights[:, weight_offsets[i]:weight_offsets[i+1]].reshape((L1_in.shape[0], L1.mult(irr1), L2.mult(irr2) )),
+                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1[irr1].mul, L1[irr1].ir.dim)),
+                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2[irr2].mul, L2[irr2].ir.dim)),
+                    weights[:, weight_offsets[i]:weight_offsets[i+1]].reshape((L1_in.shape[0], L1[irr1].mul, L2[irr2].mul )),
                     cg_tensor).reshape(L1_in.shape[0], -1)
 
         if L3_out_comp.shape != ground_truth.shape:
@@ -177,16 +176,16 @@ class TensorProduct:
         assert(direction == "forward" or direction == "backward")
         rng = np.random.default_rng(prng_seed)
         L1, L2, L3 = self.L1, self.L2, self.L3
-        interactions = [self.reps.interactions(i) for i in range(self.reps.num_interactions())] 
+        interactions = [(u, v, w) for (u, v, w, *others) in self.config.instructions] 
 
-        L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.get_rep_length())), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.get_rep_length())), dtype=np.float32)
-        L3_buffer = np.zeros((batch_size, self.L3.get_rep_length()), dtype=np.float32)
-        weights = np.array(rng.uniform(size=(batch_size, self.reps.num_trainable_weights())), dtype=np.float32)
+        L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.dim)), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.dim)), dtype=np.float32)
+        L3_buffer = np.zeros((batch_size, self.L3.dim), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(batch_size, self.config.weight_numel)), dtype=np.float32)
 
         L1_grad, L2_grad, weights_grad = [None] * 3
         if direction == "backward":
-            L3_buffer[:] = rng.uniform(size=(batch_size, L3.get_rep_length())) 
+            L3_buffer[:] = rng.uniform(size=(batch_size, L3.dim)) 
             L1_grad = np.zeros_like(L1_in)
             L2_grad = np.zeros_like(L2_in)
             weights_grad = np.zeros_like(weights)
@@ -207,12 +206,11 @@ class TensorProduct:
         ops_per_tp = 0
         nnz = 0
         for u, v, w in interactions:
-            tensor = self.load_cg_tensor(L1.type(u), L2.type(v), L3.type(w))
+            tensor = self.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
             local_nnz = np.count_nonzero(tensor)
             nnz += local_nnz
-            ops_per_tp += ops_per_nz * local_nnz * L1.mult(u) * L2.mult(v) # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
-            ops_per_tp += L3.mult(w) * (2 * L3.type(w) + 1) # FLOPS for weights, assuming "uvu" 
-
+            ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
+            ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) # FLOPS for weights, assuming "uvu" 
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction)
@@ -227,13 +225,14 @@ class TensorProduct:
             "tp_direction": direction,
             "total_cg_nnz": nnz,
             "flops_per_tp": ops_per_tp,
-            "L1": L1.to_string(),
-            "L2": L2.to_string(),
-            "L3": L3.to_string(),
+            "L1": str(L1),
+            "L2": str(L2), 
+            "L3": str(L3),
+            "instructions": self.config.instructions, 
 
-            "L1_rep_len": L1.get_rep_length(),
-            "L2_rep_len": L2.get_rep_length(),
-            "L3_rep_len": L3.get_rep_length(),
+            "L1_rep_len": L1.dim,
+            "L2_rep_len": L2.dim,
+            "L3_rep_len": L3.dim,
 
             "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
             "arithmetic_intensity (FLOPs / byte)": ops_per_tp * batch_size / total_data_streamed, 

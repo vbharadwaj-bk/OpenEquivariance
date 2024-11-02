@@ -52,7 +52,7 @@ def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable):
     result = TPProblem(irreps1, irreps2, irreps_out, instructions)
     result.metadata = f"single_inst_conf_{irreps1}__{irreps2}__{irreps_out}"
     result.metadata = result.metadata.replace(' ', '')
-    return TPProblem(irreps1, irreps2, irreps_out, instructions)
+    return result 
 
 class TestBenchmarkSuite:
     def __init__(self, configs,
@@ -83,7 +83,7 @@ class TestBenchmarkSuite:
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for config in configs:
+        for config in self.configs:
             L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
             rng = np.random.default_rng(self.prng_seed)
             L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.dim)), dtype=np.float32) 
@@ -97,7 +97,7 @@ class TestBenchmarkSuite:
                 logger.info(f'Starting {tc_name}.')
 
                 if correctness and direction == "forward":
-                    tp_correctness = impl(reps)
+                    tp_correctness = impl(config)
                     tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
                     correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out)
 
@@ -111,7 +111,7 @@ class TestBenchmarkSuite:
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{rnames[0]}_{rnames[1]}_{rnames[2]}_{impl.name()}.json")
+                fname = pathlib.Path(f"{config.metadata}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
@@ -153,7 +153,7 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="backward")
+    bench_suite.run([LoopUnrollTP], direction="forward")
 
     #debug(LoopUnrollTP, ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3))
     #debug(LoopUnrollTP, ("32x5e", "1x5e", "32x3e"), direction="backward")

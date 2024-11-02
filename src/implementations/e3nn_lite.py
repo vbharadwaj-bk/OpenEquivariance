@@ -475,7 +475,7 @@ class TPProblem:
             f"-> {self.irreps_out.simplify()} | {npath} paths | {self.weight_numel} weights)"
         )
 
-    def weight_range_and_shape_for_instruction_mod(self, instruction: int) -> Tuple[int, int, tuple]: 
+    def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
         if not self.instructions[instruction].has_weight:
             raise ValueError(f"Instruction {instruction} has no weights.")
         offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
