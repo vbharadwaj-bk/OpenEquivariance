@@ -4,7 +4,8 @@ from src.implementations.TensorProduct import TensorProduct
 
 class GemmTensorProduct(TensorProduct):
     def __init__(self, reps, batch_size):
-        super().__init__(reps, batch_size)
+        super().__init__(reps)
+        self.batch_size = batch_size
         L1, L2, L3 = self.L1, self.L2, self.L3
         assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
         assert(L1.mult(0) == 1 and L2.mult(0) == 1 and L3.mult(0) == 1)

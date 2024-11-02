@@ -45,15 +45,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("backward", &GenericTensorProductImpl::backward_device_rawptrs)
         .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu) 
         .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
-    py::class_<ThreadTensorProductImpl, GenericTensorProductImpl>(m, "ThreadTensorProductImpl")
-        .def(py::init<RepTriple&, 
-            py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<uint8_t>, py::array_t<float>>());
-    py::class_<GemmTensorProductImpl, GenericTensorProductImpl>(m, "GemmTensorProductImpl")
-        .def(py::init<RepTriple&, uint64_t, py::array_t<float>>());
-    py::class_<ShuffleTensorProductImpl, GenericTensorProductImpl>(m, "ShuffleTensorProductImpl")
-        .def(py::init<RepTriple&, py::array_t<float>, py::array_t<int>, py::array_t<int>, py::array_t<int>>());
-    py::class_<UnrollTPImpl, GenericTensorProductImpl>(m, "UnrollTPImpl")
-        .def(py::init<RepTriple&, std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
+    py::class_<JITTPImpl, GenericTensorProductImpl>(m, "JITTPImpl")
+        .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")

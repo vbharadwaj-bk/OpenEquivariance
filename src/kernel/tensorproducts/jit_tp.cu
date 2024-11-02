@@ -8,16 +8,14 @@
 
 using namespace std;
 
-UnrollTPImpl::UnrollTPImpl(
-    RepTriple &reps,
+JITTPImpl::JITTPImpl(
     std::string jit_kernel,
     KernelLaunchConfig &forward_config_i,
     KernelLaunchConfig &backward_config_i) :
-        GenericTensorProductImpl(reps),
         jit(jit_kernel),
         forward_config(forward_config_i),  
         backward_config(backward_config_i) {
-    vector<string> kernels = {"loop_unroll_many_to_one", "loop_unroll_backward"};
+    vector<string> kernels = {"forward", "backward"};
     jit.compile(kernels, {{}, {}}); 
 
     if(forward_config.smem > 0) {
@@ -29,7 +27,7 @@ UnrollTPImpl::UnrollTPImpl(
     }
 }
 
-void UnrollTPImpl::exec_tensor_product(
+void JITTPImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
     float* L2_in,
@@ -40,7 +38,7 @@ void UnrollTPImpl::exec_tensor_product(
     jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
 }
 
-void UnrollTPImpl::backward(
+void JITTPImpl::backward(
         size_t num_products,
         float* L1_in, float* L1_grad,
         float* L2_in, float* L2_grad,

@@ -66,7 +66,7 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
 
 // Assumes all reps in L1 have multiplicity 32, all reps in L2 have multiplicity 1. 
 // column-major data layout 
-__global__ void loop_unroll_many_to_one(
+__global__ void forward(
     size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
 
     {{ set_launch_bound_variables(forward_config) }}
@@ -113,7 +113,7 @@ __device__ __forceinline__ void backward_loop_unroll(
     float l1_vec[{{L1.irrep_lengths  | max}}]; 
     float l1_grad[{{L1.irrep_lengths | max}}]; 
     float l2_vec[{{L2.irrep_lengths  | max}}];
-    float l2_grad[{{L1.irrep_lengths | max}}]; 
+    float l2_grad[{{L2.irrep_lengths | max}}]; 
     float l3_grad[{{L3.irrep_lengths | max}}];
 
     float weight, weight_grad;
@@ -198,7 +198,7 @@ __device__ __forceinline__ void backward_loop_unroll(
 * Outputs:
 *   L1_grad, L2_grad, weights_grad 
 */
-__global__ void loop_unroll_backward(
+__global__ void backward(
     size_t num_products,
     float* L1_in, float* L1_grad,
     float* L2_in, float* L2_grad,
