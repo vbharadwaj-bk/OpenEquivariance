@@ -19,9 +19,11 @@
     size_t end = min(start + nnz_per_warp, num_products);
 {%- endmacro %}
 
+{%- set L1_irrep_lengths = L1 | map(attribute="ir") | map(attribute="dim") | list %}
+
 __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
         const float* __restrict__ weights_smem, float* __restrict__ L3_smem) {
-    float l1_vec[{{L1.irrep_lengths | max}}];
+    float l1_vec[{{L1_irrep_lengths | max}}];
     float l2_vec[{{L2.irrep_lengths | max}}];
     float l3_vec[{{L3.irrep_lengths | max}}];
     float weight;
@@ -34,8 +36,8 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
 
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
             #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++)
-                l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+            for(int j = 0; j < {{L1[u].ir.dim}}; j++)
+                l1_vec[j] = L1_smem[{{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
         {%- endif %}
 
         {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
@@ -74,19 +76,19 @@ __global__ void forward(
     {{ declare_smem_arrays({
         "common": [],
         "per_warp": [
-            ("L1_smem", "float", L1.rep_len),
+            ("L1_smem", "float", L1.dim),
             ("L2_smem", "float", L2.rep_len),
             ("L3_smem", "float", L3.rep_len),
             ("weights_smem", "float", weights.total_len)
         ]}, "warp_loc", forward_config)}}
 
     for(size_t i = start; i < end; i++) {
-        float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
+        float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
         float* l3_shft = L3_out + i * {{L3.rep_len}} + lane_id;
         float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
 
-        ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
+        ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.rep_len}}, j, L2_smem[j + lane_id] = l2_shft[j];)
         ROW_OPERATION({{L3.rep_len}}, j, L3_smem[j + lane_id] = 0.0f;)
         ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
@@ -110,8 +112,8 @@ __device__ __forceinline__ void backward_loop_unroll(
         float* weights_grad_smem,
         int lane_id) {
 
-    float l1_vec[{{L1.irrep_lengths  | max}}]; 
-    float l1_grad[{{L1.irrep_lengths | max}}]; 
+    float l1_vec[{{L1_irrep_lengths  | max}}]; 
+    float l1_grad[{{L1_irrep_lengths | max}}]; 
     float l2_vec[{{L2.irrep_lengths  | max}}];
     float l2_grad[{{L2.irrep_lengths | max}}]; 
     float l3_grad[{{L3.irrep_lengths | max}}];
@@ -131,9 +133,9 @@ __device__ __forceinline__ void backward_loop_unroll(
         //==========================================
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
             #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++) {
-                l1_vec[j] = L1_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
-                l1_grad[j] = L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}];
+            for(int j = 0; j < {{L1[u].ir.dim}}; j++) {
+                l1_vec[j] = L1_smem[{{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
+                l1_grad[j] = L1_grad_smem[{{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
             }
         {%- endif %}
 
@@ -163,8 +165,8 @@ __device__ __forceinline__ void backward_loop_unroll(
         // Storeback
         {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
             #pragma unroll
-            for(int j = 0; j < {{L1.irrep_lengths[u]}}; j++)
-                L1_grad_smem[{{L1.mults[u]}} * j + {{ L1.offsets[u]}}] = l1_grad[j];
+            for(int j = 0; j < {{L1[u].ir.dim}}; j++)
+                L1_grad_smem[{{L1[u].mul}} * j + {{ L1.slices()[u].start}}] = l1_grad[j];
         {%- endif %}
 
         {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
@@ -210,8 +212,8 @@ __global__ void backward(
     {{ declare_smem_arrays({
         "common": [],
         "per_warp": [
-            ("L1_smem", "float", L1.rep_len),
-            ("L1_grad_smem", "float", L1.rep_len),
+            ("L1_smem", "float", L1.dim),
+            ("L1_grad_smem", "float", L1.dim),
             ("L2_smem", "float", L2.rep_len),
             ("L2_grad_smem", "float", L2.rep_len),
             ("weights_smem", "float", weights.total_len),
@@ -220,17 +222,17 @@ __global__ void backward(
         ]}, "warp_loc", backward_config)}}
 
     for(size_t i = start; i < end; i++) {
-        float* l1_shft = L1_in + i * {{L1.rep_len}} + lane_id;
+        float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.rep_len}} + lane_id; 
         float* l3_shft = L3_grad + i * {{L3.rep_len}} + lane_id;
         float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
 
-        ROW_OPERATION({{L1.rep_len}}, j, L1_smem[j + lane_id] = l1_shft[j];)
+        ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.rep_len}}, j, L2_smem[j + lane_id] = l2_shft[j];)
         ROW_OPERATION({{L3.rep_len}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
         ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
-        ROW_OPERATION({{L1.rep_len}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
         ROW_OPERATION({{L2.rep_len}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
@@ -239,11 +241,11 @@ __global__ void backward(
                 L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
         __syncwarp();
 
-        float* l1_grad_shft = L1_grad + i * {{L1.rep_len}} + lane_id;
+        float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
         float* l2_grad_shft = L2_grad + i * {{L2.rep_len}} + lane_id; 
         float* weights_grad_shft = weights_grad + i * {{weights.total_len}} + lane_id;
 
-        ROW_OPERATION({{L1.rep_len}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
+        ROW_OPERATION({{L1.dim}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
         ROW_OPERATION({{L2.rep_len}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
         ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
     }
