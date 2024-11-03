@@ -162,6 +162,6 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="forward")
+    bench_suite.run([LoopUnrollTP], direction="backward")
 
     #debug(LoopUnrollTP, tests[0], direction="forward")

@@ -107,7 +107,7 @@ class LoopUnrollTP(TensorProduct):
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
-            L1=L1, L2=RepData(L2), L3=RepData(L3),
+            L1=L1, L2=L2, L3=RepData(L3),
             config=config,
             weights=Weights(config),
             interactions=interactions,
