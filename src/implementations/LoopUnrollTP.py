@@ -66,16 +66,6 @@ class LoopUnrollTP(TensorProduct):
         self.backward_config = backward_config 
         load_cg_tensor = self.load_cg_tensor
 
-        class RepData:
-            def __init__(self, rep):
-                self.num_irreps = len(rep) 
-                self.rep_len = rep.dim
-                self.irrep_lengths = [r.dim for (_, r) in rep]
-                self.mults = [ mul for (mul, _) in rep] 
-                
-                slices = rep.slices()
-                self.offsets = [0] + [s.stop for s in slices]
-
         class CGTensor:
             def __init__(self, l1, l2, l3, normalization_factor):
                 tensor = load_cg_tensor(l1, l2, l3)
@@ -107,7 +97,7 @@ class LoopUnrollTP(TensorProduct):
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
-            L1=L1, L2=L2, L3=RepData(L3),
+            L1=L1, L2=L2, L3=L3,
             config=config,
             weights=Weights(config),
             interactions=interactions,
