@@ -3,6 +3,7 @@ import json, os, time, pathlib
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
 from src.implementations.LoopUnrollTP import *
+from src.implementations.NumpyTensorProduct import *
 from src.implementations.e3nn_lite import *
 
 import numpy as np
@@ -103,7 +104,8 @@ class TestBenchmarkSuite:
                 if correctness and direction == "forward":
                     tp_correctness = impl(config)
                     tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out)
+                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out,
+                        reference_implementation=NumpyTensorProduct)
 
                 tp_bench = impl(config)
                 benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 

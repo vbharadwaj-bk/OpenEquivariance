@@ -3,7 +3,7 @@ import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
 
-from src.benchmark.logging_utils import getLogger, bcolors 
+from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
 
 class GPUInfo:
@@ -92,7 +92,11 @@ class TensorProduct:
     def load_cg_tensor(self, l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
-    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp):
+    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp,
+            reference_implementation):
+        L1, L2, L3 = self.L1, self.L2, self.L3
+        config = self.config 
+
         thresh = 5e-7
         result = {
             "shape_match": False,
@@ -101,34 +105,9 @@ class TensorProduct:
             "pass": False
         }
 
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        config = self.config 
-        slices = { 1: L1.slices(), 
-                    2: L2.slices(), 
-                    3: L3.slices() }
-
         ground_truth = np.zeros((L1_in.shape[0], L3.dim), dtype=np.float32)
-
-        # Should fold this into the tripartite graph class
-        weight_counts = [mul for (mul, _) in L3]
-        weight_offsets = [0] 
-        for count in weight_counts:
-            weight_offsets.append(weight_offsets[-1] + count)
-
-        for i in range(len(config.instructions)):
-            (irr1, irr2, irr3, _, _, path_weight, _) = config.instructions[i] 
-            cg_tensor = self.load_cg_tensor(L1[irr1].ir.l, L2[irr2].ir.l, L3[irr3].ir.l) * path_weight
-            
-            start1, end1 = slices[1][irr1].start, slices[1][irr1].stop
-            start2, end2 = slices[2][irr2].start, slices[2][irr2].stop
-            start3, end3 = slices[3][irr3].start, slices[3][irr3].stop
-
-            # Assumes uvu interactions for the weights 
-            ground_truth[:, start3:end3] += np.einsum('bui,bvj,buv,ijk->buvk', 
-                    L1_in[:, start1:end1].reshape((L1_in.shape[0], L1[irr1].mul, L1[irr1].ir.dim)),
-                    L2_in[:, start2:end2].reshape((L2_in.shape[0], L2[irr2].mul, L2[irr2].ir.dim)),
-                    weights[:, weight_offsets[i]:weight_offsets[i+1]].reshape((L1_in.shape[0], L1[irr1].mul, L2[irr2].mul )),
-                    cg_tensor).reshape(L1_in.shape[0], -1)
+        tp = reference_implementation(self.config)
+        tp.exec_tensor_product_cpu(L1_in, L2_in, ground_truth, weights)
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
