@@ -6,7 +6,7 @@ class IrrepTransposer:
     next_id = 0
 
     def __init__(self, rep):
-        self.rep = rep
+        self.rep = Representation(str(rep))
         self.id = IrrepTransposer.next_id
         IrrepTransposer.next_id += 1
 

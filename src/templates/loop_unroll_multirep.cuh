@@ -32,9 +32,10 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
 
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
-        {%- set u, v, w, tensor = interactions[k] %}
+        {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
+        {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
 
-        weight = weights_smem[{{weights.offsets[k]}}];
+        weight = weights_smem[{{weight_start}}];
 
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
             #pragma unroll
@@ -81,19 +82,19 @@ __global__ void forward(
             ("L1_smem", "float", L1.dim),
             ("L2_smem", "float", L2.dim),
             ("L3_smem", "float", L3.dim),
-            ("weights_smem", "float", weights.total_len)
+            ("weights_smem", "float", config.weight_numel)
         ]}, "warp_loc", forward_config)}}
 
     for(size_t i = start; i < end; i++) {
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
         float* l3_shft = L3_out + i * {{L3.dim}} + lane_id;
-        float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
+        float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
         ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
-        ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+        ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
         __syncwarp();
         forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id);
@@ -128,9 +129,10 @@ __device__ __forceinline__ void backward_loop_unroll(
 
     {%- set num_interact = interactions | length %}
     {%- for k in range(num_interact) %}
-        {%- set u, v, w, tensor = interactions[k] %}
-        weight = weights_smem[{{weights.offsets[k]}}];
-        weight_grad = weights_grad_smem[{{weights.offsets[k]}}];
+        {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
+        {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
+        weight = weights_smem[{{weight_start}}];
+        weight_grad = weights_grad_smem[{{weight_start}}];
 
         //==========================================
         {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
@@ -189,7 +191,7 @@ __device__ __forceinline__ void backward_loop_unroll(
             __syncwarp();
         {%- endif %}
 
-        weights_grad_smem[{{weights.offsets[k]}}] = weight_grad; 
+        weights_grad_smem[{{weight_start}}] = weight_grad; 
     {%- endfor %}
 }
 
@@ -218,8 +220,8 @@ __global__ void backward(
             ("L1_grad_smem", "float", L1.dim),
             ("L2_smem", "float", L2.dim),
             ("L2_grad_smem", "float", L2.dim),
-            ("weights_smem", "float", weights.total_len),
-            ("weights_grad_smem", "float", weights.total_len),
+            ("weights_smem", "float", config.weight_numel),
+            ("weights_grad_smem", "float", config.weight_numel),
             ("L3_grad_smem", "float", L3.dim)
         ]}, "warp_loc", backward_config)}}
 
@@ -227,16 +229,16 @@ __global__ void backward(
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
         float* l3_shft = L3_grad + i * {{L3.dim}} + lane_id;
-        float* weights_shft = weights + i * {{weights.total_len}} + lane_id;
+        float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
         ROW_OPERATION({{L3.dim}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
-        ROW_OPERATION({{weights.total_len}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+        ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
         ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
         ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
-        ROW_OPERATION({{weights.total_len}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
+        ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
         backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
@@ -245,10 +247,10 @@ __global__ void backward(
 
         float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
         float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
-        float* weights_grad_shft = weights_grad + i * {{weights.total_len}} + lane_id;
+        float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
         ROW_OPERATION({{L2.dim}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
-        ROW_OPERATION({{weights.total_len}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
+        ROW_OPERATION({{config.weight_numel}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
     }
 }

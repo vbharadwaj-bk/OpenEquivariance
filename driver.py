@@ -1,4 +1,4 @@
-import json, os, time, pathlib 
+import json, os, time, pathlib
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -155,13 +155,13 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     tests = [
-        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
         #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="backward")
+    bench_suite.run([LoopUnrollTP], direction="forward")
 
     #debug(LoopUnrollTP, tests[0], direction="forward")

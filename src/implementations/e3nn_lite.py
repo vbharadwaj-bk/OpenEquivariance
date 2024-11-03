@@ -1,5 +1,6 @@
 from typing import Tuple, NamedTuple, Union, List, Any, Optional
 from math import sqrt, prod
+import collections
 
 '''
 This file contains lightly modified code from E3NN. The code has been modified to remove
@@ -11,6 +12,12 @@ https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_irreps.py.
 
 The TensorProductProblem class does not maintain any internal weights.
 '''
+
+def perm_inverse(p):
+    r"""
+    compute the inverse permutation
+    """
+    return tuple(p.index(i) for i in range(len(p)))
 
 class Irrep(tuple):
     def __new__(cls, l: Union[int, "Irrep", str, tuple], p=None):
@@ -285,7 +292,7 @@ class Irreps(tuple):
         out = [(ir, i, mul) for i, (mul, ir) in enumerate(self)]
         out = sorted(out)
         inv = tuple(i for _, i, _ in out)
-        p = perm.inverse(inv)
+        p = perm_inverse(inv)
         irreps = Irreps([(mul, ir) for ir, _, mul in out])
         return Ret(irreps, p, inv)
 
