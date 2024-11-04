@@ -29,9 +29,9 @@ class Convolution:
             L2 for edge features
             L3 for output node features 
     '''
-    def __init__(self, io_reps: RepTriple):
-        self.io_reps = io_reps
-        self.L1, self.L2, self.L3 = io_reps.L1, io_reps.L2, io_reps.L3
+    def __init__(self, config):
+        self.config = config 
+        self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
 
     @staticmethod
@@ -111,9 +111,9 @@ class Convolution:
         '''
         rng = np.random.default_rng(prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(graph.node_count, self.L1.get_rep_length())), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(graph.node_count, self.L2.get_rep_length())), dtype=np.float32)
-        L3_out = np.zeros((graph.node_count, self.L3.get_rep_length()), dtype=np.float32)
+        L1_in  = np.array(rng.uniform(size=(graph.node_count, self.L1.dim)), dtype=np.float32) 
+        L2_in  = np.array(rng.uniform(size=(graph.node_count, self.L2.dim)), dtype=np.float32)
+        L3_out = np.zeros((graph.node_count, self.L3.dim), dtype=np.float32)
 
         L1, L2, L3 = self.L1, self.L2, self.L3
 
@@ -136,9 +136,9 @@ class Convolution:
 
         result = {
             "disable_tensor_op": disable_tensor_op, 
-            "L1": L1.to_string(),
-            "L2": L2.to_string(),
-            "L3": L3.to_string(),
+            "L1": str(L1),
+            "L2": str(L2), 
+            "L3": str(L3),
             "graph_node_count": graph.node_count,
             "graph_adj_nnz": graph.nnz,
             "num_warmup": num_warmup,

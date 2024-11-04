@@ -6,17 +6,10 @@ import os
 from build.kernel_wrapper import *
 from src.implementations.AtomicConv import *
 from src.implementations.SMConv import *
+from src.benchmark.TestBenchmarkSuite import mace_conf, single_inst_conf  
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
-
-def config_to_rep_triple(config):
-    reps = None 
-    if isinstance(config[0], tuple):
-        reps = [Representation(config[i][0], config[i][1]) for i in range(3)]
-    elif isinstance(config[0], str):
-        reps = [Representation(config[i]) for i in range(3)] 
-    return RepTriple(reps[0], reps[1], reps[2])
 
 def load_graph(name):
     coords, rows, cols = None, None, None
@@ -67,29 +60,27 @@ class ConvBenchmarkSuite:
 
         graph = self.graph
 
-        rep_sets = [config_to_rep_triple(config) for config in self.configs] 
         metadata = {
-            "configs": [reps.to_string() for reps in rep_sets], 
+            "configs": [config.metadata for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations],
             "graph": graph.name
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for io_reps in rep_sets: 
+        for config in self.configs: 
+            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
             rng = np.random.default_rng(self.prng_seed)
 
-            L1, L2, L3 = io_reps.L1, io_reps.L2, io_reps.L3
-
-            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.get_rep_length())), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(graph.node_count, L2.get_rep_length())), dtype=np.float32) 
-            L3_out = np.zeros((graph.node_count, L3.get_rep_length()), dtype=np.float32)
+            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32) 
+            L2_in  = np.array(rng.uniform(size=(graph.node_count, L2.dim)), dtype=np.float32) 
+            L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
             for impl in tp_implementations:
-                tc_name = f"{io_reps.to_string()}, {impl.name()}"
+                tc_name = f"{config.metadata}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}')
 
-                conv = impl(io_reps)
+                conv = impl(config)
 
                 if correctness:
                     if self.disable_tensor_op:
@@ -101,16 +92,15 @@ class ConvBenchmarkSuite:
                 benchmark = conv.benchmark(self.num_warmup, 
                             self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
 
-                rnames= [rep.to_string().replace(' ', '') for rep in [L1, L2, L3]]
                 result = {
-                    "config": rnames,
+                    "config": config.metadata,
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{rnames[0]}_{rnames[1]}_{rnames[2]}_{impl.name()}_{graph.name}.json")
+                fname = pathlib.Path(f"{output_folder}/{config.metadata}_{impl.name()}_{graph.name}.json")
 
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
@@ -138,10 +128,10 @@ def debug(conv_impl, rep_config, graph):
 
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius3.5")
-    rep_config = ("32x5e", "1x3e", "32x5e")
+    rep_config = single_inst_conf("32x5e", "1x3e", "32x5e")
 
     bench = ConvBenchmarkSuite(
-        [rep_config], graph,
+        [mace_rep_config], graph,
         disable_tensor_op=True
     )
     bench.run([AtomicConv, SMConv]) 
