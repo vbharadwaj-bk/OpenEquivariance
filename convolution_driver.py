@@ -137,7 +137,7 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         [config], graph,
-        disable_tensor_op=False
+        disable_tensor_op=True
     )
     bench.run([LoopUnrollConv]) 
 

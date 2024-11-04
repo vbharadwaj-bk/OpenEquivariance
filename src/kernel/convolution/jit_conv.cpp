@@ -42,7 +42,7 @@ void JITConvImpl::exec_conv(
         bool disable_tensor_op
         ) {
 
-    cout << "Executing tensor product!" << endl;
+    //cout << "Executing tensor product!" << endl;
     //void *args[] = { &L1_in, &L2_in, &L3_out, &rows, &cols, &nnz, &node_count}; 
     //jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
 } 

@@ -3,6 +3,7 @@ import numpy.linalg as la
 from build.kernel_wrapper import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
+from src.implementations.TensorProduct import flops_data_per_tp
 logger = getLogger()
 
 class CoordGraph:
@@ -53,7 +54,7 @@ class Convolution:
         conv_reference = conv_reference_impl(self.config)
 
         if disable_tensor_op:
-            logger.warning(f"{bcolors.WARNING}Tensor product disabled in convolution correctness check.{bcolors.ENDC}")
+            logger.warning(f"{bcolors.WARNING}Tensor product disabled within convolution, performing SpMM.{bcolors.ENDC}")
 
         logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
         conv_reference.exec_conv_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
@@ -116,14 +117,17 @@ class Convolution:
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op)
         # ==================================== 
 
+        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
         if disable_tensor_op:
-            throughputs_gflops = [float(el) for el in graph.nnz * self.L1.dim / (time_millis * 1e6)]
-
-            # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
-            bandwidth_gbps_rough = [float(el) for el in (L3_out.nbytes + L1_in[0, :].nbytes * graph.nnz) / (time_millis * 1e6)]
-            time_millis = [float(el) for el in time_millis] 
+            ops_per_tp = 2 * L3.dim
         else:
-            raise NotImplementedError("No throughput / bwidth calculation implemented when tensor op is enabled!")
+            ops_per_tp += L3.dim # Output accumulation 
+
+        throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
+
+        # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
+        bandwidth_gbps = [float(el) for el in graph.nnz * data_per_tp / (time_millis * 1e6)]
+        time_millis = [float(el) for el in time_millis] 
 
         result = {
             "disable_tensor_op": disable_tensor_op, 
@@ -137,7 +141,7 @@ class Convolution:
             "prng_seed": prng_seed,
             "time_millis": time_millis,
             "throughputs_gflops": throughputs_gflops,
-            "bandwidth_gbps_rough": bandwidth_gbps_rough
+            "bandwidth_gbps": bandwidth_gbps
         }
 
         disable_op_str = ""
@@ -145,6 +149,6 @@ class Convolution:
             disable_op_str = " (Tensor Op Disabled)"
 
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps_rough):.2f} ± {np.std(bandwidth_gbps_rough):.2f} GBPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
 
