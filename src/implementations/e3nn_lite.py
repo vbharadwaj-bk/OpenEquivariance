@@ -1,5 +1,7 @@
 from typing import Tuple, NamedTuple, Union, List, Any, Optional
 from math import sqrt, prod
+import collections
+import sys 
 
 '''
 This file contains lightly modified code from E3NN. The code has been modified to remove
@@ -11,6 +13,12 @@ https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_irreps.py.
 
 The TensorProductProblem class does not maintain any internal weights.
 '''
+
+def perm_inverse(p):
+    r"""
+    compute the inverse permutation
+    """
+    return tuple(p.index(i) for i in range(len(p)))
 
 class Irrep(tuple):
     def __new__(cls, l: Union[int, "Irrep", str, tuple], p=None):
@@ -285,7 +293,7 @@ class Irreps(tuple):
         out = [(ir, i, mul) for i, (mul, ir) in enumerate(self)]
         out = sorted(out)
         inv = tuple(i for _, i, _ in out)
-        p = perm.inverse(inv)
+        p = perm_inverse(inv)
         irreps = Irreps([(mul, ir) for ir, _, mul in out])
         return Ret(irreps, p, inv)
 
@@ -355,6 +363,13 @@ class TPProblem:
         self.irreps_in1 = Irreps(irreps_in1)
         self.irreps_in2 = Irreps(irreps_in2)
         self.irreps_out = Irreps(irreps_out)
+
+        self.instructions_raw = instructions
+        self.in1_var = in1_var
+        self.in2_var = in2_var
+        self.out_var = out_var
+        self.irrep_normalization = irrep_normalization
+        self.path_normalization = path_normalization
         del irreps_in1, irreps_in2, irreps_out
 
         instructions = [x if len(x) == 6 else x + (1.0,) for x in instructions]
@@ -475,9 +490,16 @@ class TPProblem:
             f"-> {self.irreps_out.simplify()} | {npath} paths | {self.weight_numel} weights)"
         )
 
-    def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
-        if not self.instructions[instruction].has_weight:
-            raise ValueError(f"Instruction {instruction} has no weights.")
-        offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
-        ins = self.instructions[instruction]
-        return offset, offset + prod(ins.path_shape), ins.path_shape
+def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
+    if not self.instructions[instruction].has_weight:
+        raise ValueError(f"Instruction {instruction} has no weights.")
+    offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
+    ins = self.instructions[instruction]
+    return offset, offset + prod(ins.path_shape), ins.path_shape
+
+
+# Patch classes, including those in E3NN, to include custom functions that we define 
+TPProblem.weight_range_and_shape_for_instruction = weight_range_and_shape_for_instruction
+if 'e3nn' in sys.modules:
+    import e3nn
+    e3nn.o3.TensorProduct.weight_range_and_shape_for_instruction = weight_range_and_shape_for_instruction

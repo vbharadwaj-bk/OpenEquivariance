@@ -66,16 +66,6 @@ class LoopUnrollTP(TensorProduct):
         self.backward_config = backward_config 
         load_cg_tensor = self.load_cg_tensor
 
-        class RepData:
-            def __init__(self, rep):
-                self.num_irreps = len(rep) 
-                self.rep_len = rep.dim
-                self.irrep_lengths = [r.dim for (_, r) in rep]
-                self.mults = [ mul for (mul, _) in rep] 
-                
-                slices = rep.slices()
-                self.offsets = [0] + [s.stop for s in slices]
-
         class CGTensor:
             def __init__(self, l1, l2, l3, normalization_factor):
                 tensor = load_cg_tensor(l1, l2, l3)
@@ -87,28 +77,15 @@ class LoopUnrollTP(TensorProduct):
                 self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
                 self.nnz = len(values)
 
-        class Weights:
-            def __init__(self, config):
-                '''
-                For now, assumes all "uvu" connections, and that all outputs
-                have trainable weights.
-                '''
-                self.total_len = config.weight_numel 
-                self.offsets = [0]
-                offset = 0
-                for i in range(len(config.instructions)):
-                    offset += config.weight_range_and_shape_for_instruction(i)[1]
-                    self.offsets.append(offset)
-
-        interactions = [(u, v, w, 
+        interactions = [(u, v, w, i, 
                 CGTensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l, path_weight)) 
                 for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
 
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
-            L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
-            weights=Weights(config),
+            L1=L1, L2=L2, L3=L3,
+            config=config,
             interactions=interactions,
             forward_config=forward_config,
             backward_config=backward_config
@@ -120,7 +97,7 @@ class LoopUnrollTP(TensorProduct):
 
     def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
+        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
 
@@ -141,7 +118,7 @@ class LoopUnrollTP(TensorProduct):
         L1, L2, L3 = self.L1, self.L2, self.L3
         L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
 
-        logger.warn(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
+        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         L1Rep.transpose_irreps_cpu(L1_in, True)
         L2Rep.transpose_irreps_cpu(L2_in, True)
