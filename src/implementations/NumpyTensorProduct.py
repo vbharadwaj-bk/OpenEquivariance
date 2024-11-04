@@ -44,4 +44,8 @@ class NumpyTensorProduct(TensorProduct):
                     cg_tensor).reshape(L1_in.shape[0], -1)
 
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        raise NotImplementedError("NumpyTensorProduct does not support backward_cpu") 
+        raise NotImplementedError("NumpyTensorProduct does not support backward_cpu")
+
+    @staticmethod
+    def name():
+        return "NumpyTensorProduct"

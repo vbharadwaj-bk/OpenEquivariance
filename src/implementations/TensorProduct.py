@@ -97,8 +97,10 @@ class TensorProduct:
         L1, L2, L3 = self.L1, self.L2, self.L3
         config = self.config 
 
+        logger.info(f"Reference implementation is {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
         thresh = 5e-7
         result = {
+            "reference_implementation": reference_implementation.name(),
             "shape_match": False,
             "diff_Linf_norm": np.inf,
             "thresh": thresh, # Above floating point interval machine epsilon 
@@ -234,13 +236,13 @@ class TensorProduct:
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
-            L3_out = torch.zeros((L1_in_c.shape[0], self.reps.L3.get_rep_length() ), dtype=torch.float32, device='cuda')
+            L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
             self.exec_tensor_product(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
             return L3_out
         
         @forward.register_fake
         def _(L1_in, L2_in, weights):
-            return L1_in.new_empty(L1_in.shape[0], self.reps.L3.get_rep_length())
+            return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
         
         self.forward = forward
         
