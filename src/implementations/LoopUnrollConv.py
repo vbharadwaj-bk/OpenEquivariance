@@ -1,5 +1,7 @@
 from src.implementations.Convolution import *
+from src.implementations.LoopUnrollTP import raise_helper, divide, sizeof
 from src.implementations.TensorProduct import GPUInfo
+
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):

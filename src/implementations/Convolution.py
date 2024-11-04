@@ -53,7 +53,7 @@ class Convolution:
         are ignored. 
         '''
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.get_rep_length() == L3.get_rep_length())
+        assert(L1.dim == L3.dim)
 
         from scipy.sparse import csr_matrix
 
@@ -126,7 +126,7 @@ class Convolution:
         # ==================================== 
 
         if disable_tensor_op:
-            throughputs_gflops = [float(el) for el in graph.nnz * self.L1.get_rep_length() / (time_millis * 1e6)]
+            throughputs_gflops = [float(el) for el in graph.nnz * self.L1.dim / (time_millis * 1e6)]
 
             # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
             bandwidth_gbps_rough = [float(el) for el in (L3_out.nbytes + L1_in[0, :].nbytes * graph.nnz) / (time_millis * 1e6)]

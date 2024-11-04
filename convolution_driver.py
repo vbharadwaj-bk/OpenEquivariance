@@ -4,8 +4,7 @@ import numpy.linalg as la
 import os
 
 from build.kernel_wrapper import *
-from src.implementations.AtomicConv import *
-from src.implementations.SMConv import *
+from src.implementations.LoopUnrollConv import *
 from src.benchmark.TestBenchmarkSuite import mace_conf, single_inst_conf  
 
 from src.benchmark.logging_utils import *
@@ -128,13 +127,13 @@ def debug(conv_impl, rep_config, graph):
 
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius3.5")
-    rep_config = single_inst_conf("32x5e", "1x3e", "32x5e")
+    config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
     bench = ConvBenchmarkSuite(
-        [mace_rep_config], graph,
+        [config], graph,
         disable_tensor_op=True
     )
-    bench.run([AtomicConv, SMConv]) 
+    bench.run([LoopUnrollConv]) 
 
     #debug(AtomicConv, rep_config, graph) 
 
