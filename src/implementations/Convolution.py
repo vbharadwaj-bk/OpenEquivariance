@@ -39,34 +39,29 @@ class Convolution:
         raise NotImplementedError()
 
     def exec_conv_cpu(self, 
-            L1_in, L2_in, L3_out,
+            L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, 
+        self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
                 graph.coords, graph.rows, graph.cols, 
                 disable_tensor_op)
 
-    def test_correctness_no_op(self, L1_in, L2_in, L3_out_comp, graph, reuse_cached_graph=False):
-        '''
-        Tests correctness by performing a "no-op" tensor product. For
-        each nonzero (i, j), A[i:] += B[j:]. This test requires
-        the input and output reps to have the same length; edge features
-        are ignored. 
-        '''
+    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
         L1, L2, L3 = self.L1, self.L2, self.L3
         assert(L1.dim == L3.dim)
 
-        from scipy.sparse import csr_matrix
+        ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+        conv_reference = conv_reference_impl(self.config)
 
-        logger.info("Starting reference SpMM for convolution...")
-        if not reuse_cached_graph or graph.cached_sp_graph is None:
-            graph.cached_sp_graph = csr_matrix((np.ones(len(graph.rows)), (graph.rows, graph.cols)), shape=(graph.node_count, graph.node_count))
-            
-        ground_truth = graph.cached_sp_graph @ L1_in
-        logger.info("Finished reference SpMM.")
+        if disable_tensor_op:
+            logger.warning(f"{bcolors.WARNING}Tensor product disabled in convolution correctness check.{bcolors.ENDC}")
+
+        logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
+        conv_reference.exec_conv_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
+        logger.info("Finished reference convolution.")
 
         thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
-            "disable_tensor_op": True,
+            "disable_tensor_op": disable_tensor_op,
             "shape_match": False,
             "diff_Linf_norm": np.inf,
             "thresh": thresh, # Above floating point interval machine epsilon 
@@ -83,20 +78,20 @@ class Convolution:
             result["pass"] = bool(diff_Linf_norm < thresh) 
 
             if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}No-tensor-op convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
+                logger.info(f"{bcolors.OKGREEN}Convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
             else:
-                logger.error(f"{bcolors.FAIL}No-tensor-op convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
+                logger.error(f"{bcolors.FAIL}Convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
 
         return result, ground_truth
 
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op):
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op):
         '''
         Returns the total time for num_iter iterations of the core inner loop
         after num_warmup warmup iterations. Can override for other implementations
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        self.internal.benchmark_cpu(L1_in, L2_in, L3_out, 
+        self.internal.benchmark_cpu(L1_in, L2_in, weights, L3_out, 
                 graph.coords, graph.rows, graph.cols, 
                 disable_tensor_op,
                 num_warmup,
@@ -109,20 +104,16 @@ class Convolution:
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
+        L1, L2, L3, config = self.L1, self.L2, self.L3, self.config
         rng = np.random.default_rng(prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(graph.node_count, self.L1.dim)), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(graph.node_count, self.L2.dim)), dtype=np.float32)
-        L3_out = np.zeros((graph.node_count, self.L3.dim), dtype=np.float32)
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-
-        #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        #cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        #nnz = len(np.nonzero(cg_tensor)[0])
+        L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
+        L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(graph.node_count, config.weight_numel)), dtype=np.float32)
+        L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
         # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op)
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op)
         # ==================================== 
 
         if disable_tensor_op:

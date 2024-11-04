@@ -20,6 +20,7 @@ public:
     virtual void exec_conv(
             float* L1_in,
             float* L2_in,
+            float* weights, 
             float* L3_out,
             uint32_t* rows,
             uint32_t* cols,
@@ -31,6 +32,7 @@ public:
     void exec_conv_cpu(
             py::array_t<float> &L1_in_py,
             py::array_t<float> &L2_in_py,
+            py::array_t<float> &weights_py,
             py::array_t<float> &L3_out_py,
             py::array_t<float> &coords_py,
             py::array_t<uint32_t> &rows_py,
@@ -42,6 +44,7 @@ public:
 
         DeviceBuffer<float> L1_in(L1_in_py);
         DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> weights(weights_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
 
         // Transfer rows, cols, and coords to device. 
@@ -52,13 +55,14 @@ public:
         uint64_t nnz = rows_host.shape[0];
         uint32_t node_count = static_cast<uint32_t>(L3_out_host.shape[0]);
 
-        exec_conv(L1_in.ptr, L2_in.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count, disable_tensor_op);
+        exec_conv(L1_in.ptr, L2_in.ptr, weights.ptr, L3_out.ptr, rows.ptr, cols.ptr, nnz, node_count, disable_tensor_op);
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
     void benchmark_cpu(
             py::array_t<float> &L1_in_py,
             py::array_t<float> &L2_in_py,
+            py::array_t<float> &weights,
             py::array_t<float> &L3_out_py,
             py::array_t<float> &coords_py,
             py::array_t<uint32_t> &rows_py,
@@ -85,6 +89,7 @@ public:
     void exec_conv(
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out,
             uint32_t* rows,
             uint32_t* cols,

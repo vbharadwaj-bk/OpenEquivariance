@@ -5,6 +5,8 @@ import os
 
 from build.kernel_wrapper import *
 from src.implementations.LoopUnrollConv import *
+from src.implementations.NumpyConv import *
+
 from src.benchmark.TestBenchmarkSuite import mace_conf, single_inst_conf  
 
 from src.benchmark.logging_utils import *
@@ -23,7 +25,7 @@ def load_graph(name):
         if name == candidate:
             logger.info(f"Loading {name} from pickle...")
             coords, rows, cols, name = load_pickle(name) 
-            logger.info(f"Graph {name} loaded.")
+            logger.info(f"Graph {name} loaded with {len(coords)} nodes and {len(rows)} edges.")
 
     if name == "debug":
         coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
@@ -71,8 +73,9 @@ class ConvBenchmarkSuite:
             L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
             rng = np.random.default_rng(self.prng_seed)
 
-            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(graph.node_count, L2.dim)), dtype=np.float32) 
+            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
+            L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
+            weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
             L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
             for impl in tp_implementations:
@@ -82,11 +85,10 @@ class ConvBenchmarkSuite:
                 conv = impl(config)
 
                 if correctness:
-                    if self.disable_tensor_op:
-                        conv.exec_conv_cpu( L1_in, L2_in, L3_out, self.graph, self.disable_tensor_op)
-                        correctness, _ = conv.test_correctness_no_op(L1_in, L2_in, L3_out, self.graph)
-                    else:
-                        raise NotImplementedError("No correctness check implemented including tensor operation!")
+                    assert(L1_in.shape[1] == L3_out.shape[1])
+                    conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
+                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph, 
+                            conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
 
                 benchmark = conv.benchmark(self.num_warmup, 
                             self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
@@ -106,16 +108,16 @@ class ConvBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
-def debug(conv_impl, rep_config, graph):
+def debug(conv_impl, config, graph):
     logger.info("Starting debugging routine...")
-    io_reps = config_to_rep_triple(rep_config)
     conv = conv_impl(io_reps)
 
     rng = np.random.default_rng(12345)
-    L1, L2, L3 = io_reps.L1, io_reps.L2, io_reps.L3
-    L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.get_rep_length())), dtype=np.float32) 
-    L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.get_rep_length())), dtype=np.float32) 
-    L3_out = np.zeros((graph.node_count, L3.get_rep_length() ), dtype=np.float32)
+    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
+    L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
+    L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
+    weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
+    L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
     conv.exec_conv_cpu( L1_in, L2_in, L3_out, graph, disable_tensor_op=True)
     _ , ground_truth = conv.test_correctness_no_op(L1_in, L2_in, L3_out, graph)
@@ -126,12 +128,16 @@ def debug(conv_impl, rep_config, graph):
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("covid_spike_radius2.0")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
+
+    graph.rows = graph.rows[:10000]
+    graph.cols = graph.rows[:10000]
+    graph.nnz = 10000
 
     bench = ConvBenchmarkSuite(
         [config], graph,
-        disable_tensor_op=True
+        disable_tensor_op=False
     )
     bench.run([LoopUnrollConv]) 
 

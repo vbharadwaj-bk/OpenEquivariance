@@ -97,7 +97,6 @@ class TensorProduct:
         L1, L2, L3 = self.L1, self.L2, self.L3
         config = self.config 
 
-        logger.info(f"Reference implementation is {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
         thresh = 5e-7
         result = {
             "reference_implementation": reference_implementation.name(),
@@ -109,7 +108,10 @@ class TensorProduct:
 
         ground_truth = np.zeros((L1_in.shape[0], L3.dim), dtype=np.float32)
         tp = reference_implementation(self.config)
+
+        logger.info(f"Starting reference implementation {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
         tp.exec_tensor_product_cpu(L1_in, L2_in, ground_truth, weights)
+        logger.info("Finished reference implementation.")
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False

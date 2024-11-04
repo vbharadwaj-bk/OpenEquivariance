@@ -33,12 +33,14 @@ JITConvImpl::JITConvImpl
 void JITConvImpl::exec_conv(
         float* L1_in,
         float* L2_in,
+        float* weights,
         float* L3_out,
         uint32_t* rows,
         uint32_t* cols,
         uint64_t nnz,
         uint32_t node_count,
-        bool disable_tensor_op) {
+        bool disable_tensor_op
+        ) {
 
     cout << "Executing tensor product!" << endl;
     //void *args[] = { &L1_in, &L2_in, &L3_out, &rows, &cols, &nnz, &node_count}; 
