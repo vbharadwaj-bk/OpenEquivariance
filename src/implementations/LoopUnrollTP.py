@@ -1,22 +1,9 @@
 import numpy as np
 from build.kernel_wrapper import *
+from src.templates.jinja_utils import *
 from src.implementations.TensorProduct import TensorProduct, GPUInfo
 from src.benchmark.logging_utils import getLogger, bcolors 
-from jinja2 import Environment, PackageLoader, FileSystemLoader 
-
 logger = getLogger()
-
-def raise_helper(msg):
-    raise Exception(msg)
-
-def divide(numerator, denominator):
-    return numerator // denominator 
-
-def sizeof(dtype):
-    if dtype in ["float", "int", "unsigned int"]:
-        return 4
-    else:
-        raise Exception("Provided undefined datatype to sizeof!")
 
 class LoopUnrollTP(TensorProduct):
     def __init__(self, config, torch_op=False):
@@ -33,14 +20,8 @@ class LoopUnrollTP(TensorProduct):
         for (mul, ir) in L3:
             assert(mul == 32)
 
-        # =====================================================================
-        env = Environment(loader=FileSystemLoader("src/templates"), extensions=['jinja2.ext.do'])
-        env.globals['raise'] = raise_helper 
-        env.globals['divide'] = divide 
-        env.globals['sizeof'] = sizeof 
+        env = get_jinja_environment()
         template = env.get_template("loop_unroll_multirep.cuh")
-
-        # =====================================================================
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4

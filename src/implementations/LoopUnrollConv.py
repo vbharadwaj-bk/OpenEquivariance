@@ -1,15 +1,16 @@
 from src.implementations.Convolution import *
-from src.implementations.LoopUnrollTP import raise_helper, divide, sizeof
 from src.implementations.TensorProduct import GPUInfo
-
+from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
     def __init__(self, config):
         super().__init__(config)
-
         L1, L2, L3 = self.L1, self.L2, self.L3 
         config = self.config
+
+        env = get_jinja_environment()
+        template = env.get_template("conv_loop_unroll.cuh") 
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
@@ -32,7 +33,18 @@ class LoopUnrollConv(Convolution):
         self.forward_config = forward_config
         self.backward_config = backward_config
 
-        self.internal = JITConvImpl("", forward_config, backward_config)
+        self.jit_kernel = template.render(
+            L1=L1, L2=L2, L3=L3,
+            config=config,
+            # interactions=interactions,
+            forward_config=forward_config,
+            backward_config=backward_config
+        )
+        
+        print(self.jit_kernel)
+        exit(1)
+
+        self.internal = JITConvImpl(self.jit_kernel, forward_config, backward_config)
 
     @staticmethod
     def name():
