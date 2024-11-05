@@ -16,9 +16,8 @@ add_library(espmm SHARED
   tensorproducts/jit_tp.cu
 
   convolution/convolution.hpp
-  convolution/atomic_conv.cu
   convolution/generic_conv.cpp
-  convolution/sm_conv.cu
+  convolution/jit_conv.cpp
 )
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)

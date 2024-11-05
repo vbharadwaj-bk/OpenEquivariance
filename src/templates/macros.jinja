@@ -8,10 +8,10 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
     {%- set ns = {"offset": 0, "total_warp_bytes": 0} %}
     {%- for name, dtype, num_elements in arrays["common"] %}
         {{dtype}}* {{name}} = ({{dtype}}*) (s + {{ ns["offset"] }});
-        {% do ns.update({"offset": ns["offset"] + num_elements * sizeof(dtype)}) %}
-        {% if ns["offset"] > config.smem %}
+        {%- do ns.update({"offset": ns["offset"] + num_elements * sizeof(dtype)}) %}
+        {%- if ns["offset"] > config.smem %}
             {{ raise("Error, required shared memory exceeds allocation maximum!") }}
-        {% endif %}
+        {%- endif %}
     {%- endfor %}
 
     {%- for name, dtype, num_elements in arrays["per_warp"] %}

@@ -11,6 +11,35 @@ class GPUInfo:
     max_smem = 163840 - 1
     warp_size = 32
 
+def flops_data_per_tp(config, bytes_per_word, direction):
+    '''
+    Assumes all interactions are "uvu" for now
+
+    Returns (flops_per_tp, data_per_tp, nnz)
+    '''
+    assert(not config.shared_weights)
+    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
+    ops_per_nz, words_per_tp = None, None
+    if direction == "forward":
+        ops_per_nz = 3
+        words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel 
+    elif direction == "backward":
+        ops_per_nz = 9
+        words_per_tp = L1.dim + L2.dim + L3.dim + weights.dim \
+                + L1.dim + L2.dim + config.weight_numel # Output gradients
+
+    ops_per_tp = 0
+    nnz = 0
+    for (u, v, w, *others) in config.instructions:
+        tensor = TensorProduct.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
+        local_nnz = np.count_nonzero(tensor)
+        nnz += local_nnz
+        ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
+        ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) # FLOPS for weights, assuming "uvu"
+
+    return ops_per_tp, words_per_tp * bytes_per_word, nnz
+
+
 class TensorProduct:
     next_tp_id = 0 # Used to assign unique IDs to each TP instance 
     tensors = None
@@ -89,7 +118,8 @@ class TensorProduct:
 
         return L1_grad, L2_grad, weights_grad
 
-    def load_cg_tensor(self, l1, l2, l3):
+    @staticmethod
+    def load_cg_tensor(l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
     def test_correctness(self, L1_in, L2_in, weights, L3_out_comp,
@@ -97,7 +127,6 @@ class TensorProduct:
         L1, L2, L3 = self.L1, self.L2, self.L3
         config = self.config 
 
-        logger.info(f"Reference implementation is {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
         thresh = 5e-7
         result = {
             "reference_implementation": reference_implementation.name(),
@@ -109,7 +138,10 @@ class TensorProduct:
 
         ground_truth = np.zeros((L1_in.shape[0], L3.dim), dtype=np.float32)
         tp = reference_implementation(self.config)
+
+        logger.info(f"Starting reference implementation {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
         tp.exec_tensor_product_cpu(L1_in, L2_in, ground_truth, weights)
+        logger.info("Finished reference implementation.")
 
         if L3_out_comp.shape != ground_truth.shape:
             result["shape_match"] = False
@@ -173,25 +205,7 @@ class TensorProduct:
 
         logger.info("Initialized input / output data.")
 
-        # Forward: Requires two multiplications and one addition --> 3, 4 if weights are included (not yet)
-        # Backward: Requires 6 multiplications and 3 additions (including the weight, implemented)
-        ops_per_nz, total_data_streamed  = None, None
-        if direction == "forward":
-            ops_per_nz = 3
-            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes + weights.nbytes 
-        elif direction == "backward":
-            ops_per_nz = 9
-            total_data_streamed = L1_in.nbytes + L2_in.nbytes + L3_buffer.nbytes + weights.nbytes \
-                    + L1_grad.nbytes + L2_grad.nbytes + weights_grad.nbytes
-
-        ops_per_tp = 0
-        nnz = 0
-        for u, v, w in interactions:
-            tensor = self.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
-            local_nnz = np.count_nonzero(tensor)
-            nnz += local_nnz
-            ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
-            ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) # FLOPS for weights, assuming "uvu" 
+        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, direction)
 
         # =========== Benchmarking ===========
         time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction)
@@ -199,7 +213,7 @@ class TensorProduct:
 
         # We don't multiply by num_iters since we benchmark each kernel run separately 
         throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
-        bandwidth_gbps_rough = [float(el) for el in total_data_streamed / (time_millis * 1e6)]
+        bandwidth_gbps_rough = [float(el) for el in batch_size * data_per_tp / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {
@@ -216,7 +230,7 @@ class TensorProduct:
             "L3_rep_len": L3.dim,
 
             "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": ops_per_tp * batch_size / total_data_streamed, 
+            "arithmetic_intensity (FLOPs / byte)": ops_per_tp / data_per_tp, 
 
             "num_warmup": num_warmup,
             "num_iter": num_iter,

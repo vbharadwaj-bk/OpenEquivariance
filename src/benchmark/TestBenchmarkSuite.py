@@ -37,7 +37,7 @@ def mace_conf(irreps1, irreps2, lmax):
     result = TPProblem(irreps1, irreps2, irreps_out, instructions,
         internal_weights=False,
         shared_weights=False)
-    result.metadata = f"mace_conf_{irreps1}__{irreps2}_{lmax}"
+    result.metadata = f"mace_conf_{irreps1}__{irreps2}__{lmax}"
     result.metadata = result.metadata.replace(' ', '')
     return result
 
