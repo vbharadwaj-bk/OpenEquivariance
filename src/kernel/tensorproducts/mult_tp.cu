@@ -33,10 +33,11 @@ void MultTPImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
     float* L2_in,
-    float* L3_out,
-    float* weights) {
+    float* weights,
+    float* L3_out
+    ) {
 
-    void *args[] = { &num_products, &L1_in, &L2_in, &L3_out, &weights}; 
+    void *args[] = { &num_products, &L1_in, &L2_in, &weights, &L3_out}; 
     jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
 }
 

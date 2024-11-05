@@ -147,6 +147,7 @@ void ShuffleTensorProductImpl::exec_tensor_product(
     uint64_t num_products,
     float* L1_in,
     float* L2_in,
+    float* weights,
     float* L3_out) {
 
     Linfo L1_info = {L1_in, static_cast<uint32_t>(L1.get_rep_length())};

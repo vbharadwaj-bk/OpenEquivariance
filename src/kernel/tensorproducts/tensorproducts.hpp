@@ -31,6 +31,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out) = 0;
             
     // Executes function with CPU inputs from Python. Issues
@@ -38,6 +39,7 @@ public:
     void exec_tensor_product_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
+            py::array_t<float> weights_py,
             py::array_t<float> L3_out_py) {
         
         // To get batch dimension 
@@ -46,9 +48,10 @@ public:
         // Copies data to device 
         DeviceBuffer<float> L1_in(L1_in_py);
         DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> weights(weights_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
 
-        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, L3_out.ptr);
+        exec_tensor_product(L3_out_host.shape[0], L1_in.ptr, L2_in.ptr, weights.ptr, L3_out.ptr);
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
@@ -101,6 +104,7 @@ public:
     void benchmark_forward_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
+            py::array_t<float> weights_py,
             py::array_t<float> L3_out_py,
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
@@ -151,6 +155,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out);
 
     ~ThreadTensorProductImpl() = default;
@@ -195,6 +200,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out);
 
     ~GemmTensorProductImpl(); 
@@ -222,6 +228,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out);
 
     void backward(
@@ -262,6 +269,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out);
 
     ~ShuffleTensorProductImpl() = default; 
@@ -288,6 +296,7 @@ public:
             uint64_t num_products,
             float* L1_in,
             float* L2_in,
+            float* weights,
             float* L3_out);
 
     void backward(
