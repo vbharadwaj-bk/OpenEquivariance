@@ -3,7 +3,7 @@ from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
-from built.kernel_wrapper import Representation, RepTriple
+from build.kernel_wrapper import Representation, RepTriple
 
 from src.benchmark.logging_utils import getLogger, bcolors 
 logger = getLogger()
@@ -108,11 +108,11 @@ class TensorProduct:
         return time_millis
 
     @staticmethod
-    def calculate_data_streamed_forward(self, batch_size : int) -> dict: 
+    def calculate_memory_streamed_forward(self, batch_size : int) -> dict: 
         raise NotImplementedError("This needs to be implemented in your class")
     
     @staticmethod
-    def calculate_data_streamed_backward(self, batch_size : int) -> dict: 
+    def calculate_memory_streamed_backward(self, batch_size : int) -> dict: 
         raise NotImplementedError("This needs to be implemented in your class")
     
     @staticmethod

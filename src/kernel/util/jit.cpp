@@ -103,8 +103,8 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
 
     }
 
-    constexpr bool requiresCGheaders = false;
-    char *compileParams[2];
+    constexpr bool requiresCGheaders = true;
+    char *compileParams[3];
     int numCompileOptions = 0;
 
     if (requiresCGheaders)
@@ -117,6 +117,11 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         std::string arch= "-arch=sm_80";
         compileParams[1] = (char *) malloc(sizeof(char)* (arch.length() + 1));
         strcpy(compileParams[1], arch.c_str());
+        numCompileOptions++;
+
+        std::string verbose= "--ptxas-options=-v";
+        compileParams[2] = (char *) malloc(sizeof(char)* (verbose.length() + 1));
+        strcpy(compileParams[2], verbose.c_str());
         numCompileOptions++;
     }
 
@@ -150,6 +155,8 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     NVRTC_SAFE_CALL(nvrtcGetPTX(prog, ptx));
 
     CUDA_SAFE_CALL(cuInit(0));
+
+    std::cout << ptx << std::endl;
 
     // TODO: No context management here, we use the primary context 
     // CUdevice cuDevice;

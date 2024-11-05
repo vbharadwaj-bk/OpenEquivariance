@@ -19,7 +19,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     const float* __restrict__ L1_smem, 
     const float* __restrict__ L2_smem, 
           float* __restrict__ L3_smem,
-    const float* __restrict__ weights, 
+    const float* __restrict__ weights 
     ){ 
     float L1_local_vec[{{L1.irrep_lengths | max}}];
     float L2_local_vec[{{L2.irrep_lengths | max}}];
@@ -30,6 +30,11 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     {%- set num_interact = interactions | length %}
     {%- for interaction_index in range(num_interact) %}
         {%- set u, v, w, tensor = interactions[interaction_index] %}
+        {%- set weight_offset = weight_offsets[interaction_index] %}
+        
+        // shift weights 
+        const float* weights_shft = weights + {{weight_offset}}; 
+
         // THREADS ONLY PERFORM CALCULATIONS IF THE THREAD ID IS RESPOSIBLE FOR ONE OUTPUT 
         if ((threadIdx.x % FORWARD_THREADS_PER_WARP) < {{L3.mults[w]}}){
             // CLEAR OUTPUTS
@@ -93,9 +98,9 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 __global__ void forward_kernel(
     size_t num_products, 
     float* L1_in, 
-    float* L2_in, 
-    float* L3_out,
-    float* weights
+    float* L2_in,
+    float* weights, 
+    float* L3_out
     ) 
 {
     {%- set warps_per_block = divide(forward_config.num_threads, forward_config.warp_size) %}

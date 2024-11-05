@@ -1,8 +1,11 @@
 import numpy as np
 from build.kernel_wrapper import *
+from src.benchmark.e3nn_tp_utils import *
 from src.implementations.TensorProduct import TensorProduct, GPUInfo
 from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, FileSystemLoader 
+
+import e3nn
 
 logger = getLogger()
 
@@ -18,24 +21,9 @@ def sizeof(dtype):
     else:
         raise Exception("Provided undefined datatype to sizeof!")
 
-class Weights:
-    def __init__(self, reps):
-        '''
-        For now, assumes all "uvu" connections, and that all outputs
-        have trainable weights.
-        '''
-        weight_counts = [reps.L3.mult(i) for i in range(reps.L3.num_irreps())]
-        self.total_len = sum(weight_counts)
-        assert(reps.num_trainable_weights() == self.total_len) 
-        self.offsets = [0]
-        offset = 0
-        for count in weight_counts:
-            offset += count
-            self.offsets.append(offset)
-
 class MultiplicityOuterProductTP(TensorProduct):
-    def __init__(self, reps, batch_size):
-        super().__init__(reps, batch_size)
+    def __init__(self, e3nn_tp : e3nn.o3.TensorProduct):
+        super().__init__(e3nn_tp)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         # SANITY CHECKS FOR SIZE, ONLY SUPPORTS 1 THREAD PER OUTPUT RIGHT NOW, and assumes they are on the same warp. 
@@ -49,6 +37,8 @@ class MultiplicityOuterProductTP(TensorProduct):
         for i in range(L3.num_irreps()):
             assert(L3.mult(i) <= 32)
 
+        for ins in e3nn_tp.instructions: # type : Instruction
+            assert ins.connection_mode == 'uvw'
 
         # ==================================================================================
 
@@ -88,7 +78,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
         backward_config.num_threads = 192
-        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * reps.num_trainable_weights() + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
+        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * e3nn_tp.weight_numel + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
 
         logger.info(f"Backward pass needs {backward_config.smem} bytes of shared memory.")
 
@@ -126,23 +116,35 @@ class MultiplicityOuterProductTP(TensorProduct):
                 self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
                 self.nnz = len(values)
 
+       
         # =====================================================================
-        # Strictly Copied from Loop Unroll TP
-
-        ## WEIGHTS WERE HERE, MOVED OUTSIDE 
-
+        # weights_offsets
+        weight_offsets = calc_weight_offsets(e3nn_tp=e3nn_tp)
+        assert isinstance(weight_offsets, list)
+        assert len(weight_offsets) == len(list(e3nn_tp.instructions))
 
         # =====================================================================
-        # Strictly Copied from Loop Unroll TP
-        interactions = [reps.interactions(i) for i in range(reps.num_interactions())]
-        interactions = [(u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w))) for u, v, w in interactions]
+        # tranform "e3nn instructions" into "interactions"
+        instructions = e3nn_tp.instructions
+        interactions = []
+        for ins in instructions:
+            u = ins.i_in1
+            v = ins.i_in2
+            w = ins.i_out
+            interaction = (u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w)))
+            interactions.append(interaction)
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
+        print(interactions)
+
+        assert len(interactions) != 0
 
         # =====================================================================
         # Strictly Copied from Loop Unroll TP
         kernel_text = main_template.render(
-            L1=RepData(L1), L2=RepData(L2), L3=RepData(L3),
-            weights=Weights(reps),
+            L1=RepData(L1), 
+            L2=RepData(L2), 
+            L3=RepData(L3),
+            weight_offsets=weight_offsets,
             interactions=interactions,
             forward_config=forward_config,
             backward_config=backward_config
@@ -176,18 +178,23 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         logger.info(kernel_text)
 
+        # =====================================================================
+        # Create Fake Empty rep triple
+        fake_rep_trip = RepTriple(Representation("1x1e"),Representation("1x1e"),Representation("1x1e"))
+
+
         logger.info("Starting NVRTC")
-        self.internal = MultTPImpl(self.reps, self.jit_kernel, self.forward_config, self.backward_config)
+        self.internal = MultTPImpl(fake_rep_trip, self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out):
-        L1, L2, L3 = self.L1, self.L2, self.L3
+    def exec_tensor_product_cpu(self, L1_in, L2_in, weights,  L3_out):
+        # L1, L2, L3 = self.L1, self.L2, self.L3
         # logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
         # L1.transpose_irreps_cpu(L1_in, True)
         # L2.transpose_irreps_cpu(L2_in, True)
 
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out) 
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, weights, L3_out) 
 
         # L1.transpose_irreps_cpu(L1_in, False)
         # L2.transpose_irreps_cpu(L2_in, False)
@@ -217,9 +224,6 @@ class MultiplicityOuterProductTP(TensorProduct):
         L2.transpose_irreps_cpu(L2_grad, False)
 
         return L1_grad, L2_grad, weights_grad
-
-    def get_weight_info():
-        return Weights(self.)
 
     @staticmethod
     def name():
