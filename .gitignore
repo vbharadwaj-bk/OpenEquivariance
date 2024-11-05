@@ -15,3 +15,6 @@ get_gpu_node.sh
 nvidia-mathdx*
 .vscode/*
 *.ncu-rep
+mace
+valid_indices*
+MACE_models/*

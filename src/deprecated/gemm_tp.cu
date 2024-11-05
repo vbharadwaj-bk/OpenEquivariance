@@ -83,8 +83,8 @@ void GemmTensorProductImpl::exec_tensor_product(
         uint64_t num_products,
         float* L1_in,
         float* L2_in,
-        float* weights,
-        float* L3_out) {
+        float* L3_out,
+        float* weights) {
 
     size_t L1_len = L1.get_rep_length(); 
     size_t L2_len = L2.get_rep_length(); 

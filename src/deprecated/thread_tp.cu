@@ -65,8 +65,8 @@ void ThreadTensorProductImpl::exec_tensor_product(
         uint64_t num_products,
         float* L1_in,
         float* L2_in,
-        float* weights,
-        float* L3_out) {
+        float* L3_out,
+        float* weights) {
 
     size_t L1_stride = L1.get_rep_length(); 
     size_t L2_stride = L2.get_rep_length(); 

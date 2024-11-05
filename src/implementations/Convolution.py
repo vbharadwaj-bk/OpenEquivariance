@@ -3,6 +3,7 @@ import numpy.linalg as la
 from build.kernel_wrapper import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
+from src.implementations.TensorProduct import flops_data_per_tp
 logger = getLogger()
 
 class CoordGraph:
@@ -29,9 +30,9 @@ class Convolution:
             L2 for edge features
             L3 for output node features 
     '''
-    def __init__(self, io_reps: RepTriple):
-        self.io_reps = io_reps
-        self.L1, self.L2, self.L3 = io_reps.L1, io_reps.L2, io_reps.L3
+    def __init__(self, config):
+        self.config = config 
+        self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
 
     @staticmethod
@@ -39,34 +40,29 @@ class Convolution:
         raise NotImplementedError()
 
     def exec_conv_cpu(self, 
-            L1_in, L2_in, L3_out,
+            L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, L3_out, 
+        self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
                 graph.coords, graph.rows, graph.cols, 
                 disable_tensor_op)
 
-    def test_correctness_no_op(self, L1_in, L2_in, L3_out_comp, graph, reuse_cached_graph=False):
-        '''
-        Tests correctness by performing a "no-op" tensor product. For
-        each nonzero (i, j), A[i:] += B[j:]. This test requires
-        the input and output reps to have the same length; edge features
-        are ignored. 
-        '''
+    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.get_rep_length() == L3.get_rep_length())
+        assert(L1.dim == L3.dim)
 
-        from scipy.sparse import csr_matrix
+        ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+        conv_reference = conv_reference_impl(self.config)
 
-        logger.info("Starting reference SpMM for convolution...")
-        if not reuse_cached_graph or graph.cached_sp_graph is None:
-            graph.cached_sp_graph = csr_matrix((np.ones(len(graph.rows)), (graph.rows, graph.cols)), shape=(graph.node_count, graph.node_count))
-            
-        ground_truth = graph.cached_sp_graph @ L1_in
-        logger.info("Finished reference SpMM.")
+        if disable_tensor_op:
+            logger.warning(f"{bcolors.WARNING}Tensor product disabled within convolution, performing SpMM.{bcolors.ENDC}")
+
+        logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
+        conv_reference.exec_conv_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
+        logger.info("Finished reference convolution.")
 
         thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
-            "disable_tensor_op": True,
+            "disable_tensor_op": disable_tensor_op,
             "shape_match": False,
             "diff_Linf_norm": np.inf,
             "thresh": thresh, # Above floating point interval machine epsilon 
@@ -83,20 +79,20 @@ class Convolution:
             result["pass"] = bool(diff_Linf_norm < thresh) 
 
             if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}No-tensor-op convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
+                logger.info(f"{bcolors.OKGREEN}Convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
             else:
-                logger.error(f"{bcolors.FAIL}No-tensor-op convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
+                logger.error(f"{bcolors.FAIL}Convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
 
         return result, ground_truth
 
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op):
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op):
         '''
         Returns the total time for num_iter iterations of the core inner loop
         after num_warmup warmup iterations. Can override for other implementations
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        self.internal.benchmark_cpu(L1_in, L2_in, L3_out, 
+        self.internal.benchmark_cpu(L1_in, L2_in, weights, L3_out, 
                 graph.coords, graph.rows, graph.cols, 
                 disable_tensor_op,
                 num_warmup,
@@ -109,36 +105,35 @@ class Convolution:
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
+        L1, L2, L3, config = self.L1, self.L2, self.L3, self.config
         rng = np.random.default_rng(prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(graph.node_count, self.L1.get_rep_length())), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(graph.node_count, self.L2.get_rep_length())), dtype=np.float32)
-        L3_out = np.zeros((graph.node_count, self.L3.get_rep_length()), dtype=np.float32)
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-
-        #assert(L1.num_irreps() == 1 and L2.num_irreps() == 1 and L3.num_irreps() == 1)
-        #cg_tensor = self.load_cg_tensor(L1.type(0), L2.type(0), L3.type(0))
-        #nnz = len(np.nonzero(cg_tensor)[0])
+        L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
+        L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
+        L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
         # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_out, graph, disable_tensor_op)
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op)
         # ==================================== 
 
+        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
         if disable_tensor_op:
-            throughputs_gflops = [float(el) for el in graph.nnz * self.L1.get_rep_length() / (time_millis * 1e6)]
-
-            # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
-            bandwidth_gbps_rough = [float(el) for el in (L3_out.nbytes + L1_in[0, :].nbytes * graph.nnz) / (time_millis * 1e6)]
-            time_millis = [float(el) for el in time_millis] 
+            ops_per_tp = 2 * L3.dim
         else:
-            raise NotImplementedError("No throughput / bwidth calculation implemented when tensor op is enabled!")
+            ops_per_tp += L3.dim # Output accumulation 
+
+        throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
+
+        # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
+        bandwidth_gbps = [float(el) for el in graph.nnz * data_per_tp / (time_millis * 1e6)]
+        time_millis = [float(el) for el in time_millis] 
 
         result = {
             "disable_tensor_op": disable_tensor_op, 
-            "L1": L1.to_string(),
-            "L2": L2.to_string(),
-            "L3": L3.to_string(),
+            "L1": str(L1),
+            "L2": str(L2), 
+            "L3": str(L3),
             "graph_node_count": graph.node_count,
             "graph_adj_nnz": graph.nnz,
             "num_warmup": num_warmup,
@@ -146,7 +141,7 @@ class Convolution:
             "prng_seed": prng_seed,
             "time_millis": time_millis,
             "throughputs_gflops": throughputs_gflops,
-            "bandwidth_gbps_rough": bandwidth_gbps_rough
+            "bandwidth_gbps": bandwidth_gbps
         }
 
         disable_op_str = ""
@@ -154,6 +149,6 @@ class Convolution:
             disable_op_str = " (Tensor Op Disabled)"
 
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps_rough):.2f} ± {np.std(bandwidth_gbps_rough):.2f} GBPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
 

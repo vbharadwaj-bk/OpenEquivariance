@@ -1,27 +1,16 @@
-import numpy as np
-from build.kernel_wrapper import *
-from src.templates.jinja_utils import *
+from src.implementations.Convolution import *
 from src.implementations.TensorProduct import TensorProduct, GPUInfo
-from src.benchmark.logging_utils import getLogger, bcolors 
-logger = getLogger()
+from src.templates.jinja_utils import *
+from build.kernel_wrapper import *
 
-class LoopUnrollTP(TensorProduct):
-    def __init__(self, config, torch_op=False):
-        super().__init__(config, torch_op=torch_op)
+class LoopUnrollConv(Convolution):
+    def __init__(self, config):
+        super().__init__(config)
         L1, L2, L3 = self.L1, self.L2, self.L3 
         config = self.config
 
-        for (mul, ir) in L1:
-            assert(mul == 32)
-
-        for (mul, ir) in L2:
-            assert(mul == 1)
-
-        for (mul, ir) in L3:
-            assert(mul == 32)
-
         env = get_jinja_environment()
-        template = env.get_template("loop_unroll_batch.cuh")
+        template = env.get_template("loop_unroll_conv.cuh") 
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
@@ -41,10 +30,8 @@ class LoopUnrollTP(TensorProduct):
         if backward_config.smem > GPUInfo.max_smem:
             raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
 
-        # =====================================================================
-
         self.forward_config = forward_config
-        self.backward_config = backward_config 
+        self.backward_config = backward_config
 
         class CGTensor:
             def __init__(self, l1, l2, l3, normalization_factor):
@@ -60,7 +47,6 @@ class LoopUnrollTP(TensorProduct):
         interactions = [(u, v, w, i, 
                 CGTensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l, path_weight)) 
                 for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
-
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.jit_kernel = template.render(
@@ -71,11 +57,11 @@ class LoopUnrollTP(TensorProduct):
             backward_config=backward_config
         )
 
-        logger.info("Starting NVRTC")
-        self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
-        logger.info("Kernel compiled!")
+        self.internal = JITConvImpl(self.jit_kernel, forward_config, backward_config)
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
+    def exec_conv_cpu(self, L1_in, L2_in, weights, L3_out,
+            graph, disable_tensor_op=False):
+
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
@@ -84,36 +70,14 @@ class LoopUnrollTP(TensorProduct):
         L1Rep.transpose_irreps_cpu(L1_in, True)
         L2Rep.transpose_irreps_cpu(L2_in, True)
 
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
+        self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out,
+                graph.coords, graph.rows, graph.cols,
+                disable_tensor_op)
 
         L1Rep.transpose_irreps_cpu(L1_in, False)
         L2Rep.transpose_irreps_cpu(L2_in, False)
         L3Rep.transpose_irreps_cpu(L3_out, False)
 
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
-
-        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
-
-        L1Rep.transpose_irreps_cpu(L1_in, True)
-        L2Rep.transpose_irreps_cpu(L2_in, True)
-        L3Rep.transpose_irreps_cpu(L3_grad, True)
-
-        self.internal.backward_cpu(L1_in, L1_grad, 
-                L2_in, L2_grad,
-                weights, weights_grad, 
-                L3_grad)
-
-        L1Rep.transpose_irreps_cpu(L1_grad, False)
-        L2Rep.transpose_irreps_cpu(L2_grad, False)
-
-        return L1_grad, L2_grad, weights_grad
-
     @staticmethod
     def name():
-        return "LoopUnrollTP"
+        return "LoopUnrollConv"

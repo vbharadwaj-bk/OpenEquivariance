@@ -148,6 +148,12 @@ public:
 
     vector<tuple<int, int, int>> interactions_i; 
 
+    RepTriple() {
+        L1 = Representation(0);
+        L2 = Representation(0);
+        L3 = Representation(0);
+    } 
+
     RepTriple(Representation &L1_i, Representation &L2_i, Representation &L3_i) :
         L1(L1_i),
         L2(L2_i),

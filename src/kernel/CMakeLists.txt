@@ -16,16 +16,11 @@ add_library(espmm SHARED
 
   tensorproducts/tensorproducts.hpp
   tensorproducts/generic_tp.cpp
-  tensorproducts/thread_tp.cu
-  tensorproducts/gemm_tp.cu
-  tensorproducts/shuffle_tp.cu
-  tensorproducts/unroll_tp.cu
-  tensorproducts/mult_tp.cu
+  tensorproducts/jit_tp.cu
 
   convolution/convolution.hpp
-  convolution/atomic_conv.cu
   convolution/generic_conv.cpp
-  convolution/sm_conv.cu
+  convolution/jit_conv.cpp
 )
 
 # target_link_libraries(espmm PUBLIC pybind11::headers)
