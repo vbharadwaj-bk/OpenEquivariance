@@ -35,11 +35,10 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
             l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
         {%- endfor %}
 
-        // TODO: Should change to += accumulate, buffer the output in shared memory. 
         {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
             #pragma unroll
             for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-                L3_smem[{{L3[w].mul}} * j + {{L3.slices()[w].start}}] = l3_vec[j] * weight;
+                L3_smem[{{L3[w].mul}} * j + {{L3.slices()[w].start}}] += l3_vec[j] * weight;
         {%- endif %}
     {%- endfor %}
 }

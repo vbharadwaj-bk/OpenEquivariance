@@ -45,11 +45,10 @@ class LoopUnrollTP(TensorProduct):
 
         self.forward_config = forward_config
         self.backward_config = backward_config 
-        load_cg_tensor = self.load_cg_tensor
 
         class CGTensor:
             def __init__(self, l1, l2, l3, normalization_factor):
-                tensor = load_cg_tensor(l1, l2, l3)
+                tensor = TensorProduct.load_cg_tensor(l1, l2, l3)
                 coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
                 float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy() * normalization_factor
                 values = [str(float.hex(float(val))) + "f" for val in float_values]

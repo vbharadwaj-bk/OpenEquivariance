@@ -108,9 +108,9 @@ class ConvBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
-def debug(conv_impl, config, graph):
+def debug(conv_impl, config, graph, disable_tensor_op=False):
     logger.info("Starting debugging routine...")
-    conv = conv_impl(io_reps)
+    conv = conv_impl(config)
 
     rng = np.random.default_rng(12345)
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
@@ -119,28 +119,30 @@ def debug(conv_impl, config, graph):
     weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
     L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
-    conv.exec_conv_cpu( L1_in, L2_in, L3_out, graph, disable_tensor_op=True)
-    _ , ground_truth = conv.test_correctness_no_op(L1_in, L2_in, L3_out, graph)
+    conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
+    correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
+            conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
 
-    #print(L3_out) 
-    #print(ground_truth) 
-    print(L3_out - ground_truth)
+    print((L3_out - ground_truth)[:2, 0])
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius2.0")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
-    graph.rows = graph.rows[:10000]
-    graph.cols = graph.rows[:10000]
-    graph.nnz = 10000
+    cut_size = len(graph.rows) 
+    graph.rows = graph.rows[:cut_size]
+    graph.cols = graph.cols[:cut_size]
+    graph.nnz = cut_size 
 
-    bench = ConvBenchmarkSuite(
-        [config], graph,
-        disable_tensor_op=False
-    )
-    bench.run([LoopUnrollConv]) 
+    print(graph.rows.dtype)
 
-    #debug(AtomicConv, rep_config, graph) 
+    #bench = ConvBenchmarkSuite(
+    #    [config], graph,
+    #    disable_tensor_op=False
+    #)
+    #bench.run([LoopUnrollConv]) 
+
+    debug(LoopUnrollConv, config, graph, disable_tensor_op=True) 
 
 
