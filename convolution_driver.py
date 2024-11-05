@@ -130,19 +130,17 @@ if __name__=='__main__':
     graph = load_graph("covid_spike_radius2.0")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
-    cut_size = len(graph.rows) 
-    graph.rows = graph.rows[:cut_size]
-    graph.cols = graph.cols[:cut_size]
-    graph.nnz = cut_size 
+    #cut_size = len(graph.rows) - 1 
+    #graph.rows = graph.rows[:cut_size]
+    #graph.cols = graph.cols[:cut_size]
+    #graph.nnz = cut_size 
 
-    print(graph.rows.dtype)
+    bench = ConvBenchmarkSuite(
+        [config], graph,
+        disable_tensor_op=False
+    )
+    bench.run([LoopUnrollConv]) 
 
-    #bench = ConvBenchmarkSuite(
-    #    [config], graph,
-    #    disable_tensor_op=False
-    #)
-    #bench.run([LoopUnrollConv]) 
-
-    debug(LoopUnrollConv, config, graph, disable_tensor_op=True) 
+    #debug(LoopUnrollConv, config, graph, disable_tensor_op=True) 
 
 
