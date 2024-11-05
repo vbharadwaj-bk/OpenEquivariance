@@ -131,13 +131,13 @@ if __name__=='__main__':
     graph = load_graph("covid_spike_radius2.0")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
-    #graph.rows = graph.rows[:10000]
-    #graph.cols = graph.rows[:10000]
-    #graph.nnz = 10000
+    graph.rows = graph.rows[:10000]
+    graph.cols = graph.rows[:10000]
+    graph.nnz = 10000
 
     bench = ConvBenchmarkSuite(
         [config], graph,
-        disable_tensor_op=True
+        disable_tensor_op=False
     )
     bench.run([LoopUnrollConv]) 
 

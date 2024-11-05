@@ -21,7 +21,7 @@ class LoopUnrollTP(TensorProduct):
             assert(mul == 32)
 
         env = get_jinja_environment()
-        template = env.get_template("loop_unroll_multirep.cuh")
+        template = env.get_template("loop_unroll_batch.cuh")
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4

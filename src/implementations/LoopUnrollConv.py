@@ -10,7 +10,7 @@ class LoopUnrollConv(Convolution):
         config = self.config
 
         env = get_jinja_environment()
-        template = env.get_template("conv_loop_unroll.cuh") 
+        template = env.get_template("loop_unroll_conv.cuh") 
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4

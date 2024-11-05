@@ -23,6 +23,8 @@
 {%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
+{% include 'loop_unroll_tp.cuh' %}
+
 struct ConvData {
     unsigned int* rows;
     unsigned int* cols;
@@ -61,16 +63,22 @@ __global__ void forward(
         size_t col = c.cols[i];
 
         float* l1_shft = L1_in + col * {{L1.dim}} + lane_id;
-        //float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
+        float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
         float* l3_shft = L3_out + row * {{L3.dim}} + lane_id;
+        float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
-        //__syncwarp();
-        if(! disable_tensor_op) {
+        ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
+        ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
+        if(! disable_tensor_op) {
+            __syncwarp();
+            forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id);
+            __syncwarp();
         }
-        __syncwarp();
-        ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] += L1_smem[j + lane_id];)
+        else {
+            ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] += L1_smem[j + lane_id];)
+        }
 
         bool changeRow = (i < end - 1) && (row != c.rows[i+1]);
 
