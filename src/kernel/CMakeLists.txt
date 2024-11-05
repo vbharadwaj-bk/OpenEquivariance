@@ -37,13 +37,7 @@ set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
 #)
 #target_link_libraries(espmm mathdx::cublasdx)
 
-# target_link_directories(espmm PUBLIC 
-#   ${pybind11_INCLUDE_DIR}
-#   ${Python_INCLUDE_DIRS}
-#   )
-
 target_include_directories(espmm PUBLIC 
-  # ${pybind11_INCLUDE_DIR}
   ${Python_INCLUDE_DIRS}
   ${pybind11_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
