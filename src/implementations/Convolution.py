@@ -110,7 +110,7 @@ class Convolution:
 
         L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
         L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
-        weights = np.array(rng.uniform(size=(graph.node_count, config.weight_numel)), dtype=np.float32)
+        weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
         L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
         # =========== Benchmarking ===========

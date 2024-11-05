@@ -45,8 +45,9 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     tests = [
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
         #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]

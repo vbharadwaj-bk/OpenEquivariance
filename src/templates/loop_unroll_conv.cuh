@@ -65,7 +65,7 @@ __global__ void forward(
         float* l1_shft = L1_in + col * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
         float* l3_shft = L3_out + row * {{L3.dim}} + lane_id;
-        float* weights_shft = weights + 32768 * {{config.weight_numel}} + lane_id;
+        float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
