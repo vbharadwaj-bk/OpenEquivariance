@@ -32,10 +32,10 @@ JITConvImpl::JITConvImpl
 }
 
 struct ConvData {
-    uint32_t* rows;
-    uint32_t* cols;
-    uint64_t nnz;
-    uint32_t node_count;
+    unsigned int* rows;
+    unsigned int* cols;
+    unsigned long nnz;
+    unsigned int node_count;
 };
 
 void JITConvImpl::exec_conv(

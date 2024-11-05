@@ -39,10 +39,7 @@ class LoopUnrollConv(Convolution):
             # interactions=interactions,
             forward_config=forward_config,
             backward_config=backward_config
-        )
-        
-        print(self.jit_kernel)
-        exit(1)
+        ) 
 
         self.internal = JITConvImpl(self.jit_kernel, forward_config, backward_config)
 
