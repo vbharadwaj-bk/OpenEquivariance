@@ -64,7 +64,7 @@ def calculate_total_nnz( e3nn_tp : e3nn.o3.TensorProduct) -> int:
             nnz_by_l_combo[(l1,l2,l3)] =  count_cg_non_zero(l1,l2,l3)
         return sum(nnz_by_l_combo.values())
 
-def calculate_minimum_data_streamed_forward(e3nn_tp : e3nn.o3.TensorProduct, batch_size : int) -> dict:
+def calculate_minimum_memory_streamed_forward(e3nn_tp : e3nn.o3.TensorProduct, batch_size : int) -> dict:
     data_size = {}
     data_size["input"]   = (e3nn_tp.irreps_in1.dim * e3nn_tp.irreps_in2.dim) * batch_size
     data_size["output"]  = (e3nn_tp.irreps_out.dim) * batch_size
@@ -82,12 +82,32 @@ def calculate_minimum_flops_forward(e3nn_tp : e3nn.o3.TensorProduct, batch_size 
     flops_count = {}
     flops_count["outer_products"] = 0
     flops_count["CG_decomposition"] = 0
-    flops_count["CG_decomposition"] = 0
+    flops_count["linear_combination"] = 0
     for ins in e3nn_tp.instructions: # type : Instruction
         l1, l2, l3 = e3nn_tp.irreps_in1[ins.i_in1].l, e3nn_tp.irreps_in2[ins.i_in2], e3nn_tp.irreps_out[ins.i_out]
         flops_count["outer_products"] += sparse_outer_product_work(cg(l1,l2,l3))
         flops_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
         flops_count["linear_combination"] += (2 * l3 + 1) * math.prod(ins.path_shape) if ins.has_weight else 0
+
+    flops_count["outer_products"] *= batch_size
+    flops_count["CG_decomposition"] *= batch_size
+    flops_count["linear_combination"] *= batch_size
+
     flops_count["total"] = flops_count["outer_products"] + flops_count["CG_decomposition"] + flops_count["linear_combination"]
     return flops_count
 
+def calc_weight_offsets(e3nn_tp : e3nn.o3.TensorProduct):
+    """
+    Returns a list of weight offsets for every instruction. 
+    """
+    assert isinstance(e3nn_tp, e3nn.o3.TensorProduct)
+    offset = 0
+    offsets = []
+    for ins in e3nn_tp.instructions:
+        assert isinstance(ins, Instruction) 
+        offsets.append(offset)
+        if ins.has_weight:
+            flatsize = math.prod(ins.path_shape)
+            offset += flatsize
+    return offsets     
+        
