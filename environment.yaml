@@ -1,0 +1,22 @@
+name: equivariant_spmm_env
+channels:
+  - conda-forge
+  - nvidia
+  - pytorch
+  - default
+dependencies: 
+  - python=3.11 
+
+  # Core Function
+  - numpy
+  - jinja2 
+  - pybind11 
+
+  # Reordering CG coefficients
+  - pandas
+
+  # pytorch and e3nn stuff
+  - pip 
+  - pytorch 
+  - pip:
+    - e3nn 
