@@ -48,7 +48,6 @@ class Convolution:
 
     def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
         L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.dim == L3.dim)
 
         ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
         conv_reference = conv_reference_impl(self.config)

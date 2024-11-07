@@ -54,7 +54,7 @@ class ConvBenchmarkSuite:
         self.disable_tensor_op = disable_tensor_op
         self.prng_seed = 12345
 
-    def run(self, tp_implementations, correctness=False):        
+    def run(self, tp_implementations, correctness=True):        
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -62,6 +62,7 @@ class ConvBenchmarkSuite:
         graph = self.graph
 
         metadata = {
+            "test_name": "Convolution",
             "configs": [config.metadata for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations],
             "graph": graph.name
@@ -81,11 +82,9 @@ class ConvBenchmarkSuite:
             for impl in tp_implementations:
                 tc_name = f"{config.metadata}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}')
-
                 conv = impl(config)
 
                 if correctness:
-                    assert(L1_in.shape[1] == L3_out.shape[1])
                     conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
                     correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph, 
                             conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
@@ -127,20 +126,26 @@ def debug(conv_impl, config, graph, disable_tensor_op=False):
     print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius2.0")
+    graph = load_graph("covid_spike_radius3.5")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
-    cut_size = len(graph.rows) 
+    configs = [
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]
+
+    cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
     graph.cols = graph.cols[:cut_size]
-    graph.nnz = cut_size 
+    graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        [config], graph,
+        configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv]) 
+    bench.run([LoopUnrollConv], correctness=True)
 
-    #debug(LoopUnrollConv, config, graph, disable_tensor_op=True) 
-
-
+    #debug(LoopUnrollConv, configs[0], graph, disable_tensor_op=True)

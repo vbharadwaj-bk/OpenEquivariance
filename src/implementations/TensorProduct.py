@@ -225,6 +225,7 @@ class TensorProduct:
             "L3": str(L3),
             "instructions": self.config.instructions, 
 
+            "batch_size": batch_size,
             "L1_rep_len": L1.dim,
             "L2_rep_len": L2.dim,
             "L3_rep_len": L3.dim,

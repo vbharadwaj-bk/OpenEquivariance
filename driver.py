@@ -29,8 +29,9 @@ def debug(tp_impl, config, direction="forward"):
 
     if direction == "forward":
         tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out)
-        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=NumpyTensorProduct)
+        #print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+        #print(L3_out / ground_truth)
         print(L3_out / ground_truth)
     elif direction == "backward":
         L3_grad = L3_out
@@ -44,15 +45,15 @@ def debug(tp_impl, config, direction="forward"):
         assert(False)
 
 if __name__=='__main__':
-    tests = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
-        #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    configs = [
+        single_inst_conf("64x1e", "1x3e", "64x2e", "uvu", True),
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
+    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=1000000)
     bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
 
-    #debug(LoopUnrollTP, tests[0], direction="forward")
+    #debug(LoopUnrollTP, configs[0], direction="forward")

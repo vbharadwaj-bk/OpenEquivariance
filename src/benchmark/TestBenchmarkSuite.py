@@ -79,6 +79,7 @@ class TestBenchmarkSuite:
         output_folder.mkdir(parents=True)
 
         metadata = {
+            "test_name": "Batch TP",
             "configs": [config.metadata for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations]
         }
