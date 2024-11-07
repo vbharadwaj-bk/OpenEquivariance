@@ -59,8 +59,7 @@ __global__ void forward(
     ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] = 0.0;)
 
     for(size_t i = start; i < end; i++) {
-        size_t row = c.rows[i];
-        size_t col = c.cols[i];
+        size_t row = c.rows[i]; size_t col = c.cols[i];
 
         float* l1_shft = L1_in + col * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
@@ -97,5 +96,18 @@ __global__ void forward(
             )
             firstSegment = false;
         }
+    }
+}
+
+__global__ void backward(
+        float* L1_in, float* L1_grad,
+        float* L2_in, float* L2_grad,
+        float* weights, float* weights_grad,
+        float* L3_grad, ConvData c, bool disable_tensor_op) {
+
+    {{set_launch_bound_variables(backward_config)}}
+
+    if(t_idx == 0) {
+        printf("Hello from inside backward kernel!\n");
     }
 }

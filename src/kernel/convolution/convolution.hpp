@@ -34,7 +34,6 @@ public:
             py::array_t<float> &L2_in_py,
             py::array_t<float> &weights_py,
             py::array_t<float> &L3_out_py,
-            py::array_t<float> &coords_py,
             py::array_t<uint32_t> &rows_py,
             py::array_t<uint32_t> &cols_py,
             bool disable_tensor_op) {
@@ -59,7 +58,61 @@ public:
         L3_out.copy_to_host_buffer(L3_out_host);
     }
 
-    void benchmark_cpu(
+    void backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
+            py::array_t<uint32_t> &rows_py,
+            py::array_t<uint32_t> &cols_py,
+            bool disable_tensor_op) { 
+
+        Buffer<float> L1_grad_host(L1_grad_py);
+        Buffer<float> L2_grad_host(L2_grad_py);
+        Buffer<float> L3_grad_host(L3_grad_py);
+        Buffer<float> weight_grad_host(weight_grad_py);
+
+        // Copies data to device 
+        DeviceBuffer<float> L1_in(L1_in_py);
+        DeviceBuffer<float> L2_in(L2_in_py);
+        DeviceBuffer<float> weight(weight_py);
+        DeviceBuffer<float> L3_grad(L3_grad_py);
+
+        DeviceBuffer<float> L1_grad(L1_grad_py.size());
+        DeviceBuffer<float> L2_grad(L2_grad_py.size());
+        DeviceBuffer<float> weight_grad(weight_grad_py.size());
+
+        DeviceBuffer<uint32_t> rows(rows_py);
+        DeviceBuffer<uint32_t> cols(cols_py);
+
+        uint64_t nnz = rows_host.shape[0];
+        uint32_t node_count = static_cast<uint32_t>(L3_out_host.shape[0]);
+
+        backward(L1_in.ptr, L1_grad.ptr,
+                L2_in.ptr, L2_grad.ptr,
+                weight.ptr, weight_grad.ptr,
+                L3_grad.ptr,
+                rows.ptr, cols.ptr,
+                nnz, node_count,
+                disable_tensor_op);
+
+        L1_grad.copy_to_host_buffer(L1_grad_host);
+        L2_grad.copy_to_host_buffer(L2_grad_host);
+        weight_grad.copy_to_host_buffer(weight_grad_host);
+    }
+
+    virtual void JITConvImpl::backward(
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad,
+            uint32_t* rows, uint32_t* cols,
+            uint64_t nnz, uint32_t node_count,
+            bool disable_tensor_op) {
+        throw std::logic_error("Backward pass not implemented yet!");
+    }
+
+    void benchmark_forward_cpu(
             py::array_t<float> &L1_in_py,
             py::array_t<float> &L2_in_py,
             py::array_t<float> &weights,
@@ -68,6 +121,17 @@ public:
             py::array_t<uint32_t> &rows_py,
             py::array_t<uint32_t> &cols_py,
             bool disable_tensor_op,
+            uint64_t num_warmup,
+            py::array_t<float> time_millis_py);
+
+    void benchmark_backward_cpu(
+            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+            py::array_t<float> L3_grad_py,
+            py::array_t<uint32_t> &rows_py,
+            py::array_t<uint32_t> &cols_py,
+            bool disable_tensor_op 
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -97,6 +161,15 @@ public:
             uint32_t node_count,
             bool disable_tensor_op
             ); 
+
+    void JITConvImpl::backward(
+            float* L1_in, float* L1_grad,
+            float* L2_in, float* L2_grad,
+            float* weight, float* weight_grad,
+            float* L3_grad,
+            uint32_t* rows, uint32_t* cols,
+            uint64_t nnz, uint32_t node_count,
+            bool disable_tensor_op);
 
     ~JITConvImpl() = default; 
 };
