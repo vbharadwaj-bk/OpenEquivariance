@@ -43,7 +43,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
         .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
         .def("backward", &GenericTensorProductImpl::backward_device_rawptrs)
-        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu) 
+        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu)
         .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
     py::class_<JITTPImpl, GenericTensorProductImpl>(m, "JITTPImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());

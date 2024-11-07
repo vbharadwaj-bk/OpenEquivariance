@@ -46,8 +46,7 @@ public:
         DeviceBuffer<float> weights(weights_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
 
-        // Transfer rows, cols, and coords to device. 
-        DeviceBuffer<float> coords(coords_py); 
+        // Transfer rows, cols to device 
         DeviceBuffer<uint32_t> rows(rows_py); 
         DeviceBuffer<uint32_t> cols(cols_py);
 
@@ -71,6 +70,7 @@ public:
         Buffer<float> L2_grad_host(L2_grad_py);
         Buffer<float> L3_grad_host(L3_grad_py);
         Buffer<float> weight_grad_host(weight_grad_py);
+        Buffer<uint32_t> rows_host(rows_py);
 
         // Copies data to device 
         DeviceBuffer<float> L1_in(L1_in_py);
@@ -86,7 +86,7 @@ public:
         DeviceBuffer<uint32_t> cols(cols_py);
 
         uint64_t nnz = rows_host.shape[0];
-        uint32_t node_count = static_cast<uint32_t>(L3_out_host.shape[0]);
+        uint32_t node_count = static_cast<uint32_t>(L3_grad_host.shape[0]);
 
         backward(L1_in.ptr, L1_grad.ptr,
                 L2_in.ptr, L2_grad.ptr,
@@ -101,7 +101,7 @@ public:
         weight_grad.copy_to_host_buffer(weight_grad_host);
     }
 
-    virtual void JITConvImpl::backward(
+    virtual void backward(
             float* L1_in, float* L1_grad,
             float* L2_in, float* L2_grad,
             float* weight, float* weight_grad,
@@ -131,7 +131,7 @@ public:
             py::array_t<float> L3_grad_py,
             py::array_t<uint32_t> &rows_py,
             py::array_t<uint32_t> &cols_py,
-            bool disable_tensor_op 
+            bool disable_tensor_op, 
             uint64_t num_warmup,
             py::array_t<float> time_millis_py);
 
@@ -162,7 +162,7 @@ public:
             bool disable_tensor_op
             ); 
 
-    void JITConvImpl::backward(
+    void backward(
             float* L1_in, float* L1_grad,
             float* L2_in, float* L2_grad,
             float* weight, float* weight_grad,

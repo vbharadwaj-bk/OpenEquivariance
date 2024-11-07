@@ -17,8 +17,8 @@ void ConvolutionImpl::benchmark_forward_cpu(
         py::array_t<float> time_millis_py) {
 
     GPUTimer timer;
-
     Buffer<float> time_millis(time_millis_py);
+
     Buffer<float> L3_out_host(L3_out_py);
     Buffer<float> rows_host(rows_py);
 
@@ -52,23 +52,25 @@ void ConvolutionImpl::benchmark_forward_cpu(
     L3_out.copy_to_host_buffer(L3_out_host);
 }
 
-void benchmark_backward_cpu(
+void ConvolutionImpl::benchmark_backward_cpu(
         py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
         py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
         py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
         py::array_t<float> L3_grad_py,
         py::array_t<uint32_t> &rows_py,
         py::array_t<uint32_t> &cols_py,
-        bool disable_tensor_op 
+        bool disable_tensor_op,
         uint64_t num_warmup,
         py::array_t<float> time_millis_py) {
 
     GPUTimer timer;
+    Buffer<float> time_millis(time_millis_py);
 
     Buffer<float> L1_grad_host(L1_grad_py);
     Buffer<float> L2_grad_host(L2_grad_py);
     Buffer<float> L3_grad_host(L3_grad_py);
     Buffer<float> weight_grad_host(weight_grad_py);
+    Buffer<uint32_t> rows_host(rows_py);
 
     // Copies data to device 
     DeviceBuffer<float> L1_in(L1_in_py);
@@ -84,7 +86,7 @@ void benchmark_backward_cpu(
     DeviceBuffer<uint32_t> cols(cols_py);
 
     uint64_t nnz = rows_host.shape[0];
-    uint32_t node_count = static_cast<uint32_t>(L3_out_host.shape[0]);
+    uint32_t node_count = static_cast<uint32_t>(L3_grad_host.shape[0]);
 
     for(int i = 0; i < num_warmup; i++) {
         backward(L1_in.ptr, L1_grad.ptr,
