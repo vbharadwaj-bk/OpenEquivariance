@@ -43,6 +43,28 @@ class Convolution:
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
         self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
+                graph.rows, graph.cols, disable_tensor_op)
+
+    def backward_cpu(self, 
+            L1_in, L2_in, weights, L3_grad,
+            graph, disable_tensor_op=False):
+        '''
+        We break from convention here by allocating and returning
+        the appropriate buffers. 
+        '''
+        L1_grad = np.zeros_like(L1_in)
+        L2_grad = np.zeros_like(L2_in)
+        weights_grad = np.zeros_like(weights)
+
+        self.internal.backward_cpu(
+            L1_in, L1_grad,
+            L2_in, L2_grad,
+            weights, weights_grad,
+            L3_grad,
+            graph.rows, graph.cols,
+            disable_tensor_op)
+
+        (L1_in, L2_in, weights, L3_out, 
                 graph.coords, graph.rows, graph.cols, 
                 disable_tensor_op)
 

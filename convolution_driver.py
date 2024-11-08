@@ -107,7 +107,7 @@ class ConvBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
-def debug(conv_impl, config, graph, disable_tensor_op=False):
+def debug(conv_impl, config, graph, direction, disable_tensor_op=False):
     logger.info("Starting debugging routine...")
     conv = conv_impl(config)
 
@@ -118,12 +118,20 @@ def debug(conv_impl, config, graph, disable_tensor_op=False):
     weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
     L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
-    conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
-    correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
-            conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
+    if direction == "forward":
+        conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
+        correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
+                conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
 
-    print((L3_out - ground_truth)[:2, 0])
-    print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+        print((L3_out - ground_truth)[:2, 0])
+        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+    elif direction == "backward":
+        L3_grad = L3_out
+        L3_grad[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
+
+        L1_grad, L2_grad, weights_grad = conv.backward_cpu( 
+            L1_in, L2_in, weights, L3_grad,
+            graph, False)
 
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius3.5")
@@ -146,6 +154,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv], correctness=True)
+    #bench.run([LoopUnrollConv], correctness=True)
 
-    #debug(LoopUnrollConv, configs[0], graph, disable_tensor_op=True)
+    debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

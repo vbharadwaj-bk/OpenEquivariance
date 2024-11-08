@@ -18,7 +18,7 @@ JITConvImpl::JITConvImpl
         backward_config(backward_config_i) {
 
     vector<string> kernels = {"forward", "backward"};
-    jit.compile(kernels, {{}}); 
+    jit.compile(kernels, {{}, {}}); 
 
     if(forward_config.smem > 0) {
         jit.set_max_smem(0, forward_config.smem);

@@ -71,14 +71,14 @@ class LoopUnrollConv(Convolution):
         L2Rep.transpose_irreps_cpu(L2_in, True)
 
         self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out,
-                graph.coords, graph.rows, graph.cols,
+                graph.rows, graph.cols,
                 disable_tensor_op)
 
         L1Rep.transpose_irreps_cpu(L1_in, False)
         L2Rep.transpose_irreps_cpu(L2_in, False)
         L3Rep.transpose_irreps_cpu(L3_out, False)
 
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
+    def backward_cpu(self, L1_in, L2_in, weights, L3_grad, graph, disable_tensor_op):
         L1_grad = np.zeros_like(L1_in)
         L2_grad = np.zeros_like(L2_in)
         weights_grad = np.zeros_like(weights)
@@ -92,13 +92,17 @@ class LoopUnrollConv(Convolution):
         L2Rep.transpose_irreps_cpu(L2_in, True)
         L3Rep.transpose_irreps_cpu(L3_grad, True)
 
-        self.internal.backward_cpu(L1_in, L1_grad, 
-                L2_in, L2_grad,
-                weights, weights_grad, 
-                L3_grad)
+        self.internal.backward_cpu(
+            L1_in, L1_grad,
+            L2_in, L2_grad,
+            weights, weights_grad,
+            L3_grad,
+            graph.rows, graph.cols,
+            disable_tensor_op)
 
         L1Rep.transpose_irreps_cpu(L1_grad, False)
         L2Rep.transpose_irreps_cpu(L2_grad, False)
+
 
         return L1_grad, L2_grad, weights_grad
 

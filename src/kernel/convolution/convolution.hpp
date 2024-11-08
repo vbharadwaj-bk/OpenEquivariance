@@ -98,7 +98,7 @@ public:
 
         L1_grad.copy_to_host_buffer(L1_grad_host);
         L2_grad.copy_to_host_buffer(L2_grad_host);
-        weight_grad.copy_to_host_buffer(weight_grad_host);
+        weight_grad.copy_to_host_buffer(weight_grad_host); 
     }
 
     virtual void backward(

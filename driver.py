@@ -36,7 +36,6 @@ def debug(tp_impl, config, direction="forward"):
     elif direction == "backward":
         L3_grad = L3_out
         L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
-        weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) # Assumes no shared weights
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
         print(L1_grad)
         print(L2_grad)
