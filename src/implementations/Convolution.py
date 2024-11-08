@@ -64,9 +64,7 @@ class Convolution:
             graph.rows, graph.cols,
             disable_tensor_op)
 
-        (L1_in, L2_in, weights, L3_out, 
-                graph.coords, graph.rows, graph.cols, 
-                disable_tensor_op)
+        return L1_grad, L2_grad, weights_grad
 
     def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
         L1, L2, L3 = self.L1, self.L2, self.L3
@@ -121,7 +119,32 @@ class Convolution:
 
         return time_millis
 
-    def benchmark(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
+            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op):
+
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        if direction == "forward":
+            self.internal.benchmark_forward_cpu(L1_in, L2_in, weights, L3_buffer, 
+                    graph.coords, graph.rows, graph.cols, 
+                    disable_tensor_op,
+                    num_warmup,
+                    time_millis)
+        
+        elif direction == "backward":
+            self.internal.benchmark_backward_cpu(
+                L1_in, L1_grad,
+                L2_in, L2_grad,
+                weights, weights_grad,
+                L3_buffer,
+                graph.rows, graph.cols,
+                disable_tensor_op,
+                num_warmup,
+                time_millis)
+
+        return time_millis
+
+    def benchmark(self, num_warmup, num_iter, graph, disable_tensor_op, direction, prng_seed=12345):
         '''
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
@@ -132,10 +155,18 @@ class Convolution:
         L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
         L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
         weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
-        L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+        L3_buffer = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+
+        L1_grad, L2_grad, weights_grad = [None] * 3
+        if direction == "backward":
+            L3_buffer[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
+            L1_grad = np.zeros_like(L1_in)
+            L2_grad = np.zeros_like(L2_in)
+            weights_grad = np.zeros_like(weights)
 
         # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op)
+        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
+            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op)
         # ==================================== 
 
         ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
@@ -172,4 +203,3 @@ class Convolution:
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
         logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
-

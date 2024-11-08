@@ -54,7 +54,7 @@ class ConvBenchmarkSuite:
         self.disable_tensor_op = disable_tensor_op
         self.prng_seed = 12345
 
-    def run(self, tp_implementations, correctness=True):        
+    def run(self, tp_implementations, direction, correctness=True):        
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -71,7 +71,7 @@ class ConvBenchmarkSuite:
             json.dump(metadata, f, indent=2) 
 
         for config in self.configs: 
-            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
+            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
             rng = np.random.default_rng(self.prng_seed)
 
             L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
@@ -84,13 +84,13 @@ class ConvBenchmarkSuite:
                 logger.info(f'Starting {tc_name}, graph {graph.name}')
                 conv = impl(config)
 
-                if correctness:
+                if correctness and direction == "forward":
                     conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
-                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph, 
+                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph,
                             conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
 
-                benchmark = conv.benchmark(self.num_warmup, 
-                            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                benchmark = conv.benchmark(self.num_warmup,
+                            self.num_iter, self.graph, self.disable_tensor_op, direction, prng_seed=12345)
 
                 result = {
                     "config": config.metadata,
@@ -154,6 +154,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    #bench.run([LoopUnrollConv], correctness=True)
+    bench.run([LoopUnrollConv], direction="backward", correctness=True)
 
-    debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
+    #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
