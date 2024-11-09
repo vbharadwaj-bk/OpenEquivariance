@@ -169,11 +169,11 @@ class Convolution:
             L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op)
         # ==================================== 
 
-        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
+        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, direction)
         if disable_tensor_op:
             ops_per_tp = 2 * L3.dim
         else:
-            ops_per_tp += L3.dim # Output accumulation 
+            ops_per_tp += L3.dim # Output accumulation... should check this 
 
         throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
 
@@ -182,7 +182,13 @@ class Convolution:
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "disable_tensor_op": disable_tensor_op, 
+            "tp_direction": direction,
+            "total_cg_nnz": nnz,
+            "flops_per_tp": ops_per_tp,
+            "data_per_tp": data_per_tp,
+
+            "disable_tensor_op": disable_tensor_op,
+            "direction": direction,
             "L1": str(L1),
             "L2": str(L2), 
             "L3": str(L3),

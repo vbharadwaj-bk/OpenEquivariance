@@ -25,7 +25,7 @@ def flops_data_per_tp(config, bytes_per_word, direction):
         words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel 
     elif direction == "backward":
         ops_per_nz = 9
-        words_per_tp = L1.dim + L2.dim + L3.dim + weights.dim \
+        words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel \
                 + L1.dim + L2.dim + config.weight_numel # Output gradients
 
     ops_per_tp = 0
@@ -220,6 +220,7 @@ class TensorProduct:
             "tp_direction": direction,
             "total_cg_nnz": nnz,
             "flops_per_tp": ops_per_tp,
+            "data_per_tp": data_per_tp,
             "L1": str(L1),
             "L2": str(L2), 
             "L3": str(L3),

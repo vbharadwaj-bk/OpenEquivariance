@@ -81,7 +81,7 @@ class ConvBenchmarkSuite:
 
             for impl in tp_implementations:
                 tc_name = f"{config.metadata}, {impl.name()}"
-                logger.info(f'Starting {tc_name}, graph {graph.name}')
+                logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
 
                 if correctness and direction == "forward":
@@ -154,6 +154,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv], direction="backward", correctness=True)
+    bench.run([LoopUnrollConv], direction="forward", correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
