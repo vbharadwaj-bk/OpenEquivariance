@@ -89,13 +89,9 @@ class ManyOneUVWTP(TensorProduct):
 
         L1Rep.transpose_irreps_cpu(L1_in, True)
         L2Rep.transpose_irreps_cpu(L2_in, True)
-        #weights[:] = weights.T
-        #print(weights)
 
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
 
-        #weights[:] = weights.T
-        #print(weights)
         L1Rep.transpose_irreps_cpu(L1_in, False)
         L2Rep.transpose_irreps_cpu(L2_in, False)
         L3Rep.transpose_irreps_cpu(L3_out, False)

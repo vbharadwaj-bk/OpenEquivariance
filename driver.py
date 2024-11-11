@@ -17,7 +17,7 @@ logger = getLogger()
 
 def debug(tp_impl, config, direction="forward"): 
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 1
+    batch_size = 5
 
     tp = tp_impl(config)
 
