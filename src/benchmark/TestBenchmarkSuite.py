@@ -96,7 +96,7 @@ class TestBenchmarkSuite:
             weights = np.array(rng.uniform(size=(self.correctness_batch_size, config.weight_numel)), dtype=np.float32) 
             L3_out = np.zeros((self.correctness_batch_size, L3.dim), dtype=np.float32)
             for impl in tp_implementations:
-                tc_name = f"{config.metadata}, {impl.name()}, {direction}"
+                tc_name = f"{config.metadata}, {bcolors.OKCYAN}{impl.name()}{bcolors.ENDC}, {direction}"
                 logger.info(f'Starting {tc_name}.')
 
                 if reference_impl is not None and direction == "forward":

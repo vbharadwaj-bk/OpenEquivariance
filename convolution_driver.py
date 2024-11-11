@@ -154,6 +154,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv], direction="forward", correctness=False)
+    bench.run([LoopUnrollConv], direction="backward", correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
