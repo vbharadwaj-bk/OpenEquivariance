@@ -1,11 +1,12 @@
 import numpy as np
-from build.kernel_wrapper import *
-from src.benchmark.e3nn_tp_utils import *
+
+from src.benchmark.e3nn_lite_utils import calc_weight_offsets
+from src.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
 from src.implementations.TensorProduct import TensorProduct, GPUInfo
 from src.benchmark.logging_utils import getLogger, bcolors 
-from jinja2 import Environment, FileSystemLoader 
+from jinja2 import Environment, FileSystemLoader
 
-import e3nn
+from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl
 
 logger = getLogger()
 
@@ -22,23 +23,19 @@ def sizeof(dtype):
         raise Exception("Provided undefined datatype to sizeof!")
 
 class MultiplicityOuterProductTP(TensorProduct):
-    def __init__(self, e3nn_tp : e3nn.o3.TensorProduct):
-        super().__init__(e3nn_tp)
-        L1, L2, L3 = self.L1, self.L2, self.L3 
+    def __init__(self, config : TPProblem, torch_op : bool = False):
+        super().__init__(config, torch_op)
 
-        # SANITY CHECKS FOR SIZE, ONLY SUPPORTS 1 THREAD PER OUTPUT RIGHT NOW, and assumes they are on the same warp. 
-
-        for i in range(L1.num_irreps()):
-            assert(L1.mult(i) <= 32)
-
-        for i in range(L2.num_irreps()):
-            assert(L2.mult(i) <= 32)
-
-        for i in range(L3.num_irreps()):
-            assert(L3.mult(i) <= 32)
-
-        for ins in e3nn_tp.instructions: # type : Instruction
+        for ins in config.instructions: # type : Instruction
+            assert isinstance(ins, Instruction)
             assert ins.connection_mode == 'uvw'
+            assert ins.path_shape[0] <= 32
+            assert ins.path_shape[1] <= 32
+            assert ins.path_shape[2] <= 32
+
+        irreps_in1 = config.irreps_in1
+        irreps_in2 = config.irreps_in2
+        irreps_out = config.irreps_out 
 
         # ==================================================================================
 
@@ -55,8 +52,8 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # =====================================================================
         # FORWARD MEMORY ANALYSIS 
-        forward_shared_memory_per_batch_element = (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length()) * sizeof("float")
-        forward_batch_elements_per_SM = 1 # HARDCODED NONENSE 
+        forward_shared_memory_per_batch_element = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim) * sizeof("float")
+        forward_batch_elements_per_SM = 1 # HARDCODED NONSENSE 
         # IT WAS GOING TO BE THIS  
         #  # GPUInfo.max_smem // (GPUInfo.A100_SMS * forward_shared_memory_per_batch_element)
         forward_thread_blocks_per_SM = 1 # HARDCODED NONSENSE 
@@ -65,42 +62,48 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # =====================================================================
 
-        forward_config = KernelLaunchConfig()
-        forward_config.num_blocks = GPUInfo.A100_SMS * forward_thread_blocks_per_SM
-        forward_config.num_threads = forward_threads_per_thread_block
-        forward_config.smem = (L1.get_rep_length() + L2.get_rep_length() + L3.get_rep_length())  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+        forward_launch_config = KernelLaunchConfig()
+        forward_launch_config.num_blocks = GPUInfo.A100_SMS * forward_thread_blocks_per_SM
+        forward_launch_config.num_threads = forward_threads_per_thread_block
+        forward_launch_config.smem = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim)  * sizeof("float") * forward_launch_config.num_threads // forward_launch_config.warp_size 
 
-        if forward_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        logger.info(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
+
+        if forward_launch_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
         
         # =====================================================================
 
-        backward_config = KernelLaunchConfig()
-        backward_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_config.num_threads = 192
-        backward_config.smem = (2 * L1.get_rep_length() + 2 * L2.get_rep_length() + 2 * e3nn_tp.weight_numel + L3.get_rep_length())  * sizeof("float") * backward_config.num_threads // backward_config.warp_size 
+        backward_launch_config = KernelLaunchConfig()
+        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 4
+        backward_launch_config.num_threads = 192
+        backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * config.weight_numel + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
+        logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
 
-        logger.info(f"Backward pass needs {backward_config.smem} bytes of shared memory.")
-
-        if backward_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        if backward_launch_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
 
         # =====================================================================     
 
-        self.forward_config = forward_config
-        self.backward_config = backward_config 
+        self.forward_config = forward_launch_config
+        self.backward_config = backward_launch_config 
         load_cg_tensor = self.load_cg_tensor
 
         # =====================================================================
-        # Strictly Copied from Loop Unroll TP
+        # Updated to work with e3nn Irreps
     
         class RepData:
-            def __init__(self, rep):
-                self.num_irreps = rep.num_irreps()
-                self.rep_len = rep.get_rep_length()
-                self.irrep_lengths = [rep.type(i) * 2 + 1 for i in range(self.num_irreps)]
-                self.mults = [ rep.mult(i) for i in range(self.num_irreps)]
-                self.offsets = rep.get_irrep_offsets()
+            def __init__(self, irreps : Irreps):
+                assert isinstance(irreps, Irreps)
+                self.rep_len = irreps.dim
+                self.irrep_lengths = [mul_irrep.ir.dim for mul_irrep in irreps]
+                self.mults = [mul_irrep.mul for mul_irrep in irreps]
+
+                offset = 0
+                self.offsets = []
+                for mul_irrep in irreps: 
+                    self.offsets.append(offset)
+                    offset += mul_irrep.dim
 
         # =====================================================================
         # Strictly Copied from Loop Unroll TP
@@ -119,35 +122,35 @@ class MultiplicityOuterProductTP(TensorProduct):
        
         # =====================================================================
         # weights_offsets
-        weight_offsets = calc_weight_offsets(e3nn_tp=e3nn_tp)
+        weight_offsets = calc_weight_offsets(config)
         assert isinstance(weight_offsets, list)
-        assert len(weight_offsets) == len(list(e3nn_tp.instructions))
+        assert len(weight_offsets) == len(list(config.instructions))
 
         # =====================================================================
         # tranform "e3nn instructions" into "interactions"
-        instructions = e3nn_tp.instructions
+        instructions : list[Instruction] = config.instructions 
         interactions = []
         for ins in instructions:
             u = ins.i_in1
             v = ins.i_in2
             w = ins.i_out
-            interaction = (u, v, w, CGTensor(L1.type(u), L2.type(v), L3.type(w)))
+            interaction = (u, v, w, CGTensor(irreps_in1[u].ir.l, irreps_in2[v].ir.l, irreps_out[w].ir.l))
             interactions.append(interaction)
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
-        print(interactions)
+
 
         assert len(interactions) != 0
 
         # =====================================================================
         # Strictly Copied from Loop Unroll TP
         kernel_text = main_template.render(
-            L1=RepData(L1), 
-            L2=RepData(L2), 
-            L3=RepData(L3),
+            L1=RepData(config.irreps_in1), 
+            L2=RepData(config.irreps_in2), 
+            L3=RepData(config.irreps_out),
             weight_offsets=weight_offsets,
             interactions=interactions,
-            forward_config=forward_config,
-            backward_config=backward_config
+            forward_config=forward_launch_config,
+            backward_config=backward_launch_config
         )
 
         # REMOVING THE SUBKERNELS FOR NOW 
@@ -176,29 +179,15 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         self.jit_kernel = kernel_text
 
-        logger.info(kernel_text)
+        logger.debug(kernel_text)
 
         # =====================================================================
         # Create Fake Empty rep triple
-        fake_rep_trip = RepTriple(Representation("1x1e"),Representation("1x1e"),Representation("1x1e"))
 
 
         logger.info("Starting NVRTC")
-        self.internal = MultTPImpl(fake_rep_trip, self.jit_kernel, self.forward_config, self.backward_config)
+        self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
-
-    def exec_tensor_product_cpu(self, L1_in, L2_in, weights,  L3_out):
-        # L1, L2, L3 = self.L1, self.L2, self.L3
-        # logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
-
-        # L1.transpose_irreps_cpu(L1_in, True)
-        # L2.transpose_irreps_cpu(L2_in, True)
-
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, weights, L3_out) 
-
-        # L1.transpose_irreps_cpu(L1_in, False)
-        # L2.transpose_irreps_cpu(L2_in, False)
-        # L3.transpose_irreps_cpu(L3_out, False)
 
     # =====================================================================
     # copied for now, doesn't work at all 
@@ -224,7 +213,3 @@ class MultiplicityOuterProductTP(TensorProduct):
         L2.transpose_irreps_cpu(L2_grad, False)
 
         return L1_grad, L2_grad, weights_grad
-
-    @staticmethod
-    def name():
-        return "MultiplictyOuterProductTensorProduct"
