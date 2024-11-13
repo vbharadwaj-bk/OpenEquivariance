@@ -56,7 +56,6 @@ public:
         // Copies data to device 
         DeviceBuffer<float> L1_in(L1_in_py);
         DeviceBuffer<float> L2_in(L2_in_py);
-        DeviceBuffer<float> weights(weights_py);
         DeviceBuffer<float> L3_out(L3_out_host.size());
         DeviceBuffer<float> weights(weights_py);
 
@@ -129,7 +128,6 @@ public:
     void benchmark_forward_cpu(
             py::array_t<float> L1_in_py,
             py::array_t<float> L2_in_py,
-            py::array_t<float> weights_py,
             py::array_t<float> L3_out_py,
             py::array_t<float> weights_py,
             uint64_t num_warmup,
