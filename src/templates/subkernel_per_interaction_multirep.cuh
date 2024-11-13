@@ -95,7 +95,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
 // Generic kernel which calls a subkernel for each forward interaction
 // column-major data layout 
-__global__ void forward_kernel(
+__global__ void forward(
     size_t num_products, 
     float* L1_in, 
     float* L2_in,
@@ -169,7 +169,7 @@ __global__ void forward_kernel(
 * Outputs:
 *   L1_grad, L2_grad, weights_grad 
 */
-__global__ void backward_kernel(
+__global__ void backward(
     size_t num_products,
     float* L1_in, 
     float* L1_grad,
