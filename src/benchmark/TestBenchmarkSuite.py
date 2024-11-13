@@ -1,124 +1,154 @@
 import json, os, time, pathlib
 
 import numpy as np
+from typing import NamedTuple, Optional, Iterable, Literal, Any, get_args
+from dataclasses import dataclass
+
+from src.implementations.TensorProduct import TensorProduct
+from src.implementations.e3nn_lite import TPProblem
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
 from src.implementations.e3nn_lite import *
+from src.benchmark.correctness_utils import correctness_forward, correctness_backward
+from src.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
 
-def mace_conf(irreps1, irreps2, lmax):
-    '''
-    Modified from mace/mace/modules/irreps_tools.py.
-    '''
-    trainable = True
-    irreps1 = Irreps(irreps1)
-    irreps2 = Irreps(irreps2)
+Direction = Literal['forward', 'backward']
 
-    # Collect possible irreps and their instructions
-    irreps_out_list = [] 
-    instructions = []
-    for i, (mul, ir_in) in enumerate(irreps1):
-        for j, (_, ir_edge) in enumerate(irreps2):
-            for ir_out in ir_in * ir_edge:  # | l1 - l2 | <= l <= l1 + l2
-                if ir_out.l <= lmax: 
-                    k = len(irreps_out_list)  # instruction index
-                    irreps_out_list.append((mul, ir_out))
-                    instructions.append((i, j, k, "uvu", trainable))
+class TestDefinition(NamedTuple):
+    implementation : TensorProduct
+    problem : TPProblem
+    direction : Direction
+    correctness : bool = True
+    benchmark : bool = True
 
-    irreps_out = Irreps(irreps_out_list)
-    irreps_out, permut, _ = irreps_out.sort()
-
-    instructions = [
-        (i_in1, i_in2, permut[i_out], mode, train)
-        for i_in1, i_in2, i_out, mode, train in instructions
-    ]
-
-    instructions = sorted(instructions, key=lambda x: x[2])
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
-        internal_weights=False,
-        shared_weights=False)
-    result.metadata = f"mace_conf_{irreps1}__{irreps2}__{lmax}"
-    result.metadata = result.metadata.replace(' ', '')
-    return result
-
-def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable):
-    irreps1 = Irreps(irreps1)
-    irreps2 = Irreps(irreps2)
-    irreps_out = Irreps(irreps_out)
-    instructions = [(0, 0, 0, mode, trainable)]
-
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
-        internal_weights=False,
-        shared_weights=False)
-    result.metadata = f"single_inst_conf_{irreps1}__{irreps2}__{irreps_out}"
-    result.metadata = result.metadata.replace(' ', '')
-    return result 
-
+@dataclass(init=True, repr=False, eq=False)
 class TestBenchmarkSuite:
-    def __init__(self, configs,
-        num_warmup = 10,
-        num_iter = 30,
-        correctness_batch_size = 10000,
-        bench_batch_size = 10000000,
-        prng_seed = 12345
-    ):
-        self.configs = configs 
-        self.num_warmup = num_warmup
-        self.num_iter = num_iter
-        self.correctness_batch_size = correctness_batch_size 
-        self.bench_batch_size = bench_batch_size 
-        self.prng_seed = 12345
+    num_warmup : int = 10
+    num_iter : int = 30
+    correctness_batch_size : int = 10000
+    bench_batch_size : int = 10000000
+    prng_seed : int = 12345
+    reference_implementation : Optional[type[TensorProduct]] = None
+    correctness_threshold : float = 5e-7
 
-    def run(self, tp_implementations, direction, reference_impl):        
-        assert(direction == "forward" or direction == "backward")
+    def validate_inputs(test_list : Iterable[TestDefinition]) -> None:
+        """
+        Just does empty list and type checking to catch bad input 
+        """
+        assert isinstance(test_list, list) 
+        assert len(test_list) != 0
+        for test in test_list:
+            assert isinstance(test, TestDefinition)
+            assert issubclass(test.implementation, TensorProduct)
+            assert isinstance(test.problem, TPProblem)
+            assert test.direction in get_args(Direction)
+            assert isinstance(test.correctness, bool)
+            assert isinstance(test.benchmark, bool)
 
-        correctness = None
+    def generate_metadata(test_list : Iterable[TestDefinition]) -> dict[str, Any]:
+        """
+        creates an (incomplete) summary of what was tested
+        """
+       
+        tpps, impls, directions, corectnesses, benchmarks = zip(*test_list)
+        config_names = list(set(str(tpps)))
+        implementation_names = list(set(str(impls.__class__.__name__)))
+        directions = list(set(directions))
+        did_correctness = any(corectnesses)
+        did_benchmark = any(benchmarks)
+
+        metadata = {
+                "configs" : config_names,
+                "implementations" : implementation_names,
+                "directions" : directions,
+                "did_correctness" :  did_correctness, 
+                "did_benchmark" : did_benchmark,
+            }
+        
+        test_details = {}
+        for test_ID, test in enumerate(test_list):
+            test_details[test_ID] = repr(test.problem)
+        
+        metadata['test details'] = test_details
+
+        return metadata
+
+    def run(self, test_list : Iterable[TestDefinition]):        
+        
+        TestBenchmarkSuite.validate_inputs(test_list)
 
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
-        metadata = {
-            "configs": [config.metadata for config in self.configs], 
-            "implementations": [impl.name() for impl in tp_implementations]
-        }
+        metadata = TestBenchmarkSuite.generate_metadata(test_list)
+
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
-        for config in self.configs:
-            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-            rng = np.random.default_rng(self.prng_seed)
-            L1_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L1.dim)), dtype=np.float32) 
-            L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.dim)), dtype=np.float32)
+        for test_ID, test in enumerate(test_list): 
+            impl = test.implementation
+            tpp = test.problem
 
-            # Assumes weights are not shared 
-            weights = np.array(rng.uniform(size=(self.correctness_batch_size, config.weight_numel)), dtype=np.float32) 
-            L3_out = np.zeros((self.correctness_batch_size, L3.dim), dtype=np.float32)
-            for impl in tp_implementations:
-                tc_name = f"{config.metadata}, {impl.name()}, {direction}"
-                logger.info(f'Starting {tc_name}.')
+            logger.info(f'Starting Test No. {test_ID}')
+            logger.info(f'Tensor Product Problem: {str(tpp)}')
+            logger.info(f'Implementation Name: {impl.__name__}')
+            logger.info(f'Test Direction: {test.direction}')
 
-                if reference_impl is not None and direction == "forward":
-                    tp_correctness = impl(config)
-                    tp_correctness.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-                    correctness, _ = tp_correctness.test_correctness(L1_in, L2_in, weights, L3_out,
-                        reference_implementation=reference_impl)
-                else:
-                    logger.warning(f"{bcolors.WARNING}Correctness check skipped.{bcolors.ENDC}")
+            result = {
+                "config": repr(tpp),
+                "direction": test.direction, 
+                "implementation name": impl.__name__,
+                "correctness": str(test.correctness),
+                "benchmark": str(test.benchmark)
+            }
 
-                tp_bench = impl(config)
-                benchmark = tp_bench.benchmark(self.num_warmup, self.num_iter, self.bench_batch_size, direction, prng_seed=self.prng_seed) 
-                result = {
-                    "config": config.metadata,
-                    "direction": direction, 
-                    "name": impl.name(),
-                    "correctness": correctness,
-                    "benchmark": benchmark
-                }
-         
-                fname = pathlib.Path(f"{output_folder}/{config.metadata}.json")
+            if test.direction == 'forward':
+                if test.correctness:
+                    result['correctness results'] = correctness_forward(
+                        problem=tpp,
+                        test_implementation=impl,
+                        reference_implementation=self.reference_implementation,
+                        batch_size=self.correctness_batch_size,
+                        correctness_threshold=self.correctness_threshold,
+                        prng_seed=self.prng_seed,
+                    )
+                if test.benchmark:
+                    result['benchmark results'] = benchmark_forward(
+                        problem=tpp,
+                        implementation=impl,
+                        batch_size=self.bench_batch_size,
+                        num_warmup=self.num_warmup,
+                        num_iter=self.num_iter,
+                        prng_seed=self.prng_seed
+                    )
 
-                with open(fname, 'w') as f:
-                    json.dump(result, f, indent=2)
 
-                logger.info(f'Finished {tc_name}.')
+            if test.direction == 'backward':
+                pass 
+                if test.correctness: 
+                    result ['correctness results'] = correctness_backward(
+                        problem=tpp,
+                        test_implementation=impl,
+                        reference_implementation=self.reference_implementation,
+                        batch_size=self.correctness_batch_size,
+                        prng_seed=self.prng_seed
+                    )
+                if test.benchmark: 
+                    result ['benchmark results'] = benchmark_backward(
+                        problem=tpp,
+                        implementation=impl,
+                        batch_size=self.bench_batch_size,
+                        num_warmup=self.num_warmup,
+                        num_iter=self.num_iter,
+                        prng_seed=self.prng_seed
+                    )
+    
+            fname = pathlib.Path(f"{output_folder}/{test_ID}.json")
+
+            logger.debug(result)
+            with open(fname, 'w') as f:
+                json.dump(result, f, indent=2)
+
+            logger.info(f'Finished Test No. {test_ID}')
