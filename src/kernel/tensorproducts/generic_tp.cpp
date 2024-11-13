@@ -11,7 +11,6 @@ namespace py = pybind11;
 void GenericTensorProductImpl::benchmark_forward_cpu(
         py::array_t<float> L1_in_py,
         py::array_t<float> L2_in_py,
-        py::array_t<float> weights_py, 
         py::array_t<float> L3_out_py,
         py::array_t<float> weights_py,
         uint64_t num_warmup,
