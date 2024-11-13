@@ -488,7 +488,15 @@ class TPProblem:
         self.weight_numel = sum(prod(ins.path_shape) for ins in self.instructions if ins.has_weight)
         self.output_mask = None
 
+    def __str__(self) -> str:
+        """Simple representation, definitely incomplete"""
+        result = ""
+        result += f"{self.__class__.__name__}"
+        result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}"
+        return result
+
     def __repr__(self) -> str:
+        """More complete, yet maybe incomplete representation"""
         result = ""
         result += f"{self.__class__.__name__}"
         result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}\n"
