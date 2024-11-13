@@ -156,7 +156,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
 
     CUDA_SAFE_CALL(cuInit(0));
 
-    std::cout << ptx << std::endl;
+    // std::cout << ptx << std::endl;
 
     // TODO: No context management here, we use the primary context 
     // CUdevice cuDevice;
