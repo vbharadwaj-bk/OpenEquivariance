@@ -1,12 +1,17 @@
 #import e3nn
 #from src.implementations.E3NNTensorProduct import *
 
+import itertools
+
 from src.benchmark.logging_utils import *
-from src.benchmark.e3nn_tp_utils import *
+from src.benchmark.e3nn_lite_utils import *
 from build.kernel_wrapper import *
-from src.benchmark.TestBenchmarkSuite import *
-from src.implementations.LoopUnrollTP import *
-from src.implementations.NumpyTensorProduct import *
+from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition
+from src.benchmark.tpp_creation_utils import *
+from src.implementations.LoopUnrollTP import LoopUnrollTP
+from src.implementations.NumpyTensorProduct import NumpyTensorProduct
+from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct
 
 from src.implementations.e3nn_lite import *
 
@@ -45,15 +50,38 @@ def debug(tp_impl, config, direction="forward"):
         assert(False)
 
 if __name__=='__main__':
+   
     tests = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        #("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
-        #("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        # single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        # single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        # mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        # ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        # ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)s
+    ]  
+    
+    FCTPP = FullyConnectedTPProblem
+    basic_fully_connected_problems = [
+        FCTPP("1x1e", "1x1e", "1x1e"),
+        FCTPP("1x1e", "1x1e", "1x1e"), 
+        FCTPP("1x1e", "1x1e", "1x1e"),
+        FCTPP("1x1e", "1x1e", "1x1e"),
+        FCTPP("1x1e", "1x1e", "1x1e"),
     ]
 
-    bench_suite = TestBenchmarkSuite(tests, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
+    problems = itertools.chain.from_iterable([
+        basic_fully_connected_problems,
+    ])
+
+    implementations = [E3NNTensorProduct]
+
+    directions = ['forward']
+
+    tests = [TestDefinition(implementation, problem, direction) 
+             for implementation, problem, direction 
+             in itertools.product(implementations, problems, directions)]
+
+    logger.setLevel(logging.INFO)
+    bench_suite = TestBenchmarkSuite()
+    bench_suite.run(tests)
 
     #debug(LoopUnrollTP, tests[0], direction="forward")
