@@ -8,10 +8,16 @@ data/*
 experimental/*
 *.code-workspace
 __pycache__
+
+# working folders
 outputs/*
 visualization/*
 figures/*
+
+# bash scripts
 get_gpu_node.sh
+env.sh 
+
 nvidia-mathdx*
 .vscode/*
 *.ncu-rep
