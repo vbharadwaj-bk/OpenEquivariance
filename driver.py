@@ -62,17 +62,17 @@ if __name__=='__main__':
     FCTPP = FullyConnectedTPProblem
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
-        FCTPP("1x1e", "1x1e", "1x1e"), 
-        FCTPP("1x1e", "1x1e", "1x1e"),
-        FCTPP("1x1e", "1x1e", "1x1e"),
-        FCTPP("1x1e", "1x1e", "1x1e"),
+        # FCTPP("1x1e", "2x1e", "1x1e"), 
+        # FCTPP("2x1e", "1x1e", "1x1e"),
+        # FCTPP("2x1e", "2x1e", "1x1e"),
+        # FCTPP("2x1e", "2x1e", "4x1e"),
     ]
 
     problems = itertools.chain.from_iterable([
         basic_fully_connected_problems,
     ])
 
-    implementations = [E3NNTensorProduct]
+    implementations = [MultiplicityOuterProductTP]
 
     directions = ['forward']
 
@@ -81,7 +81,9 @@ if __name__=='__main__':
              in itertools.product(implementations, problems, directions)]
 
     logger.setLevel(logging.INFO)
-    bench_suite = TestBenchmarkSuite()
+    bench_suite = TestBenchmarkSuite(
+        bench_batch_size=100000
+    )
     bench_suite.run(tests)
 
     #debug(LoopUnrollTP, tests[0], direction="forward")
