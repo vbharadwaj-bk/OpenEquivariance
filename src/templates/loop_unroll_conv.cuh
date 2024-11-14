@@ -73,7 +73,7 @@ __global__ void forward(
 
         if(! disable_tensor_op) {
             __syncwarp();
-            forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id);
+            forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id, lane_id);
             __syncwarp();
         }
         else {

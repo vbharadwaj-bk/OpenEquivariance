@@ -11,17 +11,8 @@ class LoopUnrollTP(TensorProduct):
         L1, L2, L3 = self.L1, self.L2, self.L3 
         config = self.config
 
-        mul_0 = L1[0].mul
-        assert(mul_0 % 32 == 0)
-
-        for (mul, ir) in L1:
-            assert(mul == mul_0) 
-
         for (mul, ir) in L2:
             assert(mul == 1)
-
-        for (mul, ir) in L3:
-            assert(mul == mul_0)
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
