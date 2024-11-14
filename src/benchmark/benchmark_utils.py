@@ -1,8 +1,11 @@
 import numpy as np
 
 from src.benchmark.supplies_utils import get_random_supplies_forward, get_random_supplies_backward
-from src.benchmark.calc_data_utils import calculate_minimum_memory_streamed_forward, calculate_minimum_memory_streamed_backward
-from src.benchmark.calc_flop_utils import calculate_minimum_flops_forward, calculate_minimum_flops_backward
+from src.benchmark.perf_metrics_utils import (
+    calculate_minimum_flops_forward, 
+    calculate_minimum_memory_streamed_forward, 
+    calculate_minimum_memory_streamed_backward,
+    )
 from src.benchmark.e3nn_lite_utils import calculate_total_nnz
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import TPProblem
@@ -165,7 +168,7 @@ def benchmark_backward(
             memory_streamed = implementation.calculate_memory_streamed_backward(batch_size=batch_size)
         except NotImplementedError: 
             logger.warning("Actual memory streamed was not calcuated, so minimum values are being")
-            memory_streamed = calculate_minimum_memory_streamed_forward(tpp=problem, batch_size=batch_size)
+            memory_streamed = calculate_minimum_memory_streamed_backward(tpp=problem, batch_size=batch_size)
         
         result |= calculate_performance_statistics(
             problem=problem,
