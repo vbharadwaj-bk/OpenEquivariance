@@ -20,7 +20,7 @@ class LoopUnrollTP(TensorProduct):
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
         forward_config.num_threads = 256
-        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size
         logger.info(f"Forward pass needs {forward_config.smem // 1000} KB of shared memory.")
 
         if forward_config.smem > GPUInfo.max_smem:

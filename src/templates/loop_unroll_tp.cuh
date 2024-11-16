@@ -73,7 +73,7 @@ __device__ __forceinline__ void backward_loop_unroll(
 
     {%- set num_interact = interactions | length %}
 
-    for(int mul_offset = 0; mul_offset < {{L1[0].mul}}; mul_offset += {{forward_config.warp_size}}) {
+    for(int mul_offset = 0; mul_offset < {{L1[0].mul}}; mul_offset += {{backward_config.warp_size}}) {
         {%- for k in range(num_interact) %}
             {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
             {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
