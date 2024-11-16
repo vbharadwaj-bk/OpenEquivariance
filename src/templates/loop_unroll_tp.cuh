@@ -1,4 +1,4 @@
-{%- from 'macros.jinja' import transpose_load with context %}
+{%- from 'macros.jinja' import transpose_load, transpose_store with context %}
 
 __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
         const float* __restrict__ weights_smem, float* __restrict__ L3_smem, int lane_id) {
@@ -41,9 +41,8 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
                 {%- endfor %}
 
                 {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
-                    #pragma unroll
-                    for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-                        L3_smem[mul_offset + {{L3[w].mul}} * j + {{L3.slices()[w].start}}] += l3_vec[j] * weight;
+                    offset = {{ L3.slices()[w].start}} + mul_offset * {{L3[w].ir.dim}};
+                    {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', 'weight')}}
                 {%- endif %}
             {%- endfor %}
         }

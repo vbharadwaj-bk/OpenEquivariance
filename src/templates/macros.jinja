@@ -44,3 +44,11 @@ Assumes: each thread has the lane_id.
         {%- endfor %}
     }
 {%- endmacro %}
+
+{%- macro transpose_store(mul, dim, smem, offset, reg, op, coeff) %}
+    if(lane_id < {{mul}}) {
+        {%- for i in range(dim) %}
+            {{smem}}[{{offset}} + lane_id * {{dim}} + {{i}}] {{op}} {{reg}}[{{i}}] * {{coeff}};
+        {%- endfor %}
+    }
+{%- endmacro %}
