@@ -110,7 +110,8 @@ class TensorProduct:
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad) -> None:
         '''
-        We will return to the convention of having all bufferrs supplied by the user
+        All state initialization for the internal class occurs inside the
+        constructor. 
         '''
         self.internal.backward_cpu(
                 L1_in, L1_grad, 
