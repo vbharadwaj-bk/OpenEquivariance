@@ -75,12 +75,12 @@ class LoopUnrollTP(TensorProduct):
 
         L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
 
-        L1Rep.transpose_irreps_cpu(L1_in, True)
+        #L1Rep.transpose_irreps_cpu(L1_in, True)
         L2Rep.transpose_irreps_cpu(L2_in, True)
 
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
 
-        L1Rep.transpose_irreps_cpu(L1_in, False)
+        #L1Rep.transpose_irreps_cpu(L1_in, False)
         L2Rep.transpose_irreps_cpu(L2_in, False)
         L3Rep.transpose_irreps_cpu(L3_out, False)
 

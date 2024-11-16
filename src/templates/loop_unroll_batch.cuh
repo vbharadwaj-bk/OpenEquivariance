@@ -53,7 +53,7 @@ __global__ void forward(
         ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
         __syncwarp();
-        forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id, lane_id);
+        forward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_smem + lane_id, lane_id);
         __syncwarp();
 
         ROW_OPERATION({{L3.dim}}, j, l3_shft[j] = L3_smem[j + lane_id];)

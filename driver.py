@@ -1,5 +1,5 @@
-import e3nn
-from src.implementations.E3NNTensorProduct import *
+#import e3nn
+#from src.implementations.E3NNTensorProduct import *
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -17,7 +17,7 @@ logger = getLogger()
 
 def debug(tp_impl, config, direction="forward"): 
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 5
+    batch_size = 1
 
     tp = tp_impl(config)
 
@@ -30,11 +30,12 @@ def debug(tp_impl, config, direction="forward"):
 
     if direction == "forward":
         tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=E3NNTensorProduct)
+        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=NumpyTensorProduct)
         print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
         #print(L3_out / ground_truth)
         #print(L3_out)
         #print(ground_truth)
+        print(L1_in)
 
     elif direction == "backward":
         L3_grad = L3_out
@@ -48,14 +49,19 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     configs = [
-        single_inst_conf("32x1e", "1x3e", "32x2e", "uvw", True),
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
         #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    #bench_suite = TestBenchmarkSuite(configs, bench_batch_size=1000000)
-    #bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=NumpyTensorProduct)
+    throughput_configs = [
+        mace_conf(f"{i}x2e + {i}x1e + {i}x0e", "1x0e + 1x1e", 3)
+        for i in range(1, 32, 2)
+    ]
 
-    debug(ManyOneUVWTP, configs[0], direction="forward")
+    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=1000000)
+    bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
+
+    #debug(LoopUnrollTP, configs[0], direction="forward")
