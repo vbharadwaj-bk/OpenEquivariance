@@ -49,48 +49,9 @@ class MultiplicityOuterProductTP(TensorProduct):
         main_template = env.get_template("subkernel_per_interaction_multirep.cuh")
         # forward_subkernel_template = env.get_template("subkernel_forward_thread.cu.jinja2")
         # backward_subkernel_template = env.get_template("subkernel_backward_thread.cu.jinja2")
-
-        # =====================================================================
-        # FORWARD MEMORY ANALYSIS 
-        forward_shared_memory_per_batch_element = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim) * sizeof("float")
-        forward_batch_elements_per_SM = 1 # HARDCODED NONSENSE 
-        # IT WAS GOING TO BE THIS  
-        #  # GPUInfo.max_smem // (GPUInfo.A100_SMS * forward_shared_memory_per_batch_element)
-        forward_thread_blocks_per_SM = 1 # HARDCODED NONSENSE 
-        forward_threads_per_batch_element = 32 # HARDCODED NONSENSE
-        forward_threads_per_thread_block = forward_threads_per_batch_element * forward_batch_elements_per_SM
-
-        # =====================================================================
-
-        forward_launch_config = KernelLaunchConfig()
-        forward_launch_config.num_blocks = GPUInfo.A100_SMS * forward_thread_blocks_per_SM
-        forward_launch_config.num_threads = forward_threads_per_thread_block
-        forward_launch_config.smem = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim)  * sizeof("float") * forward_launch_config.num_threads // forward_launch_config.warp_size 
-
-        logger.info(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
-
-        if forward_launch_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
         
         # =====================================================================
-
-        backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_launch_config.num_threads = 192
-        backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * config.weight_numel + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
-        logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
-
-        if backward_launch_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
-
-        # =====================================================================     
-
-        self.forward_config = forward_launch_config
-        self.backward_config = backward_launch_config 
-        load_cg_tensor = self.load_cg_tensor
-
-        # =====================================================================
-        # Updated to work with e3nn Irreps
+        # Updated to work with TensorProductProblem
     
         class RepData:
             def __init__(self, irreps : Irreps):
@@ -116,10 +77,66 @@ class MultiplicityOuterProductTP(TensorProduct):
                 values = [str(float.hex(float(val))) + "f" for val in float_values]
 
                 self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
-                self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
+              # self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
                 self.nnz = len(values)
 
-       
+        # =====================================================================
+        # FORWARD MEMORY ANALYSIS 
+        forward_shared_memory_per_batch_element = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim) * sizeof("float")
+        forward_batch_elements_per_SM = 1 # HARDCODED NONSENSE 
+        # IT WAS GOING TO BE THIS  
+        #  # GPUInfo.max_smem // (GPUInfo.A100_SMS * forward_shared_memory_per_batch_element)
+        forward_thread_blocks_per_SM = 1 # HARDCODED NONSENSE 
+        forward_threads_per_batch_element = 32 # HARDCODED NONSENSE
+        forward_threads_per_thread_block = forward_threads_per_batch_element * forward_batch_elements_per_SM
+
+        # =====================================================================
+
+        forward_launch_config = KernelLaunchConfig()
+        forward_launch_config.num_blocks = GPUInfo.A100_SMS * forward_thread_blocks_per_SM
+        forward_launch_config.num_threads = forward_threads_per_thread_block
+
+        # IMPORTANT! 
+        smem_gemm_n_max = 1
+        smem_gemm_L3_scratch = smem_gemm_n_max * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
+        smem_gemm_weights_scratch = 32 * smem_gemm_n_max
+
+        smem_gemm_info = {
+            'n_max' : smem_gemm_n_max,
+            'n_to_try' : 1,
+            'L3_scratch_elems' : smem_gemm_L3_scratch,
+            'weight_scratch_elems' : smem_gemm_weights_scratch,
+        }
+        # END OF IMPORTANT
+
+        forward_launch_config.smem = (
+            (irreps_in1.dim + irreps_in2.dim + irreps_out.dim + smem_gemm_L3_scratch + smem_gemm_weights_scratch) 
+            * sizeof("float") 
+            * forward_launch_config.num_threads // forward_launch_config.warp_size
+            ) 
+
+        logger.info(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
+
+        if forward_launch_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        
+        # =====================================================================
+
+        backward_launch_config = KernelLaunchConfig()
+        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 4
+        backward_launch_config.num_threads = 192
+        backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
+        logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
+
+        if backward_launch_config.smem > GPUInfo.max_smem:
+            raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+
+        # =====================================================================     
+
+        self.forward_config = forward_launch_config
+        self.backward_config = backward_launch_config 
+        load_cg_tensor = self.load_cg_tensor
+
         # =====================================================================
         # weights_offsets
         weight_offsets = calc_weight_offsets(config)
@@ -136,7 +153,7 @@ class MultiplicityOuterProductTP(TensorProduct):
             w = ins.i_out
             interaction = (u, v, w, CGTensor(irreps_in1[u].ir.l, irreps_in2[v].ir.l, irreps_out[w].ir.l))
             interactions.append(interaction)
-        interactions.sort(key=lambda x: (x[2], x[0], x[1]))
+        # interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
 
         assert len(interactions) != 0
@@ -148,68 +165,35 @@ class MultiplicityOuterProductTP(TensorProduct):
             L2=RepData(config.irreps_in2), 
             L3=RepData(config.irreps_out),
             weight_offsets=weight_offsets,
+            instructions=instructions,
             interactions=interactions,
+            smem_gemm_info=smem_gemm_info,
             forward_config=forward_launch_config,
             backward_config=backward_launch_config
         )
 
-        # REMOVING THE SUBKERNELS FOR NOW 
-
-        # for i in range(len(interactions)):
-        #     forward_subkernel = forward_subkernel_template.render(
-        #     i=i,
-        #     L1=RepData(L1),
-        #     L2=RepData(L2),
-        #     L3=RepData(L3),
-        #     interactions=interactions,
-        #     forward_config = forward_config,
-        #     )
-        #     kernel_text += forward_subkernel
-
-        #     backward_subkernel = backward_subkernel_template.render(
-        #         i=i,
-        #         L1=RepData(L1),
-        #         L2=RepData(L2),
-        #         L3=RepData(L3),
-        #         interactions=interactions,
-        #         backward_config = backward_config,
-        #     )
-        #     kernel_text += backward_subkernel
-
-
         self.jit_kernel = kernel_text
-
+        
         logger.debug(kernel_text)
-
-        # =====================================================================
-        # Create Fake Empty rep triple
-
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    # =====================================================================
-    # copied for now, doesn't work at all 
+    def forward_cpu(
+        self, 
+        L1_in: np.ndarray, 
+        L2_in: np.ndarray, 
+        L3_out: np.ndarray, 
+        weights: np.ndarray
+        ) -> None:
+        '''
+        All state initialization for the internal class occurs inside the
+        constructor. 
+        '''
+        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
+        
+
+
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
         return NotImplementedError("This doesn't begin to work")
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
-
-        L1.transpose_irreps_cpu(L1_in, True)
-        L2.transpose_irreps_cpu(L2_in, True)
-        L3.transpose_irreps_cpu(L3_grad, True)
-
-        self.internal.backward_cpu(L1_in, L1_grad, 
-                L2_in, L2_grad,
-                weights, weights_grad, 
-                L3_grad)
-
-        L1.transpose_irreps_cpu(L1_grad, False)
-        L2.transpose_irreps_cpu(L2_grad, False)
-
-        return L1_grad, L2_grad, weights_grad

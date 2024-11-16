@@ -42,10 +42,10 @@ class E3NNTensorProduct(TensorProduct):
         torch_L1_in = torch.Tensor(L1_in)
         torch_L2_in = torch.Tensor(L2_in)
         torch_weights = torch.Tensor(weights)
-
-        torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
         
-        L3_out[:] = torch_L3_out.detach().numpy().flatten()
+        torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
+
+        L3_out[:] = torch_L3_out.detach().numpy()
 
     def benchmark_forward(
             self, 
@@ -87,9 +87,9 @@ class E3NNTensorProduct(TensorProduct):
 
         torch_out.backward(gradient=torch_L3_grad_in)
         
-        L1_grad[:] = torch_L1_in.grad.detach().numpy().flatten()
-        L2_grad[:] = torch_L2_in.grad.detach().numpy().flatten()
-        weights_grad[:] = torch_weights.grad.detach().numpy().flatten()
+        L1_grad[:] = torch_L1_in.grad.detach().numpy()
+        L2_grad[:] = torch_L2_in.grad.detach().numpy()
+        weights_grad[:] = torch_weights.grad.detach().numpy()
 
     def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
         raise NotImplementedError("E3NNTensorProduct does not support benchmark backward")

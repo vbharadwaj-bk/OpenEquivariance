@@ -2,16 +2,18 @@
 #from src.implementations.E3NNTensorProduct import *
 
 import itertools
+import typing
 
 from src.benchmark.logging_utils import *
 from src.benchmark.e3nn_lite_utils import *
 from build.kernel_wrapper import *
-from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition
+from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
+from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+
 
 from src.implementations.e3nn_lite import *
 
@@ -20,32 +22,69 @@ import numpy.linalg as la
 
 logger = getLogger()
 
-def debug(tp_impl, config, direction="forward"): 
-    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 1
+def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Direction) -> None:
+    assert issubclass(tp_impl, TensorProduct)
+    assert isinstance(config, TPProblem)
+    assert direction in typing.get_args(Direction)
 
+    batch_size = 1000000
+    prng_seed = 12345
+    
     tp = tp_impl(config)
 
-    rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.dim)), dtype=np.float32)
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.dim)), dtype=np.float32)
-    weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) 
+    from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+    e3nn_tp = E3NNTensorProduct(config)
 
-    L3_out = np.zeros((batch_size, L3.dim), dtype=np.float32)
-
+    logger.debug(repr(config))
     if direction == "forward":
-        tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out)
-        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
-        print(L3_out / ground_truth)
+        in1, in2, weights, out = get_random_buffers_forward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
+
+        print(f"{out =}")
+        test_out = out.copy()
+        tp.forward_cpu(
+            L1_in=in1, 
+            L2_in=in2, 
+            L3_out=test_out, 
+            weights=weights
+            )   
+        
+        print(f"{test_out = }")
+
+        ground_truth_out = out.copy()
+        e3nn_tp.forward_cpu(
+            L1_in=in1, 
+            L2_in=in2, 
+            L3_out=ground_truth_out,
+            weights=weights
+            )
+        
+        print(f"{ground_truth_out = }")
+
+        print("LA.Norm:")
+        print(la.norm((test_out - ground_truth_out).flatten(), ord=np.inf))
+
+        print("test_output / ground_truth_output")
+        print( test_out / ground_truth_out)
+
     elif direction == "backward":
-        L3_grad = L3_out
-        L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
-        weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) # Assumes no shared weights
-        L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
-        print(L1_grad)
-        print(L2_grad)
-        print(weights_grad)
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
+
+        test_in1_grad = in1_grad.copy()
+        test_in2_grad = in2_grad.copy()
+        test_weights_grad = weights_grad.copy()
+        tp.backward_cpu(
+            L1_in=in1,
+            L1_grad=test_in1_grad,
+            L2_in=in2,
+            L2_grad=test_in2_grad,
+            L3_grad=out_grad,
+            weights=weights,
+            weights_grad=test_weights_grad            
+        )
+
+        print(test_in1_grad)
+        print(test_in2_grad)
+        print(test_weights_grad)
     else:
         assert(False)
 
@@ -62,28 +101,47 @@ if __name__=='__main__':
     FCTPP = FullyConnectedTPProblem
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
-        # FCTPP("1x1e", "2x1e", "1x1e"), 
-        # FCTPP("2x1e", "1x1e", "1x1e"),
-        # FCTPP("2x1e", "2x1e", "1x1e"),
-        # FCTPP("2x1e", "2x1e", "4x1e"),
+        FCTPP("1x1e", "2x1e", "1x1e"), 
+        FCTPP("2x1e", "1x1e", "1x1e"),
+        FCTPP("2x1e", "2x1e", "1x1e"),
+        FCTPP("2x1e", "2x1e", "2x1e"),
+        
+    ]
+
+    increasing_multiplicty_fully_connected_problems = [
+        FCTPP("2x1e", "2x1e", "4x1e"),
+        FCTPP("4x1e", "4x1e", "4x1e"),
+        FCTPP("8x1e", "8x1e", "8x1e"),
+        FCTPP("16x1e", "16x1e", "16x1e"),
+        FCTPP("32x1e", "32x1e", "32x1e"),
+    ]
+
+    basic_multi_interaction_problems = [
+        FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
+        FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 1x0e"),
     ]
 
     problems = itertools.chain.from_iterable([
-        basic_fully_connected_problems,
+        # basic_fully_connected_problems,
+        increasing_multiplicty_fully_connected_problems,
+        # basic_multi_interaction_problems,
     ])
 
     implementations = [MultiplicityOuterProductTP]
 
     directions = ['forward']
 
-    tests = [TestDefinition(implementation, problem, direction) 
+    tests = [TestDefinition(implementation, problem, direction, benchmark=True) 
              for implementation, problem, direction 
              in itertools.product(implementations, problems, directions)]
 
     logger.setLevel(logging.INFO)
     bench_suite = TestBenchmarkSuite(
-        bench_batch_size=100000
+        correctness_threshold = 5e-6,
+        bench_batch_size=100000,
     )
     bench_suite.run(tests)
 
-    #debug(LoopUnrollTP, tests[0], direction="forward")
+    # debug(MultiplicityOuterProductTP, increasing_multiplicty_fully_connected_problems[3], direction="forward")

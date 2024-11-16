@@ -11,12 +11,11 @@ def calculate_minimum_memory_streamed_forward(tpp : TPProblem, batch_size : int)
     This represents an absolute minimum amount of memory that could be streamed on an ideal machine without fast memory constraints
     """
     logger.warning("Minimum memory streamed forward assumes infinite fast memory size")
-    logger.warning("Minimum memory streamed forward does not handle non shared weights yet")
     data_size = {}
     data_size["input 1"] = tpp.irreps_in1.dim * batch_size
     data_size["input 2"] = tpp.irreps_in2.dim * batch_size
     data_size["output"]  = tpp.irreps_out.dim * batch_size
-    data_size["weights"] = tpp.weight_numel
+    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size
     data_size["total"] = sum(data_size.values())
     return data_size
 
@@ -44,7 +43,7 @@ def calculate_minimum_flops_forward(tpp : TPProblem, batch_size : int) -> dict:
     Ideally you might share the outer product values between two inputs across multiple inputs. 
     This is assuming that you form those values and reuse them once per CG decomp.
     """
-    logger.warning("This is not accurately calculating the minimum amount of flops that can be performed")
+    logger.warning("Minimum flops Calculation is not the true minimum")
     flops_count = {}
     flops_count["outer_products"] = 0
     flops_count["CG_decomposition"] = 0

@@ -2,7 +2,7 @@ from typing import Optional
 
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import TPProblem
-from src.benchmark.supplies_utils import get_random_supplies_forward, get_random_supplies_backward
+from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from src.benchmark.logging_utils import getLogger, bcolors 
 import numpy as np 
 import numpy.linalg as la
@@ -47,13 +47,13 @@ def correctness_forward(
     }
 
     # run reference
-    in1, in2, weights, out = get_random_supplies_forward(problem, batch_size, prng_seed)
+    in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
     ref_tp = reference_implementation(problem)
     ref_tp.forward_cpu(in1, in2, out, weights)
     ref_out = out.copy()
 
     # run test
-    in1, in2, weights, out = get_random_supplies_forward(problem, batch_size, prng_seed)
+    in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
     test_tp = test_implementation(problem)
     test_tp.forward_cpu(in1, in2, out, weights)
     test_out = out.copy()
@@ -84,7 +84,7 @@ def correctness_backward(
     }
     
     # run reference
-    in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_supplies_backward(
+    in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(
         problem, 
         batch_size, 
         prng_seed
@@ -99,7 +99,7 @@ def correctness_backward(
 
     # run test version
 
-    in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_supplies_backward(
+    in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(
         problem, 
         batch_size, 
         prng_seed

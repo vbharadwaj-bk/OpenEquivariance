@@ -91,8 +91,8 @@ class TestBenchmarkSuite:
             impl = test.implementation
             tpp = test.problem
 
-            logger.info(f'Starting Test No. {test_ID}')
-            logger.info(f'Tensor Product Problem: {str(tpp)}')
+            logger.info(f'Starting Test ID: {test_ID}')
+            logger.info(f'Config: {str(tpp)}')
             logger.info(f'Implementation Name: {impl.__name__}')
             logger.info(f'Test Direction: {test.direction}')
 
@@ -147,8 +147,9 @@ class TestBenchmarkSuite:
     
             fname = pathlib.Path(f"{output_folder}/{test_ID}.json")
 
-            logger.debug(result)
+            pretty_result = json.dumps(obj=result, indent=2).replace('\\n', '\n')
+            logger.debug(pretty_result)
             with open(fname, 'w') as f:
                 json.dump(result, f, indent=2)
 
-            logger.info(f'Finished Test No. {test_ID}')
+            logger.info(f'Finished Test ID: {test_ID}')

@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.benchmark.supplies_utils import get_random_supplies_forward, get_random_supplies_backward
+from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from src.benchmark.perf_metrics_utils import (
     calculate_minimum_flops_forward, 
     calculate_minimum_memory_streamed_forward, 
@@ -50,8 +50,10 @@ def calculate_performance_statistics(
             "bandwidth_gbps": bandwidth_gbps,
         }
 
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPS{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Theorectical Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops)/19500:.2%} GFLOPS{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwdith : {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps)    :.2f} GBPS  {bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Theorectical Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps)/1550:.2%} GFLOPS{bcolors.ENDC}")
         return result 
 
 def benchmark_forward(
@@ -72,7 +74,7 @@ def benchmark_forward(
         "prng_seed": prng_seed,
     }
 
-    L1_in, L2_in, weights, L3_buffer = get_random_supplies_forward(problem, batch_size, prng_seed)
+    L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward(problem, batch_size, prng_seed)
 
     logger.info("Initialized input / output data.")
 
@@ -133,7 +135,7 @@ def benchmark_backward(
             "prng_seed": prng_seed,
         }
 
-        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_supplies_backward(problem, batch_size, prng_seed)
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(problem, batch_size, prng_seed)
     
         logger.info("Initialized input / output data.")
         
