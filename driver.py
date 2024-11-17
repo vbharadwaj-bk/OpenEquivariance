@@ -48,12 +48,18 @@ def debug(tp_impl, config, direction="forward"):
         print(la.norm((L2_grad-L2_grad_ref).flatten(), ord=np.inf))
         print(la.norm((weights_grad-weights_grad_ref).flatten(), ord=np.inf))
 
+        #print(L2_grad)
+        #print(L2_grad_ref)
+
+        print(weights_grad)
+        print(weights_grad_ref)
+
     else:
         assert(False)
 
 if __name__=='__main__':
     configs = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        single_inst_conf("32x2e", "1x2e", "32x2e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
