@@ -1,5 +1,5 @@
 #import e3nn
-#from src.implementations.E3NNTensorProduct import *
+from src.implementations.E3NNTensorProduct import *
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -41,19 +41,23 @@ def debug(tp_impl, config, direction="forward"):
         L3_grad = L3_out
         L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
-        print(L1_grad)
-        print(L2_grad)
-        print(weights_grad)
+        reference = E3NNTensorProduct(config)
+        L1_grad_ref, L2_grad_ref, weights_grad_ref = reference.backward_cpu(L1_in, L2_in, L3_grad, weights)
+
+        print(la.norm((L1_grad-L1_grad_ref).flatten(), ord=np.inf))
+        print(la.norm((L2_grad-L2_grad_ref).flatten(), ord=np.inf))
+        print(la.norm((weights_grad-weights_grad_ref).flatten(), ord=np.inf))
+
     else:
         assert(False)
 
 if __name__=='__main__':
     configs = [
         single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     throughput_configs = [
@@ -62,6 +66,6 @@ if __name__=='__main__':
     ]
 
     bench_suite = TestBenchmarkSuite(configs, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
+    #bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
 
-    #debug(LoopUnrollTP, configs[0], direction="forward")
+    debug(LoopUnrollTP, configs[0], direction="backward")

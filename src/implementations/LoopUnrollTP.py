@@ -90,6 +90,7 @@ class LoopUnrollTP(TensorProduct):
 
         L1Rep.transpose_irreps_cpu(L1_grad, False)
         L2Rep.transpose_irreps_cpu(L2_grad, False)
+        L3Rep.transpose_irreps_cpu(L3_grad, False)
 
         return L1_grad, L2_grad, weights_grad
 

@@ -37,7 +37,22 @@ class E3NNTensorProduct(TensorProduct):
         L3_out[:] = self.config(L1_in, L2_in, weights).detach().numpy()
 
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        raise NotImplementedError("NumpyTensorProduct does not support backward_cpu")
+        torch_L1_in = torch.Tensor(L1_in)
+        torch_L2_in = torch.Tensor(L2_in)
+        torch_weights = torch.Tensor(weights)
+
+        torch_L1_in.requires_grad = True
+        torch_L2_in.requires_grad = True
+        torch_weights.requires_grad = True
+
+        torch_out = self.config(torch_L1_in, torch_L2_in, torch_weights)
+        torch_out.backward(gradient=torch.Tensor(L3_grad))
+        
+        L1_grad = torch_L1_in.grad.detach().numpy()
+        L2_grad = torch_L2_in.grad.detach().numpy()
+        weights_grad = torch_weights.grad.detach().numpy()
+
+        return L1_grad, L2_grad, weights_grad
 
     @staticmethod
     def name():
