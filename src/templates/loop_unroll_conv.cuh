@@ -73,7 +73,7 @@ __global__ void forward(
 
         if(! disable_tensor_op) {
             __syncwarp();
-            forward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id, lane_id);
+            forward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
             __syncwarp();
         }
         else {
@@ -143,8 +143,8 @@ __global__ void backward(
 
         if(! disable_tensor_op) {
             __syncwarp();
-            backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-                    L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
+            backward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
+                    L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
             __syncwarp();
         }
         else {
