@@ -17,7 +17,7 @@ logger = getLogger()
 
 def debug(tp_impl, config, direction="forward"): 
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 1
+    batch_size = 100
 
     tp = tp_impl(config)
 
@@ -41,18 +41,14 @@ def debug(tp_impl, config, direction="forward"):
         L3_grad = L3_out
         L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
         L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
+
+
         reference = E3NNTensorProduct(config)
         L1_grad_ref, L2_grad_ref, weights_grad_ref = reference.backward_cpu(L1_in, L2_in, L3_grad, weights)
 
         print(la.norm((L1_grad-L1_grad_ref).flatten(), ord=np.inf))
         print(la.norm((L2_grad-L2_grad_ref).flatten(), ord=np.inf))
         print(la.norm((weights_grad-weights_grad_ref).flatten(), ord=np.inf))
-
-        #print(L2_grad)
-        #print(L2_grad_ref)
-
-        print(weights_grad)
-        print(weights_grad_ref)
 
     else:
         assert(False)

@@ -106,8 +106,8 @@ __global__ void backward(
         ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        backward_loop_unroll(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_grad_smem + lane_id,
-                L1_grad_smem + lane_id, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
+        backward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
+                L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
         __syncwarp();
 
         float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;

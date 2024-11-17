@@ -67,28 +67,26 @@ __device__ __forceinline__ void backward_loop_unroll(
     float l3_grad[{{L3_irrep_lengths | max}}];
 
     float weight, weight_grad;
+    int offset;
 
-    {% set num_scratch_reg = 2 %}
+    {% set num_scratch_reg = 1 %}
     float scratch1[{{num_scratch_reg}}];
     float scratch2[{{num_scratch_reg}}];
 
     {%- set num_interact = interactions | length %}
 
     for(int mul_offset = 0; mul_offset < {{L1[0].mul}}; mul_offset += {{forward_config.warp_size}}) {
-        if(mul_offset + lane_id < {{L1[0].mul}}) {
+        //if(mul_offset + lane_id < {{L1[0].mul}}) {     # shfl_sync breaks with conditional 
             {%- for k in range(num_interact) %}
                 {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
                 {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
                 weight = weights_smem[{{weight_start}} + mul_offset];
                 weight_grad = weights_grad_smem[{{weight_start}} + mul_offset];
 
-                //==========================================
                 {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
-                    #pragma unroll
-                    for(int j = 0; j < {{L1[u].ir.dim}}; j++) {
-                        l1_vec[j] = L1_smem[mul_offset + {{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
-                        l1_grad[j] = L1_grad_smem[mul_offset + {{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
-                    }
+                    offset = {{ L1.slices()[u].start}} + mul_offset * {{L1[u].ir.dim}};
+                    {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_smem', 'offset', 'l1_vec')}}
+                    {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad')}}
                 {%- endif %}
 
                 {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
@@ -100,9 +98,8 @@ __device__ __forceinline__ void backward_loop_unroll(
                 {%- endif %}
 
                 {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
-                    #pragma unroll
-                    for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-                        l3_grad[j] = L3_grad_smem[mul_offset + {{L3[w].mul}} * j + {{ L3.slices()[w].start}}];
+                    offset = {{ L3.slices()[w].start}} + mul_offset * {{L3[w].ir.dim}};
+                    {{transpose_load(L3[w].mul, L3[w].ir.dim, 'L3_grad_smem', 'offset', 'l3_grad')}}
                 {%- endif %}
 
                 {%- for i in range(tensor.nnz) %} 
@@ -116,9 +113,8 @@ __device__ __forceinline__ void backward_loop_unroll(
 
                 // Storeback
                 {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
-                    #pragma unroll
-                    for(int j = 0; j < {{L1[u].ir.dim}}; j++)
-                        L1_grad_smem[mul_offset + {{L1[u].mul}} * j + {{ L1.slices()[u].start}}] = l1_grad[j];
+                    offset = {{ L1.slices()[u].start}} + mul_offset * {{L1[u].ir.dim}};
+                    {{transpose_store(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad', '=', '1.0')}}
                 {%- endif %}
 
                 {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
@@ -141,6 +137,6 @@ __device__ __forceinline__ void backward_loop_unroll(
 
                 weights_grad_smem[mul_offset + {{weight_start}}] = weight_grad; 
             {%- endfor %}
-        }
+        //}
     }
 }
