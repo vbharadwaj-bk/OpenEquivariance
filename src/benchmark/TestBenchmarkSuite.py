@@ -93,7 +93,11 @@ class TestBenchmarkSuite:
             L2_in  = np.array(rng.uniform(size=(self.correctness_batch_size, L2.dim)), dtype=np.float32)
 
             # Assumes weights are not shared 
-            weights = np.array(rng.uniform(size=(self.correctness_batch_size, config.weight_numel)), dtype=np.float32) 
+            if config.shared_weights:
+                weights = np.array(rng.uniform(size=(config.weight_numel,)), dtype=np.float32)
+            else:
+                weights = np.array(rng.uniform(size=(self.correctness_batch_size, config.weight_numel)), dtype=np.float32) 
+
             L3_out = np.zeros((self.correctness_batch_size, L3.dim), dtype=np.float32)
             for impl in tp_implementations:
                 tc_name = f"{config.metadata}, {bcolors.OKCYAN}{impl.name()}{bcolors.ENDC}, {direction}"

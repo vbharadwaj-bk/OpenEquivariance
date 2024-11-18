@@ -1,7 +1,7 @@
 {# Jinja2 Template #}
 
 {% include 'common.cuh' %}
-{%- from 'macros.jinja' import declare_smem_arrays with context %}
+{%- from 'macros.jinja' import declare_smem_arrays, transpose_store with context %}
 
 #define THREADS_PER_WARP {{ forward_config.warp_size }} 
 #define FULL_MASK 0xffffffff
@@ -22,6 +22,69 @@
 {%- set L1_irrep_lengths = L1 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
+
+/*
+* Two template params: THREAD_ROWS, THREAD_COLS. Threads laid out in an 4 x 8 grid,
+* so the output has dimensions (4 * THREAD_ROWS) x (8 * THREAD_COLS). 0-padding
+* is applied to the input irreps but NOT the output buffer, conditionals are used for loads.
+* Weights is N x K, irreps is M x K, output is M x N. 
+*/
+
+/*
+template<int THREAD_ROWS, int THREAD_COLS, int M, int N, int K>
+__device__ __forceinline__ warp_matmul(
+            const float* __restrict__ irreps, 
+            const float* __restrict__ weights, 
+            float* __restrict__ out,
+            int lane_id) {
+
+    float output[THREAD_ROWS][THREAD_COLS];
+    float col_weights[THREAD_COLS];
+    float row_irreps[THREAD_ROWS];
+
+    int t_row_idx = lane_id % 4; 
+    int t_col_idx = lane_id / 4;
+
+    int row_start = t_row_idx * THREAD_ROWS;
+    int col_start = t_col_idx * THREAD_COLS;
+
+    // Zero out the output buffer
+    #pragma unroll
+    for(int i = 0; i < THREAD_ROWS; i++) {
+        #pragma unroll
+        for(int j = 0; j < THREAD_COLS; j++)
+            output[i][j] = 0.0f;
+    }
+
+    for(int k = 0; k < K; k++) {
+        #pragma unroll
+        for(int i = 0; i < THREAD_ROWS; i++)
+            row_irreps[i] = irreps[row_start + i + k * M];
+
+        #pragma unroll
+        for(int j = 0; j < THREAD_COLS; j++)
+            col_weights[j] = weights[col_start + j + k * N];
+
+        #pragma unroll
+        for(int i = 0; i < THREAD_ROWS; i++) {
+            #pragma unroll
+            for(int j = 0; j < THREAD_COLS; j++)
+                output[i][j] += row_irreps[i] * col_weights[j];
+        }
+    }
+
+    // This could be optimized to avoid the padding issue, or by writing
+    // the arguments directly back to registers
+    #pragma unroll
+    for(int i = 0; i < THREAD_ROWS; i++) {
+        #pragma unroll
+        for(int j = 0; j < THREAD_COLS; j++) {
+            if(row_start + i < M && col_start + j < N)
+                out[(row_start + i) * N + col_start + j] = output[i][j];
+        }
+    }
+}
+*/
 
 __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
         const float* __restrict__ weights_smem, float* __restrict__ L3_smem) {
@@ -90,6 +153,7 @@ __global__ void forward(
             ("L1_smem", "float", L1.dim),
             ("L2_smem", "float", L2.dim),
             ("L3_smem", "float", L3.dim),
+            ("L3_scratch", "float", L3.dim),
             ("weights_smem", "float", config.weight_numel)
         ]}, "warp_loc", forward_config)}}
 
@@ -97,7 +161,7 @@ __global__ void forward(
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
         float* l2_shft = L2_in + i * {{L2.dim}} + lane_id; 
         float* l3_shft = L3_out + i * {{L3.dim}} + lane_id;
-        float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
+        float* weights_shft = weights + lane_id;
 
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)

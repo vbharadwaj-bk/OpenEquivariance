@@ -1,4 +1,3 @@
-#import e3nn
 #from src.implementations.E3NNTensorProduct import *
 
 from src.benchmark.logging_utils import *
@@ -17,7 +16,7 @@ logger = getLogger()
 
 def debug(tp_impl, config, direction="forward"): 
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 100
+    batch_size = 1
 
     tp = tp_impl(config)
 
@@ -30,7 +29,7 @@ def debug(tp_impl, config, direction="forward"):
 
     if direction == "forward":
         tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=NumpyTensorProduct)
+        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=E3NNTensorProduct)
         print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
         #print(L3_out / ground_truth)
         #print(L3_out)
@@ -55,11 +54,11 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     configs = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        single_inst_conf("32x1e", "1x5e", "32x5e", "uvw", True),
+        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     throughput_configs = [
@@ -67,7 +66,7 @@ if __name__=='__main__':
         for i in range(1, 32, 2)
     ]
 
-    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=1000000)
-    bench_suite.run([LoopUnrollTP], direction="backward", reference_impl=NumpyTensorProduct)
+    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
+    bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=None)
 
-    #debug(LoopUnrollTP, configs[0], direction="backward")
+    #debug(ManyOneUVWTP, configs[0], direction="backward")

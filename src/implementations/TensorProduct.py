@@ -30,12 +30,16 @@ def flops_data_per_tp(config, bytes_per_word, direction):
 
     ops_per_tp = 0
     nnz = 0
-    for (u, v, w, *others) in config.instructions:
+    for (u, v, w, connection_mode, *others) in config.instructions:
         tensor = TensorProduct.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
         local_nnz = np.count_nonzero(tensor)
         nnz += local_nnz
-        ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
-        ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) # FLOPS for weights, assuming "uvu"
+        ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v)
+
+        if connection_mode == "uvu":
+            ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) 
+        elif connection_mode == "uvw":
+            ops_per_tp += L1[u].mul * L2[v].mul * L3[w].ir.dim * L3[w].mul
 
     return ops_per_tp, words_per_tp * bytes_per_word, nnz
 
