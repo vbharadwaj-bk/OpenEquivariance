@@ -24,78 +24,77 @@
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
 /*
-* Two template params: THREAD_ROWS, THREAD_COLS. Threads laid out in an 4 x 8 grid,
-* so the output has dimensions (4 * THREAD_ROWS) x (8 * THREAD_COLS). 0-padding
+* Two template params: tile HEIGHT, DITH. Threads laid out in an 8 x 4 grid,
+* so the output has dimensions (8 * HEIGHT) x (4 * WIDTH). 0-padding
 * is applied to the input irreps but NOT the output buffer, conditionals are used for loads.
 * Weights is N x K, irreps is M x K, output is M x N. 
 */
 
-/*
-template<int THREAD_ROWS, int THREAD_COLS, int M, int N, int K>
-__device__ __forceinline__ warp_matmul(
+template<int HEIGHT, int WIDTH, int M, int N, int K>
+__device__ __forceinline__ void warp_matmul(
             const float* __restrict__ irreps, 
             const float* __restrict__ weights, 
-            float* __restrict__ out,
+            float* out,
             int lane_id) {
 
-    float output[THREAD_ROWS][THREAD_COLS];
-    float col_weights[THREAD_COLS];
-    float row_irreps[THREAD_ROWS];
+    float output[WIDTH][HEIGHT];
+    float col_weights[HEIGHT];
+    float row_irreps[WIDTH];
 
-    int t_row_idx = lane_id % 4; 
-    int t_col_idx = lane_id / 4;
+    int M_padded = 12; // Multiply THREAD_COLS=3 by 4, # of tiles spanning column dimension 
 
-    int row_start = t_row_idx * THREAD_ROWS;
-    int col_start = t_col_idx * THREAD_COLS;
+    int t_row_idx = lane_id % 8; 
+    int t_col_idx = lane_id / 8;
+
+    int row_start = t_col_idx * HEIGHT;
+    int col_start = t_row_idx * WIDTH;
 
     // Zero out the output buffer
     #pragma unroll
-    for(int i = 0; i < THREAD_ROWS; i++) {
+    for(int i = 0; i < HEIGHT; i++) {
         #pragma unroll
-        for(int j = 0; j < THREAD_COLS; j++)
+        for(int j = 0; j < WIDTH; j++)
             output[i][j] = 0.0f;
     }
 
     for(int k = 0; k < K; k++) {
         #pragma unroll
-        for(int i = 0; i < THREAD_ROWS; i++)
-            row_irreps[i] = irreps[row_start + i + k * M];
+        for(int i = 0; i < WIDTH; i++) {
+            row_irreps[i] = irreps[row_start + i + k * M_padded];
+        }
 
         #pragma unroll
-        for(int j = 0; j < THREAD_COLS; j++)
-            col_weights[j] = weights[col_start + j + k * N];
+        for(int j = 0; j < HEIGHT; j++) {
+            col_weights[j] = weights[col_start + j + k * K];
+        }
 
         #pragma unroll
-        for(int i = 0; i < THREAD_ROWS; i++) {
+        for(int i = 0; i < WIDTH; i++) {
             #pragma unroll
-            for(int j = 0; j < THREAD_COLS; j++)
+            for(int j = 0; j < HEIGHT; j++)
                 output[i][j] += row_irreps[i] * col_weights[j];
         }
     }
 
-    // This could be optimized to avoid the padding issue, or by writing
-    // the arguments directly back to registers
     #pragma unroll
-    for(int i = 0; i < THREAD_ROWS; i++) {
+    for(int i = 0; i < WIDTH; i++) {
         #pragma unroll
-        for(int j = 0; j < THREAD_COLS; j++) {
-            if(row_start + i < M && col_start + j < N)
-                out[(row_start + i) * N + col_start + j] = output[i][j];
+        for(int j = 0; j < HEIGHT; j++) {
+            if(row_start + i < N && col_start + j < M) {
+                out[(col_start + j) * N + row_start + i] += output[i][j];
+            }
         }
     }
 }
-*/
 
 __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
-        const float* __restrict__ weights_smem, float* __restrict__ L3_smem) {
+        const float* __restrict__ weights_smem, float* __restrict__ L3_smem, float* __restrict__ L3_scratch, int lane_id) {
     float l1_vec[{{L1_irrep_lengths | max}}];
     float l2_vec[{{L2_irrep_lengths | max}}];
     float l3_vec[{{L3_irrep_lengths | max}}];
     float l3_vec_weighted[{{L3_irrep_lengths | max}}];
 
-    // Assumes the weight matrix is 32 x 32.
-    // Each thread stores a 32-length row of the weight matrix
-    float weights[{{ forward_config.warp_size }}];
+    //float weights[{{ forward_config.warp_size }}];
 
     {%- set num_interact = interactions | length %}
     
@@ -103,9 +102,10 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
         {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
         {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
 
-        #pragma unroll
+        /*#pragma unroll
         for(int j = 0; j < {{ forward_config.warp_size }}; j++)
             weights[j] = weights_smem[{{weight_start}} + j * {{forward_config.warp_size}}];
+        */
 
         #pragma unroll
         for(int j = 0; j < {{L1[u].ir.dim}}; j++)
@@ -126,17 +126,26 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
 
         #pragma unroll
         for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-            l3_vec_weighted[j] = 0.0; 
+            l3_vec_weighted[j] = 0.0;
+
+        // Store to appropriate location, after transposing within warp, to shared memory 
+        #pragma unroll
+        for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
+            L3_scratch[12 * lane_id + j] = l3_vec[j]; // Padding applied here 
+        }
+
+        warp_matmul<4, 3, 32, 11, 32>(L3_scratch, weights_smem, L3_smem, lane_id);
 
         {%- for i in range(forward_config.warp_size) %}
             {%- for j in range(L3[w].ir.dim) %}
-                l3_vec_weighted[{{j}}] += __shfl_sync(FULL_MASK, l3_vec[{{j}}], {{i}}) * weights[{{i}}];
+                //l3_vec_weighted[{{j}}] += __shfl_sync(FULL_MASK, l3_vec[{{j}}], {{i}}) * weights[{{i}}];
             {%- endfor %}
         {%- endfor %}
 
-        #pragma unroll
+        /*#pragma unroll
         for(int j = 0; j < {{L3[w].ir.dim}}; j++)
             L3_smem[{{L3[w].mul}} * j + {{L3.slices()[w].start}}] += l3_vec_weighted[j]; 
+        */
     {%- endfor %}
 }
 
@@ -153,9 +162,11 @@ __global__ void forward(
             ("L1_smem", "float", L1.dim),
             ("L2_smem", "float", L2.dim),
             ("L3_smem", "float", L3.dim),
-            ("L3_scratch", "float", L3.dim),
+            ("L3_scratch", "float", 32 * 12),
             ("weights_smem", "float", config.weight_numel)
         ]}, "warp_loc", forward_config)}}
+
+    ROW_OPERATION({{32 * 3}}, j, L3_scratch[j + lane_id] = 0.0;)
 
     for(size_t i = start; i < end; i++) {
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
@@ -169,7 +180,7 @@ __global__ void forward(
         ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
         __syncwarp();
-        forward_many_one(L1_smem + lane_id, L2_smem, weights_smem + lane_id, L3_smem + lane_id);
+        forward_many_one(L1_smem + lane_id, L2_smem, weights_smem, L3_smem, L3_scratch, lane_id);
         __syncwarp();
 
         ROW_OPERATION({{L3.dim}}, j, l3_shft[j] = L3_smem[j + lane_id];)
