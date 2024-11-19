@@ -1,4 +1,4 @@
-#from src.implementations.E3NNTensorProduct import *
+from src.implementations.E3NNTensorProduct import *
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -56,7 +56,7 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     configs = [
-        single_inst_conf("32x1e", "1x5e", "32x5e", "uvw", True),
+        single_inst_conf("32x1e", "32x5e", "32x5e", "uvw", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),

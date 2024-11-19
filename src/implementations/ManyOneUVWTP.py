@@ -17,9 +17,6 @@ class ManyOneUVWTP(TensorProduct):
         for (mul, ir) in L1:
             assert(mul == mul_0) 
 
-        for (mul, ir) in L2:
-            assert(mul == 1)
-
         for (mul, ir) in L3:
             assert(mul == mul_0)
 
@@ -32,7 +29,7 @@ class ManyOneUVWTP(TensorProduct):
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
         forward_config.num_threads = 256
-        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel + 32 * 12)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size  
+        forward_config.smem = (L1.dim + L2.dim + L3.dim + 32 * 32 + 32 * 12)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size  
         logger.info(f"Forward pass needs {forward_config.smem // 1000} KB of shared memory.")
 
         if forward_config.smem > GPUInfo.max_smem:
@@ -41,7 +38,7 @@ class ManyOneUVWTP(TensorProduct):
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
         backward_config.num_threads = 192
-        backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * config.weight_numel + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
+        backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * 32 * 32 + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
         logger.info(f"Backward pass needs {backward_config.smem // 1000} KB of shared memory.")
 
         if backward_config.smem > GPUInfo.max_smem:
@@ -88,13 +85,8 @@ class ManyOneUVWTP(TensorProduct):
         L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
 
         L1Rep.transpose_irreps_cpu(L1_in, True)
-        L2Rep.transpose_irreps_cpu(L2_in, True)
-
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
-
         L1Rep.transpose_irreps_cpu(L1_in, False)
-        L2Rep.transpose_irreps_cpu(L2_in, False)
-        #L3Rep.transpose_irreps_cpu(L3_out, False)
 
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
         raise NotImplementedError("Backward pass not implemented for ManyOneUVWTP")

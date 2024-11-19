@@ -37,17 +37,11 @@ __device__ __forceinline__ void warp_matmul(
             float* out,
             int lane_id) {
 
-    float output[WIDTH][HEIGHT];
-    float col_weights[HEIGHT];
-    float row_irreps[WIDTH];
+    float output[WIDTH][HEIGHT]; float col_weights[HEIGHT]; float row_irreps[WIDTH];
 
     int N_padded = 11; // Multiply THREAD_COLS=3 by 4, # of tiles spanning column dimension 
-
-    int t_row_idx = lane_id % 8; 
-    int t_col_idx = lane_id / 8;
-
-    int row_start = t_col_idx * WIDTH;
-    int col_start = t_row_idx * HEIGHT;
+    int t_row_idx = lane_id % 8; int t_col_idx = lane_id / 8;
+    int row_start = t_col_idx * WIDTH; int col_start = t_row_idx * HEIGHT;
 
     // Zero out the output buffer
     #pragma unroll
@@ -81,9 +75,7 @@ __device__ __forceinline__ void warp_matmul(
         #pragma unroll
         for(int j = 0; j < HEIGHT; j++) {
             if(row_start + i < N && col_start + j < M) {
-                out[(col_start + j) * N + row_start + i] = output[i][j];
-                //printf("Writing to %d %.2f\n", (col_start + j) * N + row_start + i, output[i][j]);
-                //out[(col_start + j) * N + row_start + i] += 1.0; 
+                out[(col_start + j) * N + row_start + i] += output[i][j];
             }
         }
     }
@@ -128,8 +120,9 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
         for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
             L3_scratch[11 * lane_id + j] = l3_vec[j]; // Padding applied here 
         }
-
+        __syncwarp();
         warp_matmul<4, 3, 32, 11, 32>(L3_scratch, weights_smem, L3_smem, lane_id);
+        __syncwarp();
     {%- endfor %}
 }
 
@@ -147,7 +140,7 @@ __global__ void forward(
             ("L2_smem", "float", L2.dim),
             ("L3_smem", "float", L3.dim),
             ("L3_scratch", "float", 32 * 12),
-            ("weights_smem", "float", config.weight_numel)
+            ("weights_smem", "float", 32 * 32)
         ]}, "warp_loc", forward_config)}}
 
     ROW_OPERATION({{32 * 3}}, j, L3_scratch[j + lane_id] = 0.0;)
@@ -161,10 +154,14 @@ __global__ void forward(
         ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
         ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
         ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
-        ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
         __syncwarp();
-        forward_many_one(L1_smem + lane_id, L2_smem, weights_smem, L3_smem, L3_scratch, lane_id);
+        for(int k = 0; k < {{L2[0].mul}}; k++) {
+            ROW_OPERATION({{32 * 32}}, j, weights_smem[j + lane_id] = weights_shft[k + 1024];)
+            __syncwarp();
+            forward_many_one(L1_smem + lane_id, L2_smem + k * {{L2[0].ir.dim}}, weights_smem, L3_smem, L3_scratch, lane_id);
+        }
+
         __syncwarp();
 
         ROW_OPERATION({{L3.dim}}, j, l3_shft[j] = L3_smem[j + lane_id];)
