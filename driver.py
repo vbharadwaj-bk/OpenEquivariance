@@ -16,7 +16,7 @@ logger = getLogger()
 
 def debug(tp_impl, config, direction="forward"): 
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 1
+    batch_size = 5
 
     tp = tp_impl(config)
 
@@ -68,7 +68,7 @@ if __name__=='__main__':
         for i in range(1, 32, 2)
     ]
 
-    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
-    bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=None)
+    #bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
+    #bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=None)
 
-    #debug(ManyOneUVWTP, configs[0], direction="forward")
+    debug(ManyOneUVWTP, configs[0], direction="forward")

@@ -39,7 +39,7 @@ __device__ __forceinline__ void warp_matmul(
 
     float output[WIDTH][HEIGHT]; float col_weights[HEIGHT]; float row_irreps[WIDTH];
 
-    int N_padded = 11; // Multiply THREAD_COLS=3 by 4, # of tiles spanning column dimension 
+    int N_padded = 12; // Multiply THREAD_COLS=3 by 4, # of tiles spanning column dimension 
     int t_row_idx = lane_id % 8; int t_col_idx = lane_id / 8;
     int row_start = t_col_idx * WIDTH; int col_start = t_row_idx * HEIGHT;
 
@@ -118,7 +118,7 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
         // Store to appropriate location, after transposing within warp, to shared memory 
         #pragma unroll
         for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
-            L3_scratch[11 * lane_id + j] = l3_vec[j]; // Padding applied here 
+            L3_scratch[12 * lane_id + j] = l3_vec[j]; // Padding applied here 
         }
         __syncwarp();
         warp_matmul<4, 3, 32, 11, 32>(L3_scratch, weights_smem, L3_smem, lane_id);
