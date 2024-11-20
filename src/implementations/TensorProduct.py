@@ -1,10 +1,14 @@
 import pickle, pathlib
+from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
 
+from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
+
+import e3nn
 
 class GPUInfo:
     A100_SMS = 108
@@ -51,7 +55,9 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely.
     '''
-    def __init__(self, config, torch_op=False):
+    def __init__(self, config : TPProblem, torch_op : bool = False):
+        assert isinstance(config, TPProblem)
+        assert isinstance(torch_op, bool)
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
 
@@ -61,26 +67,26 @@ class TensorProduct:
         if torch_op:
             self.setup_torch_module()
 
-    @staticmethod
-    def name():
-        raise NotImplementedError()
-
-    def exec_tensor_product(self,
-            batch : np.uint64,
-            L1_in: np.uint64,
-            L2_in: np.uint64,
-            L3_out: np.uint64,
-            weights: np.uint64):
+    def forward(
+        self,
+        batch : np.uint64,
+        L1_in: np.uint64,
+        L2_in: np.uint64,
+        L3_out: np.uint64,
+        weights: np.uint64
+        ) -> None:
         '''
         Inputs are integers representing device pointers.
         '''
         self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out, weights) 
 
-    def exec_tensor_product_cpu(self, 
+    def forward_cpu(
+        self, 
         L1_in: np.ndarray, 
         L2_in: np.ndarray, 
         L3_out: np.ndarray, 
-        weights: np.ndarray):
+        weights: np.ndarray
+        ) -> None:
         '''
         All state initialization for the internal class occurs inside the
         constructor. 
@@ -102,146 +108,83 @@ class TensorProduct:
                 weights, weights_grad,
                 L3_grad)
 
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
+    def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad) -> None:
         '''
-        We break from convention here by allocating and returning
-        the appropriate buffers. 
+        All state initialization for the internal class occurs inside the
+        constructor. 
         '''
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
-
-        self.internal.backward_cpu(L1_in, L1_grad, 
+        self.internal.backward_cpu(
+                L1_in, L1_grad, 
                 L2_in, L2_grad,
                 weights, weights_grad, 
                 L3_grad)
-
-        return L1_grad, L2_grad, weights_grad
 
     @staticmethod
     def load_cg_tensor(l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
-    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp,
-            reference_implementation):
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        config = self.config 
-
-        thresh = 5e-7
-        result = {
-            "reference_implementation": reference_implementation.name(),
-            "shape_match": False,
-            "diff_Linf_norm": np.inf,
-            "thresh": thresh, # Above floating point interval machine epsilon 
-            "pass": False
-        }
-
-        ground_truth = np.zeros((L1_in.shape[0], L3.dim), dtype=np.float32)
-        tp = reference_implementation(self.config)
-
-        logger.info(f"Starting reference implementation {bcolors.OKCYAN}{reference_implementation.name()}{bcolors.ENDC}")
-        tp.exec_tensor_product_cpu(L1_in, L2_in, ground_truth, weights)
-        logger.info("Finished reference implementation.")
-
-        if L3_out_comp.shape != ground_truth.shape:
-            result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
-        else:
-            result["shape_match"] = True 
-            diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
-            result["diff_Linf_norm"] = diff_Linf_norm 
-            result["pass"] = bool(diff_Linf_norm < thresh) 
-
-            if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}Batch TP correctness check pass. {bcolors.ENDC}")
-            else:
-                logger.error(f"{bcolors.FAIL}Batch TP correctness check fail! {diff_Linf_norm=}, {thresh=} {bcolors.ENDC}")
-
-        return result, ground_truth
-
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction):
+    def benchmark_forward(
+        self, 
+        num_warmup : int, 
+        num_iter : int, 
+        L1_in : np.ndarray, 
+        L2_in : np.ndarray, 
+        L3_buffer : np.ndarray, 
+        weights : np.ndarray
+        ) -> np.ndarray:
         '''
-        Returns the total time for num_iter iterations of the core inner loop
+        Returns the total time for num_iter iterations of the core inner loop forwards
         after num_warmup warmup iterations. Can override for other implementations
+        Returns a np array of execution times in milliseconds
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        if direction == "forward":
-            self.internal.benchmark_forward_cpu(
+        self.internal.benchmark_forward_cpu(
                     L1_in, L2_in, L3_buffer, weights,
                     num_warmup, time_millis)
-        
-        elif direction == "backward":
-            self.internal.benchmark_backward_cpu(
+            
+        return time_millis
+    
+    def benchmark_backward(
+            self, 
+            num_warmup : int, 
+            num_iter : int, 
+            L1_in : np.ndarray, 
+            L2_in : np.ndarray, 
+            L3_buffer : np.ndarray, 
+            weights : np.ndarray, 
+            L1_grad : np.ndarray, 
+            L2_grad : np.ndarray,
+            weights_grad : np.ndarray
+            ) -> np.ndarray:
+        '''
+        Returns the total time for num_iter iterations of the core inner loop backward
+        after num_warmup warmup iterations. Can override for other implementations. 
+        Returns a np array of execution times in milliseconds
+        '''
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        self.internal.benchmark_backward_cpu(
                     L1_in, L1_grad,
                     L2_in, L2_grad,
                     weights, weights_grad,
                     L3_buffer,
                     num_warmup, time_millis)
-
+        
         return time_millis
 
-    def benchmark(self, num_warmup, num_iter, batch_size, direction, prng_seed=12345):
-        '''
-        This function only works for scalar L-values right now, need to change
-        to handle any multiplicity.
-        '''
-        assert(direction == "forward" or direction == "backward")
-        rng = np.random.default_rng(prng_seed)
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        interactions = [(u, v, w) for (u, v, w, *others) in self.config.instructions] 
+    def calculate_memory_streamed_forward(self, batch_size : int) -> dict: 
+        raise NotImplementedError("This needs to be implemented in your class")
+    
+    def calculate_memory_streamed_backward(self, batch_size : int) -> dict: 
+        raise NotImplementedError("This needs to be implemented in your class")
+    
+    def calculate_flops_forward(self, batch_size : int) -> dict:
+        raise NotImplementedError("This needs to be implemented in your class")
+    
+    def calculate_flops_backward(self, batch_size : int) -> dict:
+        raise NotImplementedError("This needs to be implemented in your class")
 
-        L1_in  = np.array(rng.uniform(size=(batch_size, self.L1.dim)), dtype=np.float32) 
-        L2_in  = np.array(rng.uniform(size=(batch_size, self.L2.dim)), dtype=np.float32)
-        L3_buffer = np.zeros((batch_size, self.L3.dim), dtype=np.float32)
-        weights = np.array(rng.uniform(size=(batch_size, self.config.weight_numel)), dtype=np.float32)
-
-        L1_grad, L2_grad, weights_grad = [None] * 3
-        if direction == "backward":
-            L3_buffer[:] = rng.uniform(size=(batch_size, L3.dim)) 
-            L1_grad = np.zeros_like(L1_in)
-            L2_grad = np.zeros_like(L2_in)
-            weights_grad = np.zeros_like(weights)
-
-        logger.info("Initialized input / output data.")
-
-        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, direction)
-
-        # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, L1_grad, L2_grad, weights_grad, direction)
-        # ==================================== 
-
-        # We don't multiply by num_iters since we benchmark each kernel run separately 
-        throughputs_gflops = [float(el) for el in batch_size * ops_per_tp / (time_millis * 1e6)]
-        bandwidth_gbps_rough = [float(el) for el in batch_size * data_per_tp / (time_millis * 1e6)]
-        time_millis = [float(el) for el in time_millis] 
-
-        result = {
-            "tp_direction": direction,
-            "total_cg_nnz": nnz,
-            "flops_per_tp": ops_per_tp,
-            "L1": str(L1),
-            "L2": str(L2), 
-            "L3": str(L3),
-            "instructions": self.config.instructions, 
-
-            "L1_rep_len": L1.dim,
-            "L2_rep_len": L2.dim,
-            "L3_rep_len": L3.dim,
-
-            "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": ops_per_tp / data_per_tp, 
-
-            "num_warmup": num_warmup,
-            "num_iter": num_iter,
-            "prng_seed": prng_seed,
-            "time_millis": time_millis,
-            "throughputs_gflops": throughputs_gflops,
-            "bandwidth_gbps_rough": bandwidth_gbps_rough
-        }
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-
-        return result
 
     def setup_torch_module(self):
         import torch, typing

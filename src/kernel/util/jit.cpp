@@ -102,32 +102,25 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         }
 
     }
-
-    constexpr bool requiresCGheaders = false;
-    char *compileParams[2];
-    int numCompileOptions = 0;
-
-    if (requiresCGheaders)
-    {
-        std::string compileOptions = "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/";
-        compileParams[0] = (char *) malloc(sizeof(char)* (compileOptions.length() + 1));
-        strcpy(compileParams[0], compileOptions.c_str());
-        numCompileOptions++;
-
-        std::string arch= "-arch=sm_80";
-        compileParams[1] = (char *) malloc(sizeof(char)* (arch.length() + 1));
-        strcpy(compileParams[1], arch.c_str());
-        numCompileOptions++;
-    }
+    
+    // Prepare compilation options
+    std::vector<const char*> opts = {
+        "--std=c++17", // CublasDX had this one
+        "--device-as-default-execution-space", // CublasDX had this one
+        "-arch=sm_80",
+        "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/", // Add path to CUDA include directory
+        "--include-path=/global/homes/a/aglover/equivariant_spmm/nvidia-mathdx-24.08.0/nvidia/mathdx/24.08",
+        "--ptxas-options=-v", // This is just the verbose command
+    };    
 
     // =========================================================
     // Step 2: Add name expressions, compile 
-    for (size_t i = 0; i < kernel_names.size(); ++i)
+    for(size_t i = 0; i < kernel_names.size(); ++i)
         NVRTC_SAFE_CALL(nvrtcAddNameExpression(prog, kernel_names[i].c_str()));
 
     nvrtcResult compileResult = nvrtcCompileProgram(prog,  // prog
-                                                    numCompileOptions,     // numOptions
-                                                    compileParams); // options
+                                                    static_cast<int>(opts.size()),     // numOptions
+                                                    opts.data()); // options
 
     size_t logSize;
     NVRTC_SAFE_CALL(nvrtcGetProgramLogSize(prog, &logSize));
@@ -151,6 +144,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
 
     CUDA_SAFE_CALL(cuInit(0));
 
+
     // TODO: No context management here, we use the primary context 
     // CUdevice cuDevice;
     // CUcontext context;
@@ -172,10 +166,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
     }
 
-    if (requiresCGheaders) {
-        free(compileParams[0]);
-        free(compileParams[1]);
-    }
+
 }
 
 void JITKernel::set_max_smem(int kernel_id, uint32_t max_smem_bytes) {

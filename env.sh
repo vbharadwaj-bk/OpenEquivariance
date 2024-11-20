@@ -1,6 +1,8 @@
-module load python
+module load conda 
+conda activate equivariant_spmm_env
 
-export SOURCED_ENV_SCRIPT=1
+module load cudatoolkit
+
 
 # dcgmi profile --pause
 # ncu -c 2 -o report.ncu-rep python driver.py
