@@ -6,7 +6,7 @@ from src.benchmark.TestBenchmarkSuite import *
 from src.implementations.LoopUnrollTP import *
 from src.implementations.ManyOneUVWTP import *
 from src.implementations.NumpyTensorProduct import *
-from src.implementations.ComputationScheduler import *
+from src.implementations.ComputationSchedule import *
 
 from src.implementations.e3nn_lite import *
 
@@ -57,11 +57,11 @@ def debug(tp_impl, config, direction="forward"):
 
 if __name__=='__main__':
     configs = [
-        single_inst_conf("32x1e", "32x5e", "32x5e", "uvw", True),
+        #single_inst_conf("32x1e", "32x5e", "32x5e", "uvw", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     throughput_configs = [
@@ -69,11 +69,9 @@ if __name__=='__main__':
         for i in range(1, 32, 2)
     ]
 
-    #bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
-    #bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=None)
+    scheduler = ComputationSchedule(configs[0], 160000, 8, "forward", irrep_dtype=np.float32, weight_dtype=np.float32)
+
+    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
+    bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
 
     # debug(ManyOneUVWTP, configs[0], direction="forward")
-
-    test = single_inst_conf("64x1e", "32x1e", "64x1e", "uvu", True)
-    scheduler = ComputationScheduler(test)
-
