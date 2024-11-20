@@ -40,7 +40,7 @@ def calculate_minimum_memory_streamed_backward(tpp : TPProblem, batch_size : int
 
 def calculate_minimum_flops_forward(tpp : TPProblem, batch_size : int) -> dict:
     """
-    This is not actually calcuating the minumum value. 
+    This is not actually calcuating the minimum value. 
     Ideally you might share the outer product values between two inputs across multiple inputs. 
     This is assuming that you form those values and reuse them once per CG decomp.
     """

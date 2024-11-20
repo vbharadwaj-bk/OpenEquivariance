@@ -23,12 +23,9 @@ def calculate_performance_statistics(
             ) -> dict:
         result = {}
 
-        throughputs_gflops = [float(x) for x in total_flops / (time_millis * 1e6)]
-       
+        throughputs_gflops = [float(x) for x in total_flops / (time_millis * 1e6)]  
         bandwidth_gbps = [float(x) for x in total_memory_streamed / (time_millis * 1e6)]
-
         nnz = calculate_total_nnz(problem)
-
         time_millis = [float(x) for x in time_millis]
 
         result |= {
@@ -103,14 +100,14 @@ def benchmark_forward(
     try:
         flops = tp.calculate_flops_forward(batch_size=batch_size)
     except NotImplementedError:
-        logger.warning("Actual flops was not calcuated, so minimum values are being used")
+        logger.warning("Actual flop count not calcuated, so minimum values are being used")
         flops = calculate_minimum_flops_forward(problem, batch_size=batch_size)
     
     # DATA
     try: 
         memory_streamed = tp.calculate_memory_streamed_backward(batch_size=batch_size)
     except NotImplementedError: 
-        logger.warning("Actual memory streamed was not calcuated, so minimum values are being used")
+        logger.warning("Actual memory streamed not calcuated, so minimum values are being used")
         memory_streamed = calculate_minimum_memory_streamed_forward(problem, batch_size=batch_size)
              
 
