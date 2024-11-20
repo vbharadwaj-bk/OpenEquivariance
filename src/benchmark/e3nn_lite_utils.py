@@ -10,18 +10,13 @@ from src.implementations.e3nn_lite import Irrep, _MulIr, Irreps, Instruction, TP
 def sparse_outer_product_work(cg : np.ndarray) -> int: 
     return np.sum(np.max(cg != 0, axis=2))
 
-def cg(l1 : int, l2 : int, l3 : int) -> np.ndarray:
-    result = TensorProduct.load_cg_tensor(l1, l2, l3)
-    assert isinstance(result, np.ndarray)
-    return result
-
 def convenience_namer(L1 : Irreps, L2 : Irreps, L3 : Irreps):
     return f"({L1}x{L2}->{L3})"
 
 # Non Zeros 
 @functools.lru_cache(typed=True)
 def count_cg_non_zero(l1, l2, l3) -> int:
-    return np.count_nonzero(cg(l1,l2,l3))
+    return np.count_nonzero(TensorProduct.load_cg_tensor(l1, l2, l3))
 
 def calculate_total_nnz(tpp : TPProblem) -> int:
         """
