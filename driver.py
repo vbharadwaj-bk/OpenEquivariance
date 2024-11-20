@@ -1,4 +1,4 @@
-from src.implementations.E3NNTensorProduct import *
+#from src.implementations.E3NNTensorProduct import *
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -6,6 +6,7 @@ from src.benchmark.TestBenchmarkSuite import *
 from src.implementations.LoopUnrollTP import *
 from src.implementations.ManyOneUVWTP import *
 from src.implementations.NumpyTensorProduct import *
+from src.implementations.ComputationScheduler import *
 
 from src.implementations.e3nn_lite import *
 
@@ -71,4 +72,8 @@ if __name__=='__main__':
     #bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
     #bench_suite.run([ManyOneUVWTP], direction="forward", reference_impl=None)
 
-    debug(ManyOneUVWTP, configs[0], direction="forward")
+    # debug(ManyOneUVWTP, configs[0], direction="forward")
+
+    test = single_inst_conf("64x1e", "32x1e", "64x1e", "uvw", True)
+    scheduler = ComputationScheduler(test)
+

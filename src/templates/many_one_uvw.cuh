@@ -111,10 +111,6 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
             l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
         {%- endfor %}
 
-        #pragma unroll
-        for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-            l3_vec_weighted[j] = 0.0;
-
         // Store to appropriate location, after transposing within warp, to shared memory 
         #pragma unroll
         for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
