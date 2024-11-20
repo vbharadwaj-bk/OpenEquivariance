@@ -74,6 +74,6 @@ if __name__=='__main__':
 
     # debug(ManyOneUVWTP, configs[0], direction="forward")
 
-    test = single_inst_conf("64x1e", "32x1e", "64x1e", "uvw", True)
+    test = single_inst_conf("64x1e", "32x1e", "64x1e", "uvu", True)
     scheduler = ComputationScheduler(test)
 
