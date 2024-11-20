@@ -33,7 +33,6 @@ find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS
 target_link_libraries(espmm PUBLIC mathdx::cublasdx)
 
 target_include_directories(espmm PUBLIC 
-  ${Python_INCLUDE_DIRS}
   ${pybind11_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/util
