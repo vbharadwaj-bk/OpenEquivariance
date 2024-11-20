@@ -43,17 +43,22 @@ def calculate_performance_statistics(
             "L3_rep_len": problem.irreps_out.dim,
 
             "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": str(total_flops * total_memory_streamed), 
+            "arithmetic_intensity (FLOPs / byte)": str(total_flops / total_memory_streamed), 
 
+            "batch_size":batch_size,
             "time_millis": time_millis,
             "throughputs_gflops": throughputs_gflops,
             "bandwidth_gbps": bandwidth_gbps,
         }
+        ave_flops = np.mean(throughputs_gflops)
+        ave_gbps = np.mean(bandwidth_gbps)
 
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPS{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theorectical Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops)/19500:.2%} GFLOPS{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Avg. Bandwdith : {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps)    :.2f} GBPS  {bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theorectical Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps)/1550:.2%} GFLOPS{bcolors.ENDC}")
+        result_colors = bcolors.OKGREEN if (ave_gbps > 10000 or ave_gbps > 1000) else bcolors.WARNING
+
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {result_colors}{ave_flops:.2f} ± {np.std(throughputs_gflops):.2f} GFLOPS{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_flops/19500:.2%}{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth : {bcolors.ENDC} {result_colors}{ave_gbps:.2f} ± {np.std(bandwidth_gbps)    :.2f} GBPS  {bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_gbps/1550:.2%}{bcolors.ENDC}")
         return result 
 
 def benchmark_forward(
