@@ -51,9 +51,9 @@ class TestBenchmarkSuite:
         creates an (incomplete) summary of what was tested
         """
        
-        tpps, impls, directions, corectnesses, benchmarks = zip(*test_list)
-        config_names = list(set(str(tpps)))
-        implementation_names = list(set(str(impls.__class__.__name__)))
+        impls, tpps, directions, corectnesses, benchmarks = zip(*test_list)
+        config_names = list(set([str(tpp) for tpp in tpps]))
+        implementation_names = list(set([impl.name() for impl in impls])) 
         directions = list(set(directions))
         did_correctness = any(corectnesses)
         did_benchmark = any(benchmarks)
