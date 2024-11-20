@@ -44,6 +44,7 @@ def correctness_forward(
 
     result = {
         "thresh": correctness_threshold, 
+        "batch_size":batch_size
     }
 
     # run reference
