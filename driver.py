@@ -27,7 +27,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
-    batch_size = 1000000
+    batch_size = 1
     prng_seed = 12345
     
     tp = tp_impl(config)
@@ -101,6 +101,7 @@ if __name__=='__main__':
     FCTPP = FullyConnectedTPProblem
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
+        FCTPP("1x1e", "1x1e", "2x1e"),
         FCTPP("1x1e", "2x1e", "1x1e"), 
         FCTPP("2x1e", "1x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "1x1e"),
@@ -116,6 +117,14 @@ if __name__=='__main__':
         FCTPP("32x1e", "32x1e", "32x1e"),
     ]
 
+    full_size_uvw_case = [
+        FCTPP("32x1e", "32x1e", "32x1e"),
+        FCTPP("32x2e", "32x2e", "32x2e"),
+        FCTPP("32x3e", "32x3e", "32x3e"),
+        FCTPP("32x4e", "32x4e", "32x4e"),
+        FCTPP("32x5e", "32x5e", "32x5e"),
+    ]
+
     basic_multi_interaction_problems = [
         FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
         FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
@@ -124,24 +133,30 @@ if __name__=='__main__':
     ]
 
     problems = itertools.chain.from_iterable([
-        # basic_fully_connected_problems,
+        basic_fully_connected_problems,
         increasing_multiplicty_fully_connected_problems,
-        # basic_multi_interaction_problems,
+        full_size_uvw_case,
+        basic_multi_interaction_problems,
     ])
 
     implementations = [MultiplicityOuterProductTP]
 
     directions = ['forward']
 
-    tests = [TestDefinition(implementation, problem, direction, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction 
              in itertools.product(implementations, problems, directions)]
 
-    logger.setLevel(logging.INFO)
+    
     bench_suite = TestBenchmarkSuite(
-        correctness_threshold = 5e-6,
-        bench_batch_size=100000,
+        correctness_threshold = 5e-5,
+        num_iter=5,
+        bench_batch_size=10_000_0,
     )
+
+    logger.setLevel(logging.INFO)
+
+    # bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
     bench_suite.run(tests)
 
-    # debug(MultiplicityOuterProductTP, increasing_multiplicty_fully_connected_problems[3], direction="forward")
+    #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
