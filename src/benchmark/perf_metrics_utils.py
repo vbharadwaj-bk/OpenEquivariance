@@ -3,36 +3,36 @@ import math
 from src.benchmark.e3nn_lite_utils import cg, count_cg_non_zero, sparse_outer_product_work
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger
+import numpy as np
 
 logger = getLogger()
 
-def calculate_minimum_memory_streamed_forward(tpp : TPProblem, batch_size : int) -> dict:
+def calculate_minimum_memory_streamed_forward(tpp : TPProblem, batch_size : int) -> dict[str, int]:
     """
-    This represents an absolute minimum amount of memory that could be streamed on an ideal machine without fast memory constraints
+    This represents an absolute minimum amount of memory that could be streamed on an ideal machine
+    It returns the number of bytes streamed total and from each source
     """
-    logger.warning("Minimum memory streamed forward assumes infinite fast memory size")
     data_size = {}
-    data_size["input 1"] = tpp.irreps_in1.dim * batch_size
-    data_size["input 2"] = tpp.irreps_in2.dim * batch_size
-    data_size["output"]  = tpp.irreps_out.dim * batch_size
-    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size
+    data_size["input 1"] = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["output"]  = tpp.irreps_out.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
     data_size["total"] = sum(data_size.values())
     return data_size
 
 def calculate_minimum_memory_streamed_backward(tpp : TPProblem, batch_size : int) -> dict:
     """
-    This represents an absolute minimum amount of memory that could be streamed on an ideal machine without fast memory constraints
+    This represents an absolute minimum amount of memory that could be streamed on an ideal machine 
+    It returns the number of bytes streamed total and from each source
     """
-    logger.warning("Minimum memory streamed backward assumes infinite fast memory capacity")
-    logger.warning("Minimum memory streamed backward does not handle non shared weights yet") 
     data_size = {}
-    data_size["input 1"]   = tpp.irreps_in1.dim * batch_size
-    data_size["input 1 grad"] = tpp.irreps_in1.dim * batch_size
-    data_size["input 2"] = tpp.irreps_in2.dim * batch_size
-    data_size["input 2 grad"] = tpp.irreps_in2.dim * batch_size
-    data_size["output grad"]  = tpp.irreps_out.dim * batch_size
-    data_size["weights"] = tpp.weight_numel
-    data_size["weights grad"] = tpp.weight_numel
+    data_size["input 1"]   = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["input 1 grad"] = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["input 2 grad"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["output grad"]  = tpp.irreps_out.dim * batch_size * np.dtype(np.float32).itemsize
+    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
+    data_size["weights grad"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
     data_size["total"] = sum(data_size.values())
     return data_size
 
