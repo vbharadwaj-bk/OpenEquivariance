@@ -12,7 +12,7 @@ And adopted to create TPP's to avoid torch dependence
 
 class FullyConnectedTPProblem(TPProblem):
     def __init__(
-        self, irreps_in1, irreps_in2, irreps_out, irrep_normalization: str = None, path_normalization: str = None, **kwargs
+        self, irreps_in1, irreps_in2, irreps_out, **kwargs
     ) -> None:
         irreps_in1 = Irreps(irreps_in1)
         irreps_in2 = Irreps(irreps_in2)
@@ -30,13 +30,11 @@ class FullyConnectedTPProblem(TPProblem):
             irreps_in2,
             irreps_out,
             instr,
-            irrep_normalization=irrep_normalization,
-            path_normalization=path_normalization,
             **kwargs,
         )
 
 class ElementwiseTPProblem(TPProblem):
-    def __init__(self, irreps_in1, irreps_in2, filter_ir_out=None, irrep_normalization: str = None, **kwargs) -> None:
+    def __init__(self, irreps_in1, irreps_in2, filter_ir_out=None, **kwargs) -> None:
         irreps_in1 = Irreps(irreps_in1).simplify()
         irreps_in2 = Irreps(irreps_in2).simplify()
         if filter_ir_out is not None:
@@ -76,7 +74,7 @@ class ElementwiseTPProblem(TPProblem):
                 out.append((mul, ir))
                 instr += [(i, i, i_out, "uuu", False)]
 
-        super().__init__(irreps_in1, irreps_in2, out, instr, irrep_normalization=irrep_normalization, **kwargs)
+        super().__init__(irreps_in1, irreps_in2, out, instr, **kwargs)
 
 
 class FullTPProblem(TPProblem):
@@ -85,7 +83,6 @@ class FullTPProblem(TPProblem):
         irreps_in1: Irreps,
         irreps_in2: Irreps,
         filter_ir_out: Iterator[Irrep] = None,
-        irrep_normalization: str = None,
         **kwargs,
     ) -> None:
         irreps_in1 = Irreps(irreps_in1).simplify()
@@ -113,7 +110,7 @@ class FullTPProblem(TPProblem):
 
         instr = [(i_1, i_2, p[i_out], mode, train) for i_1, i_2, i_out, mode, train in instr]
 
-        super().__init__(irreps_in1, irreps_in2, out, instr, irrep_normalization=irrep_normalization, **kwargs)
+        super().__init__(irreps_in1, irreps_in2, out, instr, **kwargs)
 
 
 def mace_conf(irreps1, irreps2, lmax) -> TPProblem:

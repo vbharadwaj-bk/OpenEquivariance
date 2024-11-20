@@ -357,12 +357,6 @@ class TPProblem:
         # === Setup ===
         super().__init__()
 
-        if irrep_normalization is None:
-            irrep_normalization = "component"
-
-        if path_normalization is None:
-            path_normalization = "element"
-
         assert irrep_normalization in ["component", "norm", "none"]
         assert path_normalization in ["element", "path", "none"]
 
