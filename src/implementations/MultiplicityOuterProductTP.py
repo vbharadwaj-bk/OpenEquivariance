@@ -82,13 +82,8 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # =====================================================================
         # FORWARD MEMORY ANALYSIS 
-        forward_shared_memory_per_batch_element = (irreps_in1.dim + irreps_in2.dim + irreps_out.dim) * sizeof("float")
-        forward_batch_elements_per_SM = 1 # HARDCODED NONSENSE 
-        # IT WAS GOING TO BE THIS  
-        #  # GPUInfo.max_smem // (GPUInfo.A100_SMS * forward_shared_memory_per_batch_element)
-        forward_thread_blocks_per_SM = 1 # HARDCODED NONSENSE 
-        forward_threads_per_batch_element = 32 # HARDCODED NONSENSE
-        forward_threads_per_thread_block = forward_threads_per_batch_element * forward_batch_elements_per_SM
+        forward_thread_blocks_per_SM = 24 
+        forward_threads_per_thread_block = 32
 
         # =====================================================================
 
@@ -97,16 +92,16 @@ class MultiplicityOuterProductTP(TensorProduct):
         forward_launch_config.num_threads = forward_threads_per_thread_block
 
         # IMPORTANT! 
-        smem_gemm_n_max = 1
-        smem_gemm_L3_scratch = smem_gemm_n_max * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
-        smem_gemm_weights_scratch = 32 * smem_gemm_n_max
+        smem_gemm_max_n = forward_threads_per_thread_block
+        smem_gemm_L3_scratch = smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
+        smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * smem_gemm_max_n
 
         smem_gemm_info = {
-            'n_max' : smem_gemm_n_max,
-            'n_to_try' : 1,
+            'n' : smem_gemm_max_n,
             'L3_scratch_elems' : smem_gemm_L3_scratch,
             'weight_scratch_elems' : smem_gemm_weights_scratch,
         }
+        logger.debug(smem_gemm_info)
         # END OF IMPORTANT
 
         forward_launch_config.smem = (
