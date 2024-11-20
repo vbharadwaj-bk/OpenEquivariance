@@ -1,77 +1,152 @@
-#from src.implementations.E3NNTensorProduct import *
-
-from src.benchmark.logging_utils import *
-from build.kernel_wrapper import *
-from src.benchmark.TestBenchmarkSuite import *
-from src.implementations.LoopUnrollTP import *
-from src.implementations.ManyOneUVWTP import *
-from src.implementations.NumpyTensorProduct import *
-from src.implementations.ComputationSchedule import *
-
-from src.implementations.e3nn_lite import *
+import itertools, typing
 
 import numpy as np
 import numpy.linalg as la
 
+from src.benchmark.logging_utils import *
+from src.implementations.e3nn_lite import *
+from src.benchmark.e3nn_lite_utils import *
+from build.kernel_wrapper import *
+from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
+from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
+from src.benchmark.tpp_creation_utils import *
+from src.implementations.LoopUnrollTP import LoopUnrollTP
+from src.implementations.NumpyTensorProduct import NumpyTensorProduct
+from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+
 logger = getLogger()
 
-def debug(tp_impl, config, direction="forward"): 
-    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
-    batch_size = 5
+def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Direction) -> None:
+    assert issubclass(tp_impl, TensorProduct)
+    assert isinstance(config, TPProblem)
+    assert direction in typing.get_args(Direction)
 
+    batch_size = 1
+    prng_seed = 12345
+    
     tp = tp_impl(config)
 
-    rng = np.random.default_rng(12345)
-    L1_in  = np.array(rng.uniform(size=(batch_size, L1.dim)), dtype=np.float32)
-    L2_in  = np.array(rng.uniform(size=(batch_size, L2.dim)), dtype=np.float32)
-    weights = np.array(rng.uniform(size=(batch_size, config.weight_numel)), dtype=np.float32) 
+    from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+    e3nn_tp = E3NNTensorProduct(config)
 
-    weights[:] = 1.0
-
-    L3_out = np.zeros((batch_size, L3.dim), dtype=np.float32)
-
+    logger.debug(repr(config))
     if direction == "forward":
-        tp.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        _, ground_truth = tp.test_correctness(L1_in, L2_in, weights, L3_out, reference_implementation=E3NNTensorProduct)
-        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
-        #print(L3_out / ground_truth)
-        print(L3_out)
-        print(ground_truth)
-        #print(L1_in)
+        in1, in2, weights, out = get_random_buffers_forward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
+
+        print(f"{out =}")
+        test_out = out.copy()
+        tp.forward_cpu(
+            L1_in=in1, 
+            L2_in=in2, 
+            L3_out=test_out, 
+            weights=weights
+            )   
+        
+        print(f"{test_out = }")
+
+        ground_truth_out = out.copy()
+        e3nn_tp.forward_cpu(
+            L1_in=in1, 
+            L2_in=in2, 
+            L3_out=ground_truth_out,
+            weights=weights
+            )
+        
+        print(f"{ground_truth_out = }")
+
+        print("LA.Norm:")
+        print(la.norm((test_out - ground_truth_out).flatten(), ord=np.inf))
+
+        print("test_output / ground_truth_output")
+        print( test_out / ground_truth_out)
 
     elif direction == "backward":
-        L3_grad = L3_out
-        L3_grad[:] = rng.uniform(size=(batch_size, L3.dim)) 
-        L1_grad, L2_grad, weights_grad = tp.backward_cpu(L1_in, L2_in, L3_grad, weights)
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
 
+        test_in1_grad = in1_grad.copy()
+        test_in2_grad = in2_grad.copy()
+        test_weights_grad = weights_grad.copy()
+        tp.backward_cpu(
+            L1_in=in1,
+            L1_grad=test_in1_grad,
+            L2_in=in2,
+            L2_grad=test_in2_grad,
+            L3_grad=out_grad,
+            weights=weights,
+            weights_grad=test_weights_grad            
+        )
 
-        reference = E3NNTensorProduct(config)
-        L1_grad_ref, L2_grad_ref, weights_grad_ref = reference.backward_cpu(L1_in, L2_in, L3_grad, weights)
-
-        print(la.norm((L1_grad-L1_grad_ref).flatten(), ord=np.inf))
-        print(la.norm((L2_grad-L2_grad_ref).flatten(), ord=np.inf))
-        print(la.norm((weights_grad-weights_grad_ref).flatten(), ord=np.inf))
-
+        print(test_in1_grad)
+        print(test_in2_grad)
+        print(test_weights_grad)
     else:
         assert(False)
 
-if __name__=='__main__':
-    configs = [
-        #single_inst_conf("32x1e", "32x5e", "32x5e", "uvw", True),
+if __name__=='__main__':  
+    FCTPP = FullyConnectedTPProblem
+    basic_fully_connected_problems = [
+        FCTPP("1x1e", "1x1e", "1x1e"),
+        FCTPP("1x1e", "1x1e", "2x1e"),
+        FCTPP("1x1e", "2x1e", "1x1e"), 
+        FCTPP("2x1e", "1x1e", "1x1e"),
+        FCTPP("2x1e", "2x1e", "1x1e"),
+        FCTPP("2x1e", "2x1e", "2x1e"),
+        
+    ]
+
+    increasing_multiplicty_fully_connected_problems = [
+        FCTPP("2x1e", "2x1e", "4x1e"),
+        FCTPP("4x1e", "4x1e", "4x1e"),
+        FCTPP("8x1e", "8x1e", "8x1e"),
+        FCTPP("16x1e", "16x1e", "16x1e"),
+        FCTPP("32x1e", "32x1e", "32x1e"),
+    ]
+
+    full_size_uvw_case = [
+        FCTPP("32x1e", "32x1e", "32x1e"),
+        FCTPP("32x2e", "32x2e", "32x2e"),
+        FCTPP("32x3e", "32x3e", "32x3e"),
+        FCTPP("32x4e", "32x4e", "32x4e"),
+        FCTPP("32x5e", "32x5e", "32x5e"),
+    ]
+
+    basic_multi_interaction_problems = [
+        FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
+        FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 1x0e"),
+    ]
+
+    problems = basic_fully_connected_problems + \
+        increasing_multiplicty_fully_connected_problems +  \
+        full_size_uvw_case + \
+        basic_multi_interaction_problems
+
+    conv_problems = [
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
-    ]
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]  
 
-    throughput_configs = [
-        mace_conf(f"{i}x2e + {i}x1e + {i}x0e", "1x0e + 1x1e", 3)
-        for i in range(1, 32, 2)
-    ]
+    implementations = [MultiplicityOuterProductTP]
+    directions = ['forward']
 
-    scheduler = ComputationSchedule(configs[0], 160000, 8, "forward", irrep_dtype=np.float32, weight_dtype=np.float32)
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+             for implementation, problem, direction 
+             in itertools.product(implementations, problems, directions)]
+ 
+    bench_suite = TestBenchmarkSuite(
+        correctness_threshold = 5e-5,
+        num_iter=5,
+        bench_batch_size=1_000_000,
+        reference_implementation=NumpyTensorProduct
+    )
 
-    bench_suite = TestBenchmarkSuite(configs, bench_batch_size=10000)
-    bench_suite.run([LoopUnrollTP], direction="forward", reference_impl=NumpyTensorProduct)
+    logger.setLevel(logging.INFO)
 
-    # debug(ManyOneUVWTP, configs[0], direction="forward")
+    # bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
+    bench_suite.run(tests)
+
+    #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")

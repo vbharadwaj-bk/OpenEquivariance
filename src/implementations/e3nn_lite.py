@@ -1,3 +1,4 @@
+import itertools
 from typing import Tuple, NamedTuple, Union, List, Any, Optional
 from math import sqrt, prod
 import collections
@@ -482,13 +483,47 @@ class TPProblem:
         self.weight_numel = sum(prod(ins.path_shape) for ins in self.instructions if ins.has_weight)
         self.output_mask = None
 
+    def __str__(self) -> str:
+        """Simple representation, definitely incomplete"""
+        result = ""
+        result += f"{self.__class__.__name__}"
+        result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}"
+        return result
+
     def __repr__(self) -> str:
-        npath = sum(prod(i.path_shape) for i in self.instructions)
-        return (
-            f"{self.__class__.__name__}"
-            f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()} "
-            f"-> {self.irreps_out.simplify()} | {npath} paths | {self.weight_numel} weights)"
-        )
+        """More complete, yet maybe incomplete representation"""
+        result = ""
+        result += f"{self.__class__.__name__}"
+        result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}\n"
+        result += f"{self.irrep_normalization = }\n"
+        result += f"{self.path_normalization = }\n"
+        result += f"{self.internal_weights = }\n"
+        result += f"{self.shared_weights = }\n"
+        result += f"{self.in1_var = }\n"
+        result += f"{self.in2_var = }\n"
+        result += f"{self.out_var = }\n"
+        result += f"num weights {self.weight_numel} \n"
+        result += f"|      index      |       l         |        m        | mode  |    weights   | \n"
+        result += f"| in1 | in2 | out | in1 | in2 | out | in1 | in2 | out |       | exist | path | \n"
+        for ins in self.instructions: # type : Instruction
+            mul_irrep_in1 = self.irreps_in1[ins.i_in1]
+            mul_irrep_in2 = self.irreps_in2[ins.i_in2]
+            mul_irrep_out = self.irreps_out[ins.i_out]
+
+            assert isinstance(mul_irrep_in1, _MulIr)
+            assert isinstance(mul_irrep_in2, _MulIr)
+            assert isinstance(mul_irrep_out, _MulIr)
+
+            result += f"| {ins.i_in1:3} | {ins.i_in2:3} | {ins.i_out:3} |"
+            result += f" {mul_irrep_in1.ir.l:3} | {mul_irrep_in2.ir.l:3} | {mul_irrep_out.ir.l:3} |"
+            result += f" {mul_irrep_in1.mul:3} | {mul_irrep_in2.mul:3} | {mul_irrep_out.mul:3} |"
+            result += f" {ins.connection_mode:<5} |"
+            result += f" {str(ins.has_weight):<5} |"
+            result += f" {ins.path_weight:<4.2f} | "
+            result += "\n"
+        result = result.replace("self.","")
+        return result 
+    
 
 def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
     if not self.instructions[instruction].has_weight:

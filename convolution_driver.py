@@ -4,10 +4,9 @@ import numpy.linalg as la
 import os
 
 from build.kernel_wrapper import *
+from src.benchmark.tpp_creation_utils import single_inst_conf, mace_conf
 from src.implementations.LoopUnrollConv import *
 from src.implementations.NumpyConv import *
-
-from src.benchmark.TestBenchmarkSuite import mace_conf, single_inst_conf  
 
 from src.benchmark.logging_utils import *
 logger = getLogger()

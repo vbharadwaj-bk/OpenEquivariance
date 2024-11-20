@@ -5,6 +5,8 @@ class NumpyTensorProduct(TensorProduct):
     def __init__(self, config, torch_op=False):
         super().__init__(config, torch_op=torch_op)
 
+        assert(not config.shared_weights)
+
     def exec_tensor_product(self,
             batch : np.uint64,
             L1_in: np.uint64,
@@ -13,7 +15,7 @@ class NumpyTensorProduct(TensorProduct):
             weights: np.uint64):
         raise NotImplementedError("NumpyTensorProduct does not support exec_tensor_product")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
+    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
         config = self.config 
         slices = {  1: L1.slices(), 

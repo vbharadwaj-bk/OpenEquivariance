@@ -1,3 +1,6 @@
+find_package(pybind11)
+find_package(Python COMPONENTS Interpreter Development)
+
 # Add library
 add_library(espmm SHARED 
   espmm.hpp
@@ -20,13 +23,14 @@ add_library(espmm SHARED
   convolution/jit_conv.cpp
 )
 
+# target_link_libraries(espmm PUBLIC pybind11::headers)
+
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
-find_package(pybind11 CONFIG REQUIRED)
 
 #find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS 
-#  "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
+# "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
 #)
-#target_link_libraries(espmm mathdx::cublasdx)
+#target_link_libraries(espmm PUBLIC mathdx::cublasdx)
 
 target_include_directories(espmm PUBLIC 
   ${pybind11_INCLUDE_DIRS}
