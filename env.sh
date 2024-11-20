@@ -1,7 +1,8 @@
-module load conda 
-conda activate equivariant_spmm_env
+module load python
 
-module load cudatoolkit
+#module load conda 
+#conda activate equivariant_spmm_env
+#module load cudatoolkit
 
 
 # dcgmi profile --pause

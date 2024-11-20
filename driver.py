@@ -1,10 +1,12 @@
-#import e3nn
 #from src.implementations.E3NNTensorProduct import *
 
-import itertools
-import typing
+import itertools, typing
+
+import numpy as np
+import numpy.linalg as la
 
 from src.benchmark.logging_utils import *
+from src.implementations.e3nn_lite import *
 from src.benchmark.e3nn_lite_utils import *
 from build.kernel_wrapper import *
 from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
@@ -13,12 +15,6 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-
-
-from src.implementations.e3nn_lite import *
-
-import numpy as np
-import numpy.linalg as la
 
 logger = getLogger()
 
@@ -88,16 +84,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     else:
         assert(False)
 
-if __name__=='__main__':
-   
-    tests = [
-        # single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        # single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        # mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        # ("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
-        # ("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)s
-    ]  
-    
+if __name__=='__main__':  
     FCTPP = FullyConnectedTPProblem
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
@@ -132,26 +119,32 @@ if __name__=='__main__':
         FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 1x0e"),
     ]
 
-    problems = itertools.chain.from_iterable([
-        basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
-        basic_multi_interaction_problems,
-    ])
+    problems = basic_fully_connected_problems + \
+        increasing_multiplicty_fully_connected_problems +  \
+        full_size_uvw_case + \
+        basic_multi_interaction_problems
 
-    implementations = [MultiplicityOuterProductTP]
+    conv_problems = [
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]  
 
+    implementations = [LoopUnrollTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction 
-             in itertools.product(implementations, problems, directions)]
+             in itertools.product(implementations, conv_problems, directions)]
 
     
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=10_000_0,
+        bench_batch_size=1_000_000,
+        reference_implementation=NumpyTensorProduct
     )
 
     logger.setLevel(logging.INFO)

@@ -8,8 +8,6 @@ from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
 
-import e3nn
-
 class GPUInfo:
     A100_SMS = 108
     max_smem = 163840 - 1

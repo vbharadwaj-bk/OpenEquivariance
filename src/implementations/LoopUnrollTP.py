@@ -75,7 +75,7 @@ class LoopUnrollTP(TensorProduct):
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
+    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
         logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 

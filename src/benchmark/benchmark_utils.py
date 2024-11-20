@@ -56,9 +56,9 @@ def calculate_performance_statistics(
         result_colors = bcolors.OKGREEN if (ave_gbps > 10000 or ave_gbps > 1000) else bcolors.WARNING
 
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {result_colors}{ave_flops:.2f} ± {np.std(throughputs_gflops):.2f} GFLOPS{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_flops/19500:.2%}{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Percent of Peak Compute: {bcolors.ENDC} {result_colors}{ave_flops/19500:.2%}{bcolors.ENDC}")
         logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth : {bcolors.ENDC} {result_colors}{ave_gbps:.2f} ± {np.std(bandwidth_gbps)    :.2f} GBPS  {bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_gbps/1550:.2%}{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Percent of Peak Bandwidth: {bcolors.ENDC} {result_colors}{ave_gbps/1550:.2%}{bcolors.ENDC}")
         return result 
 
 def benchmark_forward(
