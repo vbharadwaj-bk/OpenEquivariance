@@ -1,3 +1,4 @@
+import itertools
 from typing import Tuple, NamedTuple, Union, List, Any, Optional
 from math import sqrt, prod
 import collections
