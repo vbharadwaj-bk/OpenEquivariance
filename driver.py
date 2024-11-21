@@ -111,10 +111,10 @@ if __name__=='__main__':
     ]
 
     basic_multi_interaction_problems = [
-        FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
-        FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
-        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
-        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 1x0e"),
+        #FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
+        #FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
+        #FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
     ]
 
     problems = basic_fully_connected_problems + \
@@ -124,18 +124,18 @@ if __name__=='__main__':
 
     conv_problems = [
         single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
-        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]  
 
-    implementations = [MultiplicityOuterProductTP]
+    implementations = [LoopUnrollTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction 
-             in itertools.product(implementations, problems, directions)]
+             in itertools.product(implementations, conv_problems, directions)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,

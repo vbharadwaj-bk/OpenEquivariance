@@ -62,12 +62,14 @@ class ConvBenchmarkSuite:
 
         metadata = {
             "test_name": "Convolution",
-            "configs": [config.metadata for config in self.configs], 
+            "configs": [str(config) for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations],
             "graph": graph.name
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
+
+        exp_count = 0
 
         for config in self.configs: 
             L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
@@ -79,7 +81,7 @@ class ConvBenchmarkSuite:
             L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
             for impl in tp_implementations:
-                tc_name = f"{config.metadata}, {impl.name()}"
+                tc_name = f"{config}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
 
@@ -92,17 +94,17 @@ class ConvBenchmarkSuite:
                             self.num_iter, self.graph, self.disable_tensor_op, direction, prng_seed=12345)
 
                 result = {
-                    "config": config.metadata,
+                    "config": str(config),
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{config.metadata}_{impl.name()}_{graph.name}.json")
-
+                fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
+                exp_count += 1
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 

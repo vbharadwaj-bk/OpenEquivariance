@@ -59,6 +59,7 @@ class LoopUnrollConv(Convolution):
 
         self.internal = JITConvImpl(self.jit_kernel, forward_config, backward_config)
 
+
     @staticmethod
     def name():
         return "LoopUnrollConv"

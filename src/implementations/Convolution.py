@@ -1,10 +1,42 @@
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+from src.implementations.TensorProduct import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
-from src.implementations.TensorProduct import flops_data_per_tp
 logger = getLogger()
+
+def flops_data_per_tp(config, bytes_per_word, direction):
+    '''
+    Assumes all interactions are "uvu" for now
+
+    Returns (flops_per_tp, data_per_tp, nnz)
+    '''
+    assert(not config.shared_weights)
+    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
+    ops_per_nz, words_per_tp = None, None
+    if direction == "forward":
+        ops_per_nz = 3
+        words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel 
+    elif direction == "backward":
+        ops_per_nz = 9
+        words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel \
+                + L1.dim + L2.dim + config.weight_numel # Output gradients
+
+    ops_per_tp = 0
+    nnz = 0
+    for (u, v, w, connection_mode, *others) in config.instructions:
+        tensor = TensorProduct.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
+        local_nnz = np.count_nonzero(tensor)
+        nnz += local_nnz
+        ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v)
+
+        if connection_mode == "uvu":
+            ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) 
+        elif connection_mode == "uvw":
+            ops_per_tp += L1[u].mul * L2[v].mul * L3[w].ir.dim * L3[w].mul
+
+    return ops_per_tp, words_per_tp * bytes_per_word, nnz
 
 class CoordGraph:
     def __init__(self, coords, rows, cols, name):
@@ -43,8 +75,15 @@ class Convolution:
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
         self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
-<<<<<<< HEAD
                 graph.rows, graph.cols, disable_tensor_op)
+
+            #py::array_t<float> &L1_in_py,
+            #py::array_t<float> &L2_in_py,
+            #py::array_t<float> &weights_py,
+            #py::array_t<float> &L3_out_py,
+            #py::array_t<uint32_t> &rows_py,
+            #py::array_t<uint32_t> &cols_py,
+            #bool disable_tensor_op)
 
     def backward_cpu(self, 
             L1_in, L2_in, weights, L3_grad,
@@ -69,14 +108,6 @@ class Convolution:
 
     def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
         L1, L2, L3 = self.L1, self.L2, self.L3
-=======
-                graph.coords, graph.rows, graph.cols, 
-                disable_tensor_op)
-
-    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        assert(L1.dim == L3.dim)
->>>>>>> main
 
         ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
         conv_reference = conv_reference_impl(self.config)
@@ -112,21 +143,6 @@ class Convolution:
                 logger.error(f"{bcolors.FAIL}Convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
 
         return result, ground_truth
-
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, weights, L3_out, graph, disable_tensor_op):
-        '''
-        Returns the total time for num_iter iterations of the core inner loop
-        after num_warmup warmup iterations. Can override for other implementations
-        '''
-        time_millis = np.zeros(num_iter, dtype=np.float32)
-
-        self.internal.benchmark_cpu(L1_in, L2_in, weights, L3_out, 
-                graph.coords, graph.rows, graph.cols, 
-                disable_tensor_op,
-                num_warmup,
-                time_millis)
-
-        return time_millis
 
     def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
             L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op):
