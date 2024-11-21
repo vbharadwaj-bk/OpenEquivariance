@@ -156,7 +156,7 @@ if __name__=='__main__':
 
     logger.setLevel(logging.INFO)
 
-    # bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
-    bench_suite.run(tests)
+    bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x1e", "32x1e"),'backward', correctness=True, benchmark=False)])
+    # bench_suite.run(tests)
 
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
