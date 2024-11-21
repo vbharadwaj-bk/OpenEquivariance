@@ -23,17 +23,14 @@ def calculate_performance_statistics(
             ) -> dict:
         result = {}
 
-        throughputs_gflops = [float(x) for x in total_flops / (time_millis * 1e6)]
-       
+        throughputs_gflops = [float(x) for x in total_flops / (time_millis * 1e6)]  
         bandwidth_gbps = [float(x) for x in total_memory_streamed / (time_millis * 1e6)]
-
         nnz = calculate_total_nnz(problem)
-
         time_millis = [float(x) for x in time_millis]
 
         result |= {
             "total_cg_nnz": nnz,
-            "flops_per_tp": str(total_flops / batch_size),
+            "flops_per_tp": total_flops / batch_size,
             "L1": str(problem.irreps_in1),
             "L2": str(problem.irreps_in2),
             "L3": str(problem.irreps_out),
@@ -56,9 +53,9 @@ def calculate_performance_statistics(
         result_colors = bcolors.OKGREEN if (ave_gbps > 10000 or ave_gbps > 1000) else bcolors.WARNING
 
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {result_colors}{ave_flops:.2f} ± {np.std(throughputs_gflops):.2f} GFLOPS{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_flops/19500:.2%}{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Percent of Peak Compute: {bcolors.ENDC} {result_colors}{ave_flops/19500:.2%}{bcolors.ENDC}")
         logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth : {bcolors.ENDC} {result_colors}{ave_gbps:.2f} ± {np.std(bandwidth_gbps)    :.2f} GBPS  {bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Theoretical Throughput: {bcolors.ENDC} {result_colors}{ave_gbps/1550:.2%}{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Percent of Peak Bandwidth: {bcolors.ENDC} {result_colors}{ave_gbps/1550:.2%}{bcolors.ENDC}")
         return result 
 
 def benchmark_forward(
@@ -103,14 +100,14 @@ def benchmark_forward(
     try:
         flops = tp.calculate_flops_forward(batch_size=batch_size)
     except NotImplementedError:
-        logger.warning("Actual flops was not calcuated, so minimum values are being used")
+        logger.warning("Actual flop count not calcuated, so minimum values are being used")
         flops = calculate_minimum_flops_forward(problem, batch_size=batch_size)
     
     # DATA
     try: 
         memory_streamed = tp.calculate_memory_streamed_backward(batch_size=batch_size)
     except NotImplementedError: 
-        logger.warning("Actual memory streamed was not calcuated, so minimum values are being used")
+        logger.warning("Actual memory streamed not calcuated, so minimum values are being used")
         memory_streamed = calculate_minimum_memory_streamed_forward(problem, batch_size=batch_size)
              
 
@@ -140,29 +137,28 @@ def benchmark_backward(
             "prng_seed": prng_seed,
         }
 
-        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(problem, batch_size, prng_seed)
-    
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(problem, batch_size, prng_seed) 
         logger.info("Initialized input / output data.")
-        
+        tp = implementation(problem)
+
         try:
-            time_millis = implementation.benchmark_internal_backward(
+            time_millis = tp.benchmark_backward(
                 num_warmup=num_warmup,
                 num_iter=num_iter, 
                 L1_in=in1, 
                 L2_in=in2, 
+                L3_buffer=out_grad,
                 weights=weights, 
-                L3_grad=out_grad,
                 L1_grad=in1_grad, 
-                weights_grad=weights_grad,
+                L2_grad=in2_grad, 
+                weights_grad=weights_grad
             )
         except NotImplementedError:
             logger.warning("Benchmarking is not implemented, time millis replaced with -1's")
-            time_millis = np.full(shape=num_iter, fill_value=-1)
-         
-        ### GETTING FLOPS AND MEMORY STREAMED WITH FALLBACKS FOR NOT IMPLEMENTED CALCUATIONS
+            time_millis = np.full(shape=num_iter, fill_value=-1) 
 
         try:
-            flops = implementation.calculate_flops_forward(batch_size=batch_size)
+            flops = tp.calculate_flops_backward(batch_size=batch_size)
         except NotImplementedError:
             try:
                 flops = calculate_minimum_flops_forward(e3nn_tp=implementation.e3nn_tp, batch_size=batch_size)
@@ -172,7 +168,7 @@ def benchmark_backward(
                 flops = {"total" : -1}
         
         try: 
-            memory_streamed = implementation.calculate_memory_streamed_backward(batch_size=batch_size)
+            memory_streamed = tp.calculate_memory_streamed_backward(batch_size=batch_size)
         except NotImplementedError: 
             logger.warning("Actual memory streamed was not calcuated, so minimum values are being")
             memory_streamed = calculate_minimum_memory_streamed_backward(tpp=problem, batch_size=batch_size)

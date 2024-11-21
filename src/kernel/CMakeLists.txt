@@ -27,10 +27,10 @@ add_library(espmm SHARED
 
 set_property(TARGET espmm PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS 
- "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
-)
-target_link_libraries(espmm PUBLIC mathdx::cublasdx)
+#find_package(mathdx REQUIRED COMPONENTS cublasdx CONFIG PATHS 
+# "${CMAKE_CURRENT_SOURCE_DIR}/../../nvidia-mathdx-24.08.0/nvidia/mathdx/24.08/"
+#)
+#target_link_libraries(espmm PUBLIC mathdx::cublasdx)
 
 target_include_directories(espmm PUBLIC 
   ${pybind11_INCLUDE_DIRS}

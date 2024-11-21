@@ -24,3 +24,5 @@ nvidia-mathdx*
 mace
 valid_indices*
 MACE_models/*
+
+vivek-env.sh

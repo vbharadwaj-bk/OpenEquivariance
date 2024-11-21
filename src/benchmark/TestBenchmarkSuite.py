@@ -46,14 +46,10 @@ class TestBenchmarkSuite:
             assert isinstance(test.correctness, bool)
             assert isinstance(test.benchmark, bool)
 
-    def generate_metadata(test_list : Iterable[TestDefinition]) -> dict[str, Any]:
-        """
-        creates an (incomplete) summary of what was tested
-        """
-       
-        tpps, impls, directions, corectnesses, benchmarks = zip(*test_list)
-        config_names = list(set(str(tpps)))
-        implementation_names = list(set(str(impls.__class__.__name__)))
+    def generate_metadata(test_list : Iterable[TestDefinition]) -> dict[str, Any]: 
+        impls, tpps, directions, corectnesses, benchmarks = zip(*test_list)
+        config_names = list(set([str(tpp) for tpp in tpps]))
+        implementation_names = list(set([impl.name() for impl in impls])) 
         directions = list(set(directions))
         did_correctness = any(corectnesses)
         did_benchmark = any(benchmarks)
@@ -93,13 +89,13 @@ class TestBenchmarkSuite:
 
             logger.info(f'Starting Test ID: {test_ID}')
             logger.info(f'Config: {str(tpp)}')
-            logger.info(f'Implementation Name: {impl.__name__}')
+            logger.info(f'Implementation Name: {impl.name()}')
             logger.info(f'Test Direction: {test.direction}')
 
             result = {
                 "config": repr(tpp),
                 "direction": test.direction, 
-                "implementation name": impl.__name__,
+                "implementation_name": impl.name(),
                 "correctness": str(test.correctness),
                 "benchmark": str(test.benchmark)
             }

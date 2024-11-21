@@ -28,5 +28,5 @@ class NumpyConv(Convolution):
             np.add.at(L3_out, graph.rows, L1_in[graph.cols])
         else:
             tp_outputs = np.zeros((graph.nnz, self.L3.dim), dtype=np.float32)
-            self.reference_tp.exec_tensor_product_cpu(L1_in[graph.cols], L2_in, tp_outputs, weights)
+            self.reference_tp.forward_cpu(L1_in[graph.cols], L2_in, tp_outputs, weights)
             np.add.at(L3_out, graph.rows, tp_outputs)

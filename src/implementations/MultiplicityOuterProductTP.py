@@ -189,7 +189,9 @@ class MultiplicityOuterProductTP(TensorProduct):
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
         
-
-
     def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
         return NotImplementedError("This doesn't begin to work")
+
+    @staticmethod
+    def name():
+        return "MultiplicityOuterProductTP"
