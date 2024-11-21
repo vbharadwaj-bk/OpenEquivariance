@@ -130,12 +130,12 @@ if __name__=='__main__':
         mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]  
 
-    implementations = [LoopUnrollTP]
+    implementations = [MultiplicityOuterProductTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction 
-             in itertools.product(implementations, conv_problems, directions)]
+             in itertools.product(implementations, problems, directions)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
