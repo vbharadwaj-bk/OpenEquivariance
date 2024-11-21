@@ -1,11 +1,6 @@
 {# Jinja2 Tempate #}
 constexpr int FORWARD_THREADS_PER_WARP = {{forward_config.warp_size}};
-// constexpr int FORWARD_THREAD_BLOCK_SIZE = {{forward_config.num_threads}}; 
-constexpr int FORWARD_THREADS_PER_BATCH_ELEMENT = 32; // HARDCODED NONSENSE
-constexpr int FORWARD_BATCH_ELEMENTS_PER_THREAD_BLOCK = {{forward_config.num_threads}} / 32; // HARDCODED NONSENSE
-
-// constexpr int BACKWARD_THREADS_PER_WARP = {{backward_config.warp_size}};
-// constexpr int BACKWARD_THREAD_BLOCK_SIZE = {{backward_config.num_threads}};
+constexpr int BACKWARD_THREADS_PER_WARP = {{backward_config.warp_size}};
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
@@ -32,10 +27,10 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     float L2_local_vec[{{L2.irrep_lengths | max}}];
     float L3_local_vec[{{L3.irrep_lengths | max}}];
     
-    float* L1_smem_interaction_shift; 
-    float* L2_smem_interaction_shift;
-    float* L3_smem_interaction_shift;  
-    float* weights_interaction_shift; 
+    // float* L1_smem_interaction_shift; 
+    // float* L2_smem_interaction_shift;
+    // float* L3_smem_interaction_shift;  
+    // float* weights_interaction_shift; 
 
     auto group = cooperative_groups::this_thread_block(); 
 
@@ -49,10 +44,10 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     {    
         // Calcualate all shifts
 
-        L1_smem_interaction_shift = L1_smem + {{L1.offsets[u]}}; 
-        L2_smem_interaction_shift = L2_smem + {{L2.offsets[v]}};
-        L3_smem_interaction_shift = L3_smem + {{L3.offsets[w]}};  
-        weights_interaction_shift = weights + {{weight_offset}}; 
+        float* L1_smem_interaction_shift = L1_smem + {{L1.offsets[u]}}; 
+        float* L2_smem_interaction_shift = L2_smem + {{L2.offsets[v]}};
+        float* L3_smem_interaction_shift = L3_smem + {{L3.offsets[w]}};  
+        float* weights_interaction_shift = weights + {{weight_offset}}; 
         
         int L1_mults = {{L1.mults[u]}};
         int L2_mults = {{L2.mults[v]}};
@@ -156,6 +151,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     {%- endfor %}  
 }
 
+
 // Generic kernel which calls a subkernel for each forward interaction
 // column-major data layout 
 __global__ void forward(
@@ -171,12 +167,6 @@ __global__ void forward(
     int warp_id = idx / FORWARD_THREADS_PER_WARP; 
     int lane_id = idx % FORWARD_THREADS_PER_WARP;
     int warp_loc = warp_id % {{warps_per_block}}; 
-
-    // size_t warps_launched = blockDim.x * gridDim.x / FORWARD_THREADS_PER_WARP; 
-    // size_t num_products_per_warp = (num_products + warps_launched - 1) / warps_launched; 
-    
-    // size_t start = num_products_per_warp * ((size_t) warp_id);
-    // size_t end = min(start + num_products_per_warp, num_products);
 
     {{ declare_smem_arrays( { 
         "common": [
@@ -225,12 +215,53 @@ __global__ void forward(
     } 
 }
 
+__device__ __forceinline__ void backward_kernel_shared_memory(
+    float* __restrict__ L1_smem,
+    float* __restrict__ L1_grad_smem,  
+    float* __restrict__ L2_smem,
+    float* __restrict__ L2_grad_smem, 
+    float* __restrict__ L3_grad_smem,
+    float* __restrict__ weights,     // global
+    float* __restrict__ weights_grad // global 
+    )
+{
+    float L1_local_vec[{{L1.irrep_lengths | max}}];
+    float L2_local_vec[{{L2.irrep_lengths | max}}];
+    float L3_local_vec[{{L3.irrep_lengths | max}}];
+
+    float* L1_smem_interaction_shift; 
+    float* L1_grad_smem_interaction_shift;
+    float* L2_smem_interaction_shift;
+    float* L2_grad_smem_interaction_shift; 
+    float* L3_grad_smem_interaction_shift;  
+    float* weights_interaction_shift;
+    float* weights_grad_interactions_shift; 
+
+    auto group = cooperative_groups::this_thread_block();
+
+    contiguous_set(L1_grad_smem, 0.0f, {{L1.rep_len}});
+    contiguous_set(L2_grad_smem, 0.0f, {{L2.rep_len}}); 
+
+    // Loop Through Interactions
+    {%- set num_interact = interactions | length %}
+    {%- for interaction_index in range(num_interact) %}
+        {%- set u, v, w, tensor = interactions[interaction_index] %}
+        {%- set weight_offset = weight_offsets[interaction_index] %}
+    {    
+
+        
+    }
+    {%- endfor %}  
+    
+
+}
+
 
 // Generic kernel which calls a subkernel for each backward interaction
 // column-major data layout
 /*
 * Backward pass kernel. Currently assumes that each tensor product
-* has a unique set of weights. 
+* has a shared set of weights
 * 
 * Inputs:
 *   L1_in, L2_in, weights, L3_grad
@@ -242,12 +273,76 @@ __global__ void backward(
     float* L1_in, 
     float* L1_grad,
     float* L2_in, 
-    float* L2_grad,
+    float* L2_grad, 
     float* weights, 
     float* weights_grad,
     float* L3_grad) 
 {
-    return;
+    {%- set warps_per_block = divide(forward_config.num_threads, forward_config.warp_size) %}
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int warp_id = idx / BACKWARD_THREADS_PER_WARP; 
+    int lane_id = idx % BACKWARD_THREADS_PER_WARP;
+    int warp_loc = warp_id % {{warps_per_block}}; 
+
+    {{ declare_smem_arrays( { 
+        "common": [
+            ("L1_smem", "float", L1.rep_len),
+            ("L1_grad_smem", "float", L1.rep_len), 
+            ("L2_smem", "float", L2.rep_len),
+            ("L2_grad_smem", "float", L2.rep_len), 
+            ("L3_grad_smem", "float", L3.rep_len),
+            ], 
+        "per_warp": []}, "warp_loc", forward_config)}}    
+
+    auto group = cooperative_groups::this_thread_block(); 
+    
+    __shared__ cuda::barrier<cuda::thread_scope::thread_scope_block> barrier; 
+    
+    if (group.thread_rank() == 0){
+        init(&barrier, group.size());
+    }
+    group.sync(); 
+    contiguous_set(weights_grad, 0.0f, {{weight_numel}}); 
+
+    group.sync(); 
+    // GRID STRIDE LOOP
+    for(
+        int batch_index = blockIdx.x; 
+        batch_index < num_products; 
+        batch_index += gridDim.x
+        )
+    {   
+        // CALCULATE PTRS TO THE ACTIVE BATCH ELEMENT REGION
+        float* L1_shift = L1_in  + (batch_index * {{L1.rep_len}}); 
+        float* L1_grad_shift = L1_grad + (batch_index * {{L1.rep_len}}); 
+        float* L2_shift = L2_in  + (batch_index * {{L2.rep_len}}); 
+        float* L2_grad_shift = L2_grad + (batch_index * {{L2.rep_len}}); 
+        float* L3_grad_shift = L3_grad + (batch_index * {{L3.rep_len}}); 
+    
+        // COPY FROM GLOBAL
+        cuda::memcpy_async(group, L1_smem, L1_shift, sizeof(float) * {{L1.rep_len}}, barrier);
+        cuda::memcpy_async(group, L2_smem, L2_shift, sizeof(float) * {{L2.rep_len}}, barrier);           
+        cuda::memcpy_async(group, L3_grad_smem, L3_grad_shift, sizeof(float) * {{L3.rep_len}}, barrier);    
+
+        barrier.arrive_and_wait();
+        
+        // PERFORM TP 
+        backward_kernel_shared_memory(L1_smem, L1_grad_smem, L2_smem, L2_grad_smem, L3_grad_smem, weights, weights_grad);
+
+        group.sync();
+        
+        // WRITE TO GLOBAL
+        cuda::memcpy_async(group, L1_grad_shift, L1_grad_smem, sizeof(float) * {{L1.rep_len}}, barrier); 
+        cuda::memcpy_async(group, L2_grad_shift, L2_grad_smem, sizeof(float) * {{L2.rep_len}}, barrier);        
+    } 
+}
+
+__device__ __forceinline__ void contiguous_copy(float* dst, float* src, int n){
+    for(int i = 0; i < n; i+= blockDim.x){
+        if (i + threadIdx.x < n){
+            dst[i + threadIdx.x] = src[i + threadIdx.x]; 
+        }
+    }
 }
 
 // UTILITY FUNCTIONS HERE

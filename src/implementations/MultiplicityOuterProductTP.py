@@ -159,6 +159,7 @@ class MultiplicityOuterProductTP(TensorProduct):
             L1=RepData(config.irreps_in1), 
             L2=RepData(config.irreps_in2), 
             L3=RepData(config.irreps_out),
+            weight_numel=config.weight_numel,
             weight_offsets=weight_offsets,
             instructions=instructions,
             interactions=interactions,
