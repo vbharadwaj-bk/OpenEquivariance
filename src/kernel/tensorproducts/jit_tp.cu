@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <cublasdx.hpp>
 #include "cuda_runtime.h"
 #include "gpu_util.hpp"
 #include "jit.hpp"

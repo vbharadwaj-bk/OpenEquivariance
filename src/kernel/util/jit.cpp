@@ -81,6 +81,10 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         throw std::logic_error("JIT object has already been compiled!");
     }
 
+    if(kernel_names_i.size() != template_param_list.size()) {
+        throw std::logic_error("Kernel names and template parameters must have the same size!");
+    }
+
     for(int kernel = 0; kernel < kernel_names_i.size(); kernel++) {
         string kernel_name = kernel_names_i[kernel];
         vector<int> &template_params = template_param_list[kernel];

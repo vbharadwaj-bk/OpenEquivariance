@@ -12,22 +12,16 @@ class LoopUnrollTP(TensorProduct):
         L1, L2, L3 = self.L1, self.L2, self.L3 
         config = self.config
 
-        for (mul, ir) in L1:
-            assert(mul == 32)
-
         for (mul, ir) in L2:
             assert(mul == 1)
-
-        for (mul, ir) in L3:
-            assert(mul == 32)
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
-        forward_config.num_threads = 256
-        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size 
+        forward_config.num_threads = 160
+        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size
         logger.info(f"Forward pass needs {forward_config.smem // 1000} KB of shared memory.")
 
         if forward_config.smem > GPUInfo.max_smem:
@@ -35,7 +29,7 @@ class LoopUnrollTP(TensorProduct):
 
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_config.num_threads = 192
+        backward_config.num_threads = 128
         backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * config.weight_numel + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
         logger.info(f"Backward pass needs {backward_config.smem // 1000} KB of shared memory.")
 
@@ -75,45 +69,6 @@ class LoopUnrollTP(TensorProduct):
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
-
-    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
-
-        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
-
-        L1Rep.transpose_irreps_cpu(L1_in, True)
-        L2Rep.transpose_irreps_cpu(L2_in, True)
-
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
-
-        L1Rep.transpose_irreps_cpu(L1_in, False)
-        L2Rep.transpose_irreps_cpu(L2_in, False)
-        L3Rep.transpose_irreps_cpu(L3_out, False)
-
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
-
-        L1, L2, L3 = self.L1, self.L2, self.L3
-        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
-
-        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
-
-        L1Rep.transpose_irreps_cpu(L1_in, True)
-        L2Rep.transpose_irreps_cpu(L2_in, True)
-        L3Rep.transpose_irreps_cpu(L3_grad, True)
-
-        self.internal.backward_cpu(L1_in, L1_grad, 
-                L2_in, L2_grad,
-                weights, weights_grad, 
-                L3_grad)
-
-        L1Rep.transpose_irreps_cpu(L1_grad, False)
-        L2Rep.transpose_irreps_cpu(L2_grad, False)
-
-        return L1_grad, L2_grad, weights_grad
 
     @staticmethod
     def name():

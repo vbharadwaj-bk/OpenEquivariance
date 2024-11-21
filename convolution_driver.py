@@ -4,11 +4,9 @@ import numpy.linalg as la
 import os
 
 from build.kernel_wrapper import *
-from src.benchmark.tpp_creation_utils import mace_conf
+from src.benchmark.tpp_creation_utils import single_inst_conf, mace_conf
 from src.implementations.LoopUnrollConv import *
 from src.implementations.NumpyConv import *
-
-from src.benchmark.tpp_creation_utils import single_inst_conf  
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -55,7 +53,7 @@ class ConvBenchmarkSuite:
         self.disable_tensor_op = disable_tensor_op
         self.prng_seed = 12345
 
-    def run(self, tp_implementations, correctness=False):        
+    def run(self, tp_implementations, direction, correctness=True):        
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -63,15 +61,18 @@ class ConvBenchmarkSuite:
         graph = self.graph
 
         metadata = {
-            "configs": [config.metadata for config in self.configs], 
+            "test_name": "Convolution",
+            "configs": [str(config) for config in self.configs], 
             "implementations": [impl.name() for impl in tp_implementations],
             "graph": graph.name
         }
         with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
             json.dump(metadata, f, indent=2) 
 
+        exp_count = 0
+
         for config in self.configs: 
-            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out 
+            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
             rng = np.random.default_rng(self.prng_seed)
 
             L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
@@ -80,36 +81,34 @@ class ConvBenchmarkSuite:
             L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
             for impl in tp_implementations:
-                tc_name = f"{config.metadata}, {impl.name()}"
-                logger.info(f'Starting {tc_name}, graph {graph.name}')
-
+                tc_name = f"{config}, {impl.name()}"
+                logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
 
-                if correctness:
-                    assert(L1_in.shape[1] == L3_out.shape[1])
+                if correctness and direction == "forward":
                     conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
-                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph, 
+                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph,
                             conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
 
-                benchmark = conv.benchmark(self.num_warmup, 
-                            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                benchmark = conv.benchmark(self.num_warmup,
+                            self.num_iter, self.graph, self.disable_tensor_op, direction, prng_seed=12345)
 
                 result = {
-                    "config": config.metadata,
+                    "config": str(config),
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
                     "benchmark": benchmark
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{config.metadata}_{impl.name()}_{graph.name}.json")
-
+                fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
+                exp_count += 1
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
-def debug(conv_impl, config, graph, disable_tensor_op=False):
+def debug(conv_impl, config, graph, direction, disable_tensor_op=False):
     logger.info("Starting debugging routine...")
     conv = conv_impl(config)
 
@@ -120,28 +119,42 @@ def debug(conv_impl, config, graph, disable_tensor_op=False):
     weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
     L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
 
-    conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
-    correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
-            conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
+    if direction == "forward":
+        conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
+        correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
+                conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
 
-    print((L3_out - ground_truth)[:2, 0])
-    print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+        print((L3_out - ground_truth)[:2, 0])
+        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
+    elif direction == "backward":
+        L3_grad = L3_out
+        L3_grad[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
+
+        L1_grad, L2_grad, weights_grad = conv.backward_cpu( 
+            L1_in, L2_in, weights, L3_grad,
+            graph, False)
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius2.0")
+    graph = load_graph("covid_spike_radius3.5")
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
-    cut_size = len(graph.rows) 
+    configs = [
+        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+    ]
+
+    cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
     graph.cols = graph.cols[:cut_size]
-    graph.nnz = cut_size 
+    graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        [config], graph,
+        configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv]) 
+    bench.run([LoopUnrollConv], direction="forward", correctness=True)
 
-    #debug(LoopUnrollConv, config, graph, disable_tensor_op=True) 
-
-
+    #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

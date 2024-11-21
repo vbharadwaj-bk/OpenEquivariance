@@ -13,35 +13,6 @@ class GPUInfo:
     max_smem = 163840 - 1
     warp_size = 32
 
-def flops_data_per_tp(config, bytes_per_word, direction):
-    '''
-    Assumes all interactions are "uvu" for now
-
-    Returns (flops_per_tp, data_per_tp, nnz)
-    '''
-    assert(not config.shared_weights)
-    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
-    ops_per_nz, words_per_tp = None, None
-    if direction == "forward":
-        ops_per_nz = 3
-        words_per_tp = L1.dim + L2.dim + L3.dim + config.weight_numel 
-    elif direction == "backward":
-        ops_per_nz = 9
-        words_per_tp = L1.dim + L2.dim + L3.dim + weights.dim \
-                + L1.dim + L2.dim + config.weight_numel # Output gradients
-
-    ops_per_tp = 0
-    nnz = 0
-    for (u, v, w, *others) in config.instructions:
-        tensor = TensorProduct.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
-        local_nnz = np.count_nonzero(tensor)
-        nnz += local_nnz
-        ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v) 
-        ops_per_tp += L3[w].mul * (2 * L3[w].ir.l + 1) # FLOPS for weights, assuming "uvu"
-
-    return ops_per_tp, words_per_tp * bytes_per_word, nnz
-
-
 class TensorProduct:
     next_tp_id = 0 # Used to assign unique IDs to each TP instance 
     tensors = None

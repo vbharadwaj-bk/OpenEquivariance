@@ -30,3 +30,22 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
         {% do ns.update({"offset": ns["offset"] + num_elements * sizeof(dtype)}) %}
     {%- endfor %}
 {%- endmacro %}
+
+{# smem contains a mul_ir stored in row-major order as mul * rep, where mul
+   is at most 32. reg is at least a |rep|-sized register array on each thread.
+       Assumes: each thread has the lane_id. #}
+{%- macro transpose_load(mul, dim, smem, offset, reg) %}
+    if(lane_id < {{mul}}) {
+        {%- for i in range(dim) %}
+            {{reg}}[{{i}}] = {{smem}}[{{offset}} + lane_id * {{dim}} + {{i}}];
+        {%- endfor %}
+    }
+{%- endmacro %}
+
+{%- macro transpose_store(mul, dim, smem, offset, reg, op, coeff) %}
+    if(lane_id < {{mul}}) {
+        {%- for i in range(dim) %}
+            {{smem}}[{{offset}} + lane_id * {{dim}} + {{i}}] {{op}} {{reg}}[{{i}}] * {{coeff}};
+        {%- endfor %}
+    }
+{%- endmacro %}

@@ -20,16 +20,6 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("even", &Representation::even) 
         .def("get_irrep_offsets", &Representation::get_irrep_offsets) 
         .def("transpose_irreps_cpu", &Representation::transpose_irreps_cpu);
-    py::class_<RepTriple>(m, "RepTriple")
-        .def(py::init<Representation&, Representation&, Representation&>())
-        .def(py::init<Representation&, Representation&, int>())
-        .def("to_string", &RepTriple::to_string)
-        .def("num_interactions", &RepTriple::num_interactions)
-        .def("interactions", &RepTriple::interactions)
-        .def("num_trainable_weights", &RepTriple::num_trainable_weights)
-        .def_readwrite("L1", &RepTriple::L1) 
-        .def_readwrite("L2", &RepTriple::L2)
-        .def_readwrite("L3", &RepTriple::L3);
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
@@ -43,7 +33,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
         .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
         .def("backward", &GenericTensorProductImpl::backward_device_rawptrs)
-        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu) 
+        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu)
         .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
     py::class_<JITTPImpl, GenericTensorProductImpl>(m, "JITTPImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
@@ -51,7 +41,9 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
         .def("exec_conv_cpu", &ConvolutionImpl::exec_conv_cpu)
-        .def("benchmark_cpu", &ConvolutionImpl::benchmark_cpu);
+        .def("backward_cpu", &ConvolutionImpl::backward_cpu)
+        .def("benchmark_forward_cpu", &ConvolutionImpl::benchmark_forward_cpu)
+        .def("benchmark_backward_cpu", &ConvolutionImpl::benchmark_backward_cpu);
     py::class_<JITConvImpl, ConvolutionImpl>(m, "JITConvImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>()); 
 }
