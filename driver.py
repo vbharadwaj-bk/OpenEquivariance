@@ -13,6 +13,9 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
+from src.implementations.ComputationSchedule import ComputationSchedule
+
 
 logger = getLogger()
 
@@ -111,9 +114,9 @@ if __name__=='__main__':
     ]
 
     basic_multi_interaction_problems = [
-        #FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
-        #FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
-        #FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
+        FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
         FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
     ]
 
@@ -122,31 +125,40 @@ if __name__=='__main__':
         full_size_uvw_case + \
         basic_multi_interaction_problems
 
-    conv_problems = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+    conv_problems = [  
+        #FCTPP("32x5e", "32x5e", "32x5e"),
+        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
-    ]  
+    ]
 
     implementations = [MultiplicityOuterProductTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction 
-             in itertools.product(implementations, problems, directions)]
+             in itertools.product(implementations, conv_problems, directions)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=1_000_000,
-        reference_implementation=NumpyTensorProduct
+        bench_batch_size=1_000_000
     )
 
-    logger.setLevel(logging.INFO)
+    schedule = ComputationSchedule(
+        conv_problems[0], 
+        16000,
+        4,
+        "forward",
+        np.float32,
+        np.float32)
+
+    #logger.setLevel(logging.INFO)
 
     # bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
-    bench_suite.run(tests)
+    #bench_suite.run(tests)
 
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
+

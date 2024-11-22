@@ -110,3 +110,39 @@ class ComputationSchedule:
                 inst_idx += 1
 
         logger.info(f"Scheduling succeeded with {len(self.segments)} segments.")
+
+        print(self.segments)
+
+        for i in range(len(self.segments)):
+            L1_idxs, L2_idxs, L3_idxs, inst_idxs = self.segments[i]
+
+            L1Map = IrrepMapping(self.L1, L1_idxs)
+            L2Map = IrrepMapping(self.L2, L2_idxs)
+            L3Map = IrrepMapping(self.L3, L3_idxs)
+
+            instructions = [
+                (L1_map[inst.i_in1], L2_map[inst.i_in2], L3_map[inst.i_out], inst.connection_mode, inst.has_weight, inst.path_weight) 
+                    for inst in [self.new_instructions[idx] for idx in inst_idxs]
+            ]
+
+            problem = TPProblem(L1sub, L2sub, L3sub, instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
+
+
+class IrrepMapping:
+    '''
+    Maps irreps from a source to a destination
+    '''
+    def __init__(self, src_irreps, idxs):
+        self.src_irreps = src_irreps
+        self.idxs = sorted(list(idxs))
+        self.dst_irreps = Irreps([src_irreps[idx] for idx in self.idxs])
+        self.src_dst_map = {idx: i for i, idx in enumerate(self.idxs)}
+
+        src_ranges = [src_irreps.slices()[idx] for idx in self.src_dst_map]
+        dst_ranges = [self.dst_irreps.slices()[i] for i in self.src_dst_map.values()]
+
+        print(src_ranges)
+        print(dst_ranges)
+
+
+
