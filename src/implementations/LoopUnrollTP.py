@@ -19,6 +19,7 @@ class LoopUnrollTP(TensorProduct):
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
+        env.globals['enumerate'] = enumerate 
 
         forward_config = KernelLaunchConfig()
         forward_config.num_blocks = GPUInfo.A100_SMS * 4
@@ -72,7 +73,8 @@ class LoopUnrollTP(TensorProduct):
             config=config,
             interactions=interactions,
             forward_config=forward_config,
-            backward_config=backward_config
+            backward_config=backward_config,
+            forward_schedule=schedule
         )
 
         logger.info("Starting NVRTC")

@@ -16,7 +16,7 @@ __device__ __forceinline__ void forward_loop_unroll(const float* __restrict__ L1
                 {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
                 {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
 
-                weight = weights_smem[{{weight_start}} + mul_offset];
+                weight = weights_smem[{{weight_start}}];
 
                 {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
                     offset = {{ L1.slices()[u].start}} + mul_offset * {{L1[u].ir.dim}};
