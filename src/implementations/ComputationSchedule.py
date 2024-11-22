@@ -86,11 +86,12 @@ class ComputationSchedule:
         self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
 
         dtype_to_str_map = {
-            np.float32: "float32",
-            np.double: "float64"
+            np.float32: "float",
+            np.double: "double"
         }
 
-        self.irrep_dtype = dtype_to_str_map[irrep_dtype]
+        self.irrep_dtype_cstr = dtype_to_str_map[irrep_dtype]
+        self.weight_dtype_cstr = dtype_to_str_map[weight_dtype]
 
         reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
         reps = [Irreps(), Irreps(), Irreps()]
@@ -134,10 +135,10 @@ class ComputationSchedule:
         def calculate_forward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
             smem = {
-                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": irrep_dtype},
-                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": irrep_dtype},
-                "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": irrep_dtype},
-                "weights": {"size": 0, "dtype": weight_dtype},
+                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
             }
 
             weights_smem = 0
@@ -162,13 +163,13 @@ class ComputationSchedule:
         def calculate_backward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
             smem = {
-                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
-                "L1_grad": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
-                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
-                "L2_grad": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
-                "L3_grad": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
-                "weights": {"size": 0, "dtype": weight_dtype},
-                "weights_grad": {"size": 0, "dtype": weight_dtype}
+                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L1_grad": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L2_grad": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L3_grad": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
+                "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
 
             weights_smem = 0
