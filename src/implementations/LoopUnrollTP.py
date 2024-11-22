@@ -1,6 +1,8 @@
 import numpy as np
 from build.kernel_wrapper import *
 from src.templates.jinja_utils import *
+from src.implementations.ComputationSchedule import ComputationSchedule 
+
 from src.implementations.TensorProduct import TensorProduct, GPUInfo
 from src.benchmark.logging_utils import getLogger, bcolors
 from src.benchmark.e3nn_lite_utils import count_cg_non_zero
@@ -57,6 +59,13 @@ class LoopUnrollTP(TensorProduct):
                 for i, (u, v, w, _, _, path_weight, _) in enumerate(config.instructions)]
 
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
+
+        schedule = ComputationSchedule(config, 
+                smem_limit=forward_config.smem, warps_per_block=5,
+                direction = "forward",
+                irrep_dtype = np.float32,
+                weight_dtype = np.float32
+        )
 
         self.jit_kernel = template.render(
             L1=L1, L2=L2, L3=L3,
