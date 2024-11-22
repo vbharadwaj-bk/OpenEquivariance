@@ -48,14 +48,11 @@ class ComputationSchedule:
         self.new_instructions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         self.L1, self.L2, self.L3 = reps
-
         self.updated_config = TPProblem(self.L1, self.L2, self.L3, 
             self.new_instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
-
         self.new_instructions = self.updated_config.instructions
 
         assert(self.updated_config.weight_numel == config.weight_numel)
-
         memory_per_warp = smem_limit // warps_per_block - 8 # 8 bytes for padding
 
         # Step 2: Loop through the instructions, assigning them to segments that fit into shared memory
@@ -86,6 +83,8 @@ class ComputationSchedule:
 
             range_names = ["L1", "L2", "L3", "weights"]
             range_offsets = list(accumulate([smem[name] for name in range_names], initial=0))
+            for i, name in enumerate(range_names):
+                smem[f"{name}_offset"] = range_offsets[i]
 
             return smem
 
@@ -113,22 +112,22 @@ class ComputationSchedule:
 
         logger.info(f"Scheduling succeeded with {len(self.segments)} segments.")
 
-        print(self.segments)
-
         for i in range(len(self.segments)):
             L1_idxs, L2_idxs, L3_idxs, inst_idxs = self.segments[i]
 
-            #L1Map = IrrepMapping(self.L1, L1_idxs)
-            #L2Map = IrrepMapping(self.L2, L2_idxs)
+            L1Map = IrrepMapping(self.L1, L1_idxs)
+            L2Map = IrrepMapping(self.L2, L2_idxs)
             L3Map = IrrepMapping(self.L3, L3_idxs)
 
-            #instructions = [
-            #    (L1_map[inst.i_in1], L2_map[inst.i_in2], L3_map[inst.i_out], inst.connection_mode, inst.has_weight, inst.path_weight) 
-            #        for inst in [self.new_instructions[idx] for idx in inst_idxs]
-            #]
+            instructions = [
+                (L1_map.src_dst_map[inst.i_in1], 
+                L2_map.src_dst_map[inst.i_in2], 
+                L3_map.src_dst_map[inst.i_out], 
+                inst.connection_mode, inst.has_weight, inst.path_weight) 
+                    for inst in [self.new_instructions[idx] for idx in inst_idxs]
+            ]
 
-            #problem = TPProblem(L1sub, L2sub, L3sub, instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
-
+            problem = TPProblem(L1Map.dst_irreps, L2Map.dst_irreps, L3Map.dst_irreps, instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
 
 class IrrepMapping:
     '''
@@ -143,9 +142,21 @@ class IrrepMapping:
         src_ranges = [src_irreps.slices()[idx] for idx in self.src_dst_map]
         dst_ranges = [self.dst_irreps.slices()[i] for i in self.src_dst_map.values()]
 
-        print(src_ranges)
-        print(dst_ranges)
+        # Merge adjacent src and dst ranges
+        self.src_ranges = []
+        self.dst_ranges = []
 
+        src_start, dst_start = src_ranges[0].start, dst_ranges[0].start
+        src_end, dst_end = src_ranges[0].stop, dst_ranges[0].stop
 
+        for src_range, dst_range in zip(src_ranges[1:], dst_ranges[1:]):
+            if src_range.start == src_end and dst_range.start == dst_end:
+                src_end, dst_end = src_range.stop, dst_range.stop
+            else:
+                self.src_ranges.append(slice(src_start, src_end))
+                self.dst_ranges.append(slice(dst_start, dst_end))
+                src_start, dst_start = src_range.start, dst_range.start
+                src_end, dst_end = src_range.stop, dst_range.stop
 
-
+        self.src_ranges.append(slice(src_start, src_end))
+        self.dst_ranges.append(slice(dst_start, dst_end))
