@@ -134,7 +134,7 @@ if __name__=='__main__':
         mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    implementations = [MultiplicityOuterProductTP]
+    implementations = [LoopUnrollTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -147,18 +147,18 @@ if __name__=='__main__':
         bench_batch_size=1_000_000
     )
 
-    schedule = ComputationSchedule(
-        conv_problems[0], 
-        16000,
-        4,
-        "forward",
-        np.float32,
-        np.float32)
+    #schedule = ComputationSchedule(
+    #    conv_problems[0], 
+    #    16000,
+    #    4,
+    #    "forward",
+    #    np.float32,
+    #    np.float32)
 
-    #logger.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
 
-    # bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
-    #bench_suite.run(tests)
+    #bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
+    bench_suite.run(tests)
 
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
 

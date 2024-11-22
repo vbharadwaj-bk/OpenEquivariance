@@ -49,3 +49,26 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
         {%- endfor %}
     }
 {%- endmacro %}
+
+{%- macro declare_smem_variables(segment, smem_base) %}
+    {%- for name in segment.smem %}
+        {%- if name != "total" %}
+            {%- set smem_rng = segment.smem[name] %}
+            {{ smem_rng["dtype"] }}* = ({{smem_rng["dtype"]}}*) ({{smem_base}} + {{smem_rng["offset"]}}); 
+        {%- endif %}
+    {%- endfor %}
+{%- endmacro %}
+
+{%- macro load_ir_segments(map, glb_ptr, smem_ptr, loop_var) %}
+    {%- for (src_rng, dst_rng) in map.copy_ranges %}
+        {%- set range_len = src_rng.stop - src_rng.start %}
+        ROW_OPERATION({{range_len}}, {{loop_var}}, {{smem_ptr}}[{{loop_var}} + dst_rng.start + lane_id] = {{glb_ptr}}[{{loop_var}} + src_rng.start + lane_id])
+    {%- endfor %}
+{%- endmacro %}
+
+{%- macro store_ir_segments(map, src_ptr, dst_ptr, loop_var) %}
+    {%- for (src_rng, dst_rng) in map.copy_ranges %}
+        {%- set range_len = src_rng.stop - src_rng.start %}
+        ROW_OPERATION({{range_len}}, {{loop_var}}, {{glb_ptr}}[{{loop_var}} + src_rng.start + lane_id] = {{smem_ptr}}[{{loop_var}} + dst_rng.start + lane_id])
+    {%- endfor %}
+{%- endmacro %}

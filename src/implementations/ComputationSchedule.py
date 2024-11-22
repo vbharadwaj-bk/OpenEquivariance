@@ -21,6 +21,13 @@ class ComputationSchedule:
 
         self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
 
+        dtype_to_str_map = {
+            np.float32: "float32",
+            np.double: "float64"
+        }
+
+        self.irrep_dtype = dtype_to_str_map[irrep_dtype]
+
         reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
         reps = [Irreps(), Irreps(), Irreps()]
 
@@ -49,11 +56,13 @@ class ComputationSchedule:
 
         self.L1, self.L2, self.L3 = reps
         self.updated_config = TPProblem(self.L1, self.L2, self.L3, 
-            self.new_instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
+            self.new_instructions, irrep_normalization="none", path_normalization="none", 
+            internal_weights=False, shared_weights=config.shared_weights)
+
         self.new_instructions = self.updated_config.instructions
 
         assert(self.updated_config.weight_numel == config.weight_numel)
-        memory_per_warp = smem_limit // warps_per_block - 8 # 8 bytes for padding
+        self.memory_per_warp = smem_limit // warps_per_block - 8 # 8 bytes for padding
 
         # Step 2: Loop through the instructions, assigning them to segments that fit into shared memory
         # for a single warp. Could be replaced by a more powerful algorithm. 
@@ -64,10 +73,10 @@ class ComputationSchedule:
         def calculate_forward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
             smem = {
-                "L1": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize,
-                "L2": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize,
-                "L3": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize,
-                "weights": 0
+                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
+                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
+                "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype},
+                "weights": {"size": 0, "dtype": weight_dtype},
             }
  
             weights_smem = 0
@@ -78,13 +87,13 @@ class ComputationSchedule:
                     if connection_mode == "uvu":
                         weights_smem += np.prod(inst.path_shape)
 
-            smem["weights"] = weights_smem * np.dtype(weight_dtype).itemsize
-            smem["total"] = smem["L1"] + smem["L2"] + smem["L3"] + smem["weights"]
+            smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
 
-            range_names = ["L1", "L2", "L3", "weights"]
-            range_offsets = list(accumulate([smem[name] for name in range_names], initial=0))
-            for i, name in enumerate(range_names):
-                smem[f"{name}_offset"] = range_offsets[i]
+            range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
+            for i, name in enumerate(smem):
+                smem[name]["offset"] = range_offsets[i]
+
+            smem["total"] = sum([smem[name]["size"] for name in smem]) 
 
             return smem
 
@@ -97,7 +106,7 @@ class ComputationSchedule:
             else:
                 inst_idx += 1
 
-            if inst_idx >= len(self.new_instructions) or smem_required["total"] > memory_per_warp:
+            if inst_idx >= len(self.new_instructions) or smem_required["total"] > self.memory_per_warp:
                 if len(cinst) > 0:
                     self.segments.append((cL1, cL2, cL3, cinst))
                     cL1, cL2, cL3, cinst = set(), set(), set(), []
@@ -120,18 +129,21 @@ class ComputationSchedule:
             L3Map = IrrepMapping(self.L3, L3_idxs)
 
             instructions = [
-                (L1_map.src_dst_map[inst.i_in1], 
-                L2_map.src_dst_map[inst.i_in2], 
-                L3_map.src_dst_map[inst.i_out], 
+                (L1Map.src_dst_map[inst.i_in1], 
+                L2Map.src_dst_map[inst.i_in2], 
+                L3Map.src_dst_map[inst.i_out], 
                 inst.connection_mode, inst.has_weight, inst.path_weight) 
                     for inst in [self.new_instructions[idx] for idx in inst_idxs]
             ]
 
-            problem = TPProblem(L1Map.dst_irreps, L2Map.dst_irreps, L3Map.dst_irreps, instructions, irrep_normalization="none", path_normalization="none", internal_weights=False, shared_weights=config.shared_weights)
+            problem = TPProblem(L1Map.dst_irreps, L2Map.dst_irreps, L3Map.dst_irreps, instructions, 
+                    irrep_normalization="none", path_normalization="none", 
+                    internal_weights=False, shared_weights=config.shared_weights)
+            self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, calculate_forward_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs))
 
 class IrrepMapping:
     '''
-    Maps irreps from a source to a destination
+    Maps irreps from a source to a destination set.
     '''
     def __init__(self, src_irreps, idxs):
         self.src_irreps = src_irreps
@@ -160,3 +172,13 @@ class IrrepMapping:
 
         self.src_ranges.append(slice(src_start, src_end))
         self.dst_ranges.append(slice(dst_start, dst_end))
+        self.copy_ranges = list(zip(self.src_ranges, self.dst_ranges))
+
+
+class ComputationSegment:
+    def __init__(self, L1Map, L2Map, L3Map, problem, smem):
+        self.L1Map = L1Map
+        self.L2Map = L2Map
+        self.L3Map = L3Map
+        self.problem = problem
+        self.smem = smem
