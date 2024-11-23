@@ -2,11 +2,11 @@ import numpy as np
 
 from src.benchmark.e3nn_lite_utils import calc_weight_offsets
 from src.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
-from src.implementations.TensorProduct import TensorProduct, GPUInfo
+from src.implementations.TensorProduct import TensorProduct 
 from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, FileSystemLoader
 
-from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl
+from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
 logger = getLogger()
 
@@ -86,9 +86,10 @@ class MultiplicityOuterProductTP(TensorProduct):
         forward_threads_per_thread_block = 32
 
         # =====================================================================
+        dp = DeviceProp(0)
 
         forward_launch_config = KernelLaunchConfig()
-        forward_launch_config.num_blocks = GPUInfo.A100_SMS * forward_thread_blocks_per_SM
+        forward_launch_config.num_blocks = dp.multiprocessorCount * forward_thread_blocks_per_SM
         forward_launch_config.num_threads = forward_threads_per_thread_block
 
         # IMPORTANT! 
@@ -112,19 +113,19 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         logger.info(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
 
-        if forward_launch_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        if forward_launch_config.smem > dp.maxSharedMemPerBlock:
+            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
         
         # =====================================================================
 
         backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 1
+        backward_launch_config.num_blocks = dp.multiprocessorCount * 1
         backward_launch_config.num_threads = 32
         backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
         logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
 
-        if backward_launch_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        if backward_launch_config.smem > dp.maxSharedMemPerBlock:
+            raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
 
         # =====================================================================     
 

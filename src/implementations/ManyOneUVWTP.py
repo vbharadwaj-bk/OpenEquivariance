@@ -1,7 +1,7 @@
 import numpy as np
 from build.kernel_wrapper import *
 from src.templates.jinja_utils import *
-from src.implementations.TensorProduct import TensorProduct, GPUInfo
+from src.implementations.TensorProduct import TensorProduct 
 from src.benchmark.logging_utils import getLogger, bcolors 
 logger = getLogger()
 
@@ -26,23 +26,25 @@ class ManyOneUVWTP(TensorProduct):
         env = get_jinja_environment()
         template = env.get_template("many_one_uvw.cuh")
 
+        dp = DeviceProp(0)
+
         forward_config = KernelLaunchConfig()
-        forward_config.num_blocks = GPUInfo.A100_SMS * 4
+        forward_config.num_blocks = dp.multiprocessorCount * 4
         forward_config.num_threads = 256
         forward_config.smem = (L1.dim + L2.dim + L3.dim + 32 * 32 + 32 * 12)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size  
         logger.info(f"Forward pass needs {forward_config.smem // 1000} KB of shared memory.")
 
-        if forward_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        if forward_config.smem > dp.maxSharedMemPerBlock:
+            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
 
         backward_config = KernelLaunchConfig()
-        backward_config.num_blocks = GPUInfo.A100_SMS * 4
+        backward_config.num_blocks = dp.multiprocessorCount * 4
         backward_config.num_threads = 192
         backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * 32 * 32 + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
         logger.info(f"Backward pass needs {backward_config.smem // 1000} KB of shared memory.")
 
-        if backward_config.smem > GPUInfo.max_smem:
-            raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {GPUInfo.max_smem}B !")
+        if backward_config.smem > dp.maxSharedMemPerBlock:
+            raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
 
         # =====================================================================
 

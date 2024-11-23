@@ -163,28 +163,19 @@ if __name__=='__main__':
         #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    implementations = [LoopUnrollTP]
+    implementations = [MultiplicityOuterProductTP]
     directions = ['forward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction 
-             in itertools.product(implementations, conv_problems, directions)]
+             in itertools.product(implementations, problems, directions)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
         bench_batch_size=1_000_000,
-        reference_implementation = NumpyTensorProduct
         prng_seed=11111
     )
-
-    #schedule = ComputationSchedule(
-    #    conv_problems[0], 
-    #    16000,
-    #    4,
-    #    "forward",
-    #    np.float32,
-    #    np.float32)
 
     logger.setLevel(logging.INFO)
 
