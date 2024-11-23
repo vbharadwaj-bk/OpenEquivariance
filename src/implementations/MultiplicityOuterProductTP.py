@@ -118,8 +118,8 @@ class MultiplicityOuterProductTP(TensorProduct):
         # =====================================================================
 
         backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 4
-        backward_launch_config.num_threads = 192
+        backward_launch_config.num_blocks = GPUInfo.A100_SMS * 1
+        backward_launch_config.num_threads = 32
         backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
         logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
 
@@ -154,7 +154,6 @@ class MultiplicityOuterProductTP(TensorProduct):
         assert len(interactions) != 0
 
         # =====================================================================
-        # Strictly Copied from Loop Unroll TP
         kernel_text = main_template.render(
             L1=RepData(config.irreps_in1), 
             L2=RepData(config.irreps_in2), 
@@ -176,21 +175,6 @@ class MultiplicityOuterProductTP(TensorProduct):
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def forward_cpu(
-        self, 
-        L1_in: np.ndarray, 
-        L2_in: np.ndarray, 
-        L3_out: np.ndarray, 
-        weights: np.ndarray
-        ) -> None:
-        '''
-        All state initialization for the internal class occurs inside the
-        constructor. 
-        '''
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-        
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        return NotImplementedError("This doesn't begin to work")
 
     @staticmethod
     def name():
