@@ -26,8 +26,8 @@ class TestDefinition(NamedTuple):
 class TestBenchmarkSuite:
     num_warmup : int = 10
     num_iter : int = 30
-    correctness_batch_size : int = 10000
-    bench_batch_size : int = 10000000
+    correctness_batch_size : int = 10_000
+    bench_batch_size : int = 10_000_000
     prng_seed : int = 12345
     reference_implementation : Optional[type[TensorProduct]] = None
     correctness_threshold : float = 5e-7
@@ -129,6 +129,7 @@ class TestBenchmarkSuite:
                         test_implementation=impl,
                         reference_implementation=self.reference_implementation,
                         batch_size=self.correctness_batch_size,
+                        correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed
                     )
                 if test.benchmark: 

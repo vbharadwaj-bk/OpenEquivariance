@@ -1,18 +1,19 @@
-build/*
 .rendered*
 *.lock
 *.so
 *.ipynb
 .DS_Store
-data/*
-experimental/*
 *.code-workspace
 __pycache__
 
 # working folders
+build/*
 outputs/*
 visualization/*
 figures/*
+data/*
+experimental/*
+MACE_models/*
 
 # bash scripts
 get_gpu_node.sh
@@ -23,6 +24,6 @@ nvidia-mathdx*
 *.ncu-rep
 mace
 valid_indices*
-MACE_models/*
+
 
 vivek-env.sh

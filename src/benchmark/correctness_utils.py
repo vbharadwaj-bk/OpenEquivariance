@@ -23,9 +23,9 @@ def check_similiarity(name : str,  to_check : np.ndarray,  ground_truth : np.nda
         result["pass"] = bool(diff_Linf_norm < correctness_threshold) 
 
         if result["pass"]:
-            logger.info(f"{bcolors.OKGREEN}{name} correctness check pass. {bcolors.ENDC}")
+            logger.info(f" {bcolors.OKGREEN}{name} correctness check pass. {diff_Linf_norm=:.3e}, {correctness_threshold=} {bcolors.ENDC}")
         else:
-            logger.error(f"{bcolors.FAIL}{name} correctness check fail! {diff_Linf_norm=}, {correctness_threshold=} {bcolors.ENDC}")
+            logger.error(f"{bcolors.FAIL}{name} correctness check fail! {diff_Linf_norm=:.3e}, {correctness_threshold=} {bcolors.ENDC}")
 
     return result
 
@@ -47,17 +47,30 @@ def correctness_forward(
         "batch_size":batch_size
     }
 
-    # run reference
+    
     in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
+
+    # run reference
     ref_tp = reference_implementation(problem)
-    ref_tp.forward_cpu(in1, in2, out, weights)
     ref_out = out.copy()
+    ref_tp.forward_cpu(
+        L1_in=in1.copy(), 
+        L2_in=in2.copy(), 
+        L3_out=ref_out, 
+        weights=weights.copy()
+        )
+    
 
     # run test
-    in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
     test_tp = test_implementation(problem)
-    test_tp.forward_cpu(in1, in2, out, weights)
     test_out = out.copy()
+    test_tp.forward_cpu(
+        L1_in=in1.copy(), 
+        L2_in=in2.copy(), 
+        L3_out=test_out, 
+        weights=weights.copy()
+        )
+    
     
     # check similarity 
     for name, to_check, ground_truth in [
@@ -92,33 +105,44 @@ def correctness_backward(
     )
     
     ref_tp = reference_implementation(problem)
-    ref_tp.backward_cpu(in1, in1_grad, in2, in2_grad, out_grad, weights, weights_grad) 
 
     ref_weights_grad = weights_grad.copy()
     ref_in1_grad = in1_grad.copy()
     ref_in2_grad = in2_grad.copy()
 
+    ref_tp.backward_cpu(
+        L1_in=in1.copy(),
+        L1_grad=ref_in1_grad,
+        L2_in=in2.copy(), 
+        L2_grad=ref_in2_grad, 
+        L3_grad=out_grad.copy(), 
+        weights=weights.copy(), 
+        weights_grad=ref_weights_grad
+        ) 
+
     # run test version
-
-    in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(
-        problem, 
-        batch_size, 
-        prng_seed
-    )
-
-    test_tp = test_implementation
-    test_tp.backward_cpu(in1, in1_grad,in2, in2_grad, weights, weights_grad)
-    
     test_weights_grad = weights.copy()
     test_in1_grad = in1_grad.copy()
     test_in2_grad = in2_grad.copy()
+
+    test_tp = test_implementation(problem)
+    test_tp.backward_cpu(
+        L1_in=in1.copy(),
+        L1_grad=test_in1_grad,
+        L2_in=in2.copy(), 
+        L2_grad=test_in2_grad, 
+        L3_grad=out_grad.copy(), 
+        weights=weights.copy(), 
+        weights_grad=test_weights_grad
+        )
     
+    weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
     ## CHECK OUTPUT SIMILARITY 
-    for name, to_check, ground_truth in [
-        ("weight_grad", test_weights_grad, ref_weights_grad),
-        ("in1_grad", test_in1_grad, ref_in1_grad),
-        ("in2_grad", test_in2_grad, ref_in2_grad),
+    for name, to_check, ground_truth, threshold in [
+        ("weight_grad", test_weights_grad, ref_weights_grad, weight_threshold),
+        ("in1_grad", test_in1_grad, ref_in1_grad, correctness_threshold),
+        ("in2_grad", test_in2_grad, ref_in2_grad, correctness_threshold),
         ]:
-        result[name] = check_similiarity(name, to_check, ground_truth, correctness_threshold)
+        result[name] = check_similiarity(name, to_check, ground_truth, threshold)
     
     return result   

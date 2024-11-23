@@ -32,7 +32,7 @@ def get_random_buffers_backward(tpp : TPProblem, batch_size : int, prng_seed : i
     in2 = np.array(rng.uniform(size=(batch_size, tpp.irreps_in2.dim)), dtype=np.float32)
     out_grad = np.array(rng.uniform(size=(batch_size, tpp.irreps_out.dim)), dtype=np.float32)
 
-    weights_size = tuple(tpp.weight_numel) if tpp.shared_weights else (batch_size, tpp.weight_numel)
+    weights_size = tuple([tpp.weight_numel]) if tpp.shared_weights else tuple([batch_size, tpp.weight_numel])
     weights = np.array(rng.uniform(size=weights_size), dtype=np.float32)
 
     weights_grad = np.zeros_like(weights)
