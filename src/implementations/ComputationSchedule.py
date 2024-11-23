@@ -112,7 +112,7 @@ class ComputationSchedule:
             if connection_mode == "uvu":
                 for i, idx1 in enumerate(irrep_maps[0, u]):
                     for idx2 in irrep_maps[1, v]:
-                        self.new_instructions.append((idx1, idx2, irrep_maps[2, w][i], connection_mode, has_weight, path_weight))
+                        self.new_instructions.append((idx1, idx2, irrep_maps[2, w][i], connection_mode, has_weight, path_weight ** 2))
 
             else:
                 raise Exception(f"Connection mode {connection_mode} not supported!")
@@ -238,7 +238,7 @@ class ComputationSchedule:
                 (L1Map.src_dst_map[inst.i_in1], 
                 L2Map.src_dst_map[inst.i_in2], 
                 L3Map.src_dst_map[inst.i_out], 
-                inst.connection_mode, inst.has_weight, inst.path_weight) 
+                inst.connection_mode, inst.has_weight, inst.path_weight ** 2) 
                     for inst in [self.new_instructions[idx] for idx in inst_idxs]
             ]
 

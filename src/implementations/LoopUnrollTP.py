@@ -62,7 +62,7 @@ class LoopUnrollTP(TensorProduct):
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
         schedule = ComputationSchedule(config, 
-                smem_limit=forward_config.smem, warps_per_block=5,
+                smem_limit=60000, warps_per_block=5,
                 direction = "forward",
                 irrep_dtype = np.float32,
                 weight_dtype = np.float32

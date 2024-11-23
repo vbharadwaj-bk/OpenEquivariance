@@ -127,24 +127,25 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x5e", "32x5e", "32x5e"),
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
-        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
+        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3), 
         #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     implementations = [LoopUnrollTP]
     directions = ['forward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction 
              in itertools.product(implementations, conv_problems, directions)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=1_000_000
+        bench_batch_size=1_000_000,
+        reference_implementation = NumpyTensorProduct
     )
 
     #schedule = ComputationSchedule(
