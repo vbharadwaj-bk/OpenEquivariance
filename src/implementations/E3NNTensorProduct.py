@@ -76,14 +76,14 @@ class E3NNTensorProduct(TensorProduct):
             weights : np.ndarray,
             weights_grad : np.ndarray,
             ) -> None:
-        torch_L1_in = torch.Tensor(L1_in, requires_grad=True)
-        torch_L2_in = torch.Tensor(L2_in, requires_grad=True)
+        torch_L1_in = torch.tensor(L1_in, requires_grad=True)
+        torch_L2_in = torch.tensor(L2_in, requires_grad=True)
         
-        torch_weights = torch.Tensor(weights, requires_grad=True)
+        torch_weights = torch.tensor(weights, requires_grad=True)
 
         torch_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
 
-        torch_L3_grad_in = torch.Tensor(L3_grad)
+        torch_L3_grad_in = torch.tensor(L3_grad)
 
         torch_out.backward(gradient=torch_L3_grad_in)
         
