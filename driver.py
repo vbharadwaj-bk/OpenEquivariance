@@ -24,15 +24,17 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
-    batch_size = 1
+    batch_size = 10_000
     prng_seed = 12345
     
     tp = tp_impl(config)
 
     from src.implementations.E3NNTensorProduct import E3NNTensorProduct
-    e3nn_tp = E3NNTensorProduct(config)
+    ref_tp = E3NNTensorProduct(config)
 
     logger.debug(repr(config))
+
+    np.set_printoptions(formatter={'float': '{:0.3f}'.format})
     if direction == "forward":
         in1, in2, weights, out = get_random_buffers_forward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
 
@@ -48,7 +50,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
         print(f"{test_out = }")
 
         ground_truth_out = out.copy()
-        e3nn_tp.forward_cpu(
+        ref_tp.forward_cpu(
             L1_in=in1, 
             L2_in=in2, 
             L3_out=ground_truth_out,
@@ -70,20 +72,45 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
         test_in2_grad = in2_grad.copy()
         test_weights_grad = weights_grad.copy()
         tp.backward_cpu(
-            L1_in=in1,
+            L1_in=in1.copy(),
             L1_grad=test_in1_grad,
-            L2_in=in2,
+            L2_in=in2.copy(),
             L2_grad=test_in2_grad,
-            L3_grad=out_grad,
-            weights=weights,
+            L3_grad=out_grad.copy(),
+            weights=weights.copy(),
             weights_grad=test_weights_grad            
         )
 
-        print(test_in1_grad)
-        print(test_in2_grad)
-        print(test_weights_grad)
+        ref_in1_grad = in1_grad.copy()
+        ref_in2_grad = in2_grad.copy()
+        ref_weights_grad = weights_grad.copy()
+
+        ref_tp.backward_cpu(
+            L1_in=in1.copy(),
+            L1_grad=ref_in1_grad, 
+            L2_in=in2.copy(), 
+            L2_grad=ref_in2_grad,
+            L3_grad=out_grad.copy(), 
+            weights=weights.copy(),
+            weights_grad=ref_weights_grad, 
+        )
+
+
+        for name, ground_truth, test_result in [
+            ("L1_grad", ref_in1_grad , test_in1_grad),
+            ("L2_grad", ref_in2_grad , test_in2_grad),
+            ("weight_grad", ref_weights_grad, test_weights_grad),
+            ]:
+            print(name)
+            print(ground_truth, "ground truth")
+            print(test_result , "test_result" )
+            print(test_result / ground_truth, "ratio")
+            print("LA.Norm:")
+            print(la.norm((test_result - ground_truth).flatten(), ord=np.inf))
+            print("")
     else:
         assert(False)
+    np.set_printoptions()
 
 if __name__=='__main__':  
     FCTPP = FullyConnectedTPProblem
@@ -120,10 +147,12 @@ if __name__=='__main__':
         FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
     ]
 
-    problems = basic_fully_connected_problems + \
-        increasing_multiplicty_fully_connected_problems +  \
-        full_size_uvw_case + \
-        basic_multi_interaction_problems
+    problems = list(itertools.chain(
+        basic_fully_connected_problems,
+        increasing_multiplicty_fully_connected_problems,
+        full_size_uvw_case,
+        basic_multi_interaction_problems,
+    ))
 
     conv_problems = [  
         #FCTPP("32x5e", "32x5e", "32x5e"),
@@ -146,6 +175,7 @@ if __name__=='__main__':
         num_iter=5,
         bench_batch_size=1_000_000,
         reference_implementation = NumpyTensorProduct
+        prng_seed=11111
     )
 
     #schedule = ComputationSchedule(
