@@ -70,8 +70,6 @@ class LoopUnrollTP(TensorProduct):
             forward_schedule=forward_schedule
         )
 
-        print(self.jit_kernel)
-
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, forward_schedule.launch_config, self.backward_config)
         logger.info("Kernel compiled!")

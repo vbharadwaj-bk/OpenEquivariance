@@ -132,7 +132,6 @@ class ComputationSchedule:
 
         assert(self.updated_config.weight_numel == config.weight_numel)
 
-        # Round down to nearest multiple of 4 bytes
         self.memory_per_warp = smem_limit // warps_per_block
         self.memory_per_warp -= self.memory_per_warp % 4
 
