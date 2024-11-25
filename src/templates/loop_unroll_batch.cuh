@@ -44,8 +44,8 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const float* __restri
     {%- set num_interact = interactions | length %}
     
     {%- for k in range(num_interact) %}
-        {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
-        {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
+        {%- set u, v, w, tensor = interactions[k] %}
+        {%- set weight_start, _, _ = problem.weight_range_and_shape_for_instruction(k)%}
 
         if(lane_id < {{L1[u].mul}}) {
             weight = weights_smem[{{weight_start}}];

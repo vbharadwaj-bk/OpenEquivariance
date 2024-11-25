@@ -1,9 +1,12 @@
 import numpy as np
+from build.kernel_wrapper import *
 from src.implementations.e3nn_lite import *
 from itertools import accumulate
 from src.benchmark.logging_utils import *
 from src.implementations.TensorProduct import *
 logger = getLogger()
+
+# This class assumes a warp size of 32
 
 class IrrepMapping:
     '''
@@ -62,9 +65,9 @@ class ComputationSegment:
         self.L2 = problem.irreps_in2
         self.L3 = problem.irreps_out
 
-        self.interactions = [(u, v, w, i,
+        self.interactions = [(u, v, w,
                 CGTensor(self.L1[u].ir.l, self.L2[v].ir.l, self.L3[w].ir.l, path_weight)) 
-                for i, (u, v, w, _, _, path_weight, _) in enumerate(problem.instructions)]
+                for (u, v, w, _, _, path_weight, _) in problem.instructions]
 
         #self.interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
@@ -72,7 +75,8 @@ class ComputationSchedule:
     def __init__(self, 
             config, 
             smem_limit, 
-            warps_per_block, 
+            warps_per_block,
+            block_count, 
             direction,
             irrep_dtype,
             weight_dtype):
@@ -253,3 +257,11 @@ class ComputationSchedule:
 
             self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, 
                     calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset)
+
+
+        launch_config = KernelLaunchConfig()
+        launch_config.num_blocks = block_count
+        launch_config.num_threads = warps_per_block * 32 
+        launch_config.smem = smem_limit 
+        logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
+        self.launch_config = launch_config

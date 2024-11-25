@@ -5,7 +5,6 @@ from typing import NamedTuple, Optional, Iterable, Literal, Any, get_args
 from dataclasses import dataclass
 
 from src.implementations.TensorProduct import TensorProduct
-from src.implementations.e3nn_lite import TPProblem
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *

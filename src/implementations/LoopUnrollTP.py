@@ -23,14 +23,13 @@ class LoopUnrollTP(TensorProduct):
 
         dp = DeviceProp(0)
 
-        forward_config = KernelLaunchConfig()
-        forward_config.num_blocks = dp.multiprocessorCount * 4
-        forward_config.num_threads = 160
-        forward_config.smem = (L1.dim + L2.dim + L3.dim + config.weight_numel)  * sizeof("float") * forward_config.num_threads // forward_config.warp_size
-        logger.info(f"Forward pass needs {forward_config.smem // 1000} KB of shared memory.")
-
-        if forward_config.smem > dp.maxSharedMemPerBlock:
-            raise Exception(f"Error, requested shared memory {forward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
+        forward_schedule = ComputationSchedule(config, 
+                smem_limit=160000, warps_per_block=6,
+                block_count=dp.multiprocessorCount * 2,
+                direction = "forward",
+                irrep_dtype = np.float32,
+                weight_dtype = np.float32
+        )
 
         backward_config = KernelLaunchConfig()
         backward_config.num_blocks = dp.multiprocessorCount * 4
@@ -38,12 +37,11 @@ class LoopUnrollTP(TensorProduct):
         backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * config.weight_numel + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
         logger.info(f"Backward pass needs {backward_config.smem // 1000} KB of shared memory.")
 
-        if backward_config.smem > dp.maxSharedMemPerBlock:
-            raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
+        #if backward_config.smem > dp.maxSharedMemPerBlock:
+        #    raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
 
         # =====================================================================
 
-        self.forward_config = forward_config
         self.backward_config = backward_config 
 
         class CGTensor:
@@ -63,24 +61,17 @@ class LoopUnrollTP(TensorProduct):
 
         interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
-        schedule = ComputationSchedule(config, 
-                smem_limit=60000, warps_per_block=5,
-                direction = "forward",
-                irrep_dtype = np.float32,
-                weight_dtype = np.float32
-        )
-
         self.jit_kernel = template.render(
             L1=L1, L2=L2, L3=L3,
             config=config,
             interactions=interactions,
-            forward_config=forward_config,
+            forward_config=forward_schedule.launch_config,
             backward_config=backward_config,
-            forward_schedule=schedule
+            forward_schedule=forward_schedule
         )
 
         logger.info("Starting NVRTC")
-        self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
+        self.internal = JITTPImpl(self.jit_kernel, forward_schedule.launch_config, self.backward_config)
         logger.info("Kernel compiled!")
 
     @staticmethod
