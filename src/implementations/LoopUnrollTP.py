@@ -24,7 +24,7 @@ class LoopUnrollTP(TensorProduct):
         dp = DeviceProp(0)
 
         forward_schedule = ComputationSchedule(config, 
-                smem_limit=160000, warps_per_block=6,
+                smem_limit=80000, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 2,
                 direction = "forward",
                 irrep_dtype = np.float32,
@@ -69,6 +69,8 @@ class LoopUnrollTP(TensorProduct):
             backward_config=backward_config,
             forward_schedule=forward_schedule
         )
+
+        print(self.jit_kernel)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, forward_schedule.launch_config, self.backward_config)

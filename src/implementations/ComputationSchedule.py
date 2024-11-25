@@ -131,7 +131,10 @@ class ComputationSchedule:
         self.new_instructions = self.updated_config.instructions
 
         assert(self.updated_config.weight_numel == config.weight_numel)
+
+        # Round down to nearest multiple of 4 bytes
         self.memory_per_warp = smem_limit // warps_per_block
+        self.memory_per_warp -= self.memory_per_warp % 4
 
         # =====================================================================
         # Shared memory partitioning functions 
@@ -159,7 +162,7 @@ class ComputationSchedule:
             for i, name in enumerate(smem):
                 smem[name]["offset"] = range_offsets[i]
 
-            smem["total"] = sum([smem[name]["size"] for name in smem]) 
+            smem["total"] = sum([smem[name]["size"] for name in smem])
 
             return smem
 

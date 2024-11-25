@@ -101,6 +101,7 @@ class TestBenchmarkSuite:
 
             if test.direction == 'forward':
                 if test.correctness:
+                    logger.info("Starting correctness check...")
                     result['correctness results'] = correctness_forward(
                         problem=tpp,
                         test_implementation=impl,
@@ -109,6 +110,7 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed,
                     )
+                    logger.info("Finished correctness check...")
                 if test.benchmark:
                     result['benchmark results'] = benchmark_forward(
                         problem=tpp,
@@ -123,6 +125,7 @@ class TestBenchmarkSuite:
             if test.direction == 'backward':
                 pass 
                 if test.correctness: 
+                    logger.info("Starting correctness check...")
                     result ['correctness results'] = correctness_backward(
                         problem=tpp,
                         test_implementation=impl,
@@ -131,6 +134,7 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed
                     )
+                    logger.info("Finished correctness check...")
                 if test.benchmark: 
                     result ['benchmark results'] = benchmark_backward(
                         problem=tpp,

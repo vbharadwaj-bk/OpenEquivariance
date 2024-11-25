@@ -98,6 +98,7 @@ __global__ void forward(
         float* w = weights + i * {{config.weight_numel}};
 
         {%- for i, segment in enumerate(forward_schedule.segments) %} {
+
             {{ declare_smem_variables(segment, "smem") }}
             {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
