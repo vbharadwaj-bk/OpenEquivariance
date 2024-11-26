@@ -168,7 +168,7 @@ if __name__=='__main__':
     implementations = [LoopUnrollTP]
     directions = ['backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
              for implementation, problem, direction
              in itertools.product(implementations, conv_problems, directions)]
  

@@ -62,7 +62,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
 
     {%- for k in range(num_interact) %}
         {%- set u, v, w, tensor = interactions[k] %}
-        {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(k)%}
+        {%- set weight_start, _, _ = problem.weight_range_and_shape_for_instruction(k)%}
         weight = weights_smem[{{weight_start}}];
         weight_grad = weights_grad_smem[{{weight_start}}];
 
@@ -190,11 +190,11 @@ __global__ void backward(
             {{ load_ir_segments(segment.L1Map, "l1_shft", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2_shft", "L2_smem", "j") }}
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
-            ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[{{segment.weight_offset}} + j];)
 
             ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
-            ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
             __syncwarp();
             backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
@@ -202,13 +202,12 @@ __global__ void backward(
             __syncwarp();
 
             float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
-            float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
+            float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id;
             float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
 
             {{ store_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") }}
             {{ store_ir_segments(segment.L2Map, "l2_grad_shft", "L2_grad_smem", "j") }}
-
-            ROW_OPERATION({{config.weight_numel}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
+            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_shft[{{segment.weight_offset}} + j] = weights_grad_smem[j + lane_id];)
         } {%- endfor %}
     }
 }
