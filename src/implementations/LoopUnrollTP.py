@@ -24,8 +24,8 @@ class LoopUnrollTP(TensorProduct):
         dp = DeviceProp(0)
 
         forward_schedule = ComputationSchedule(config, 
-                smem_limit=80000, warps_per_block=6,
-                block_count=dp.multiprocessorCount * 2,
+                smem_limit=dp.maxSharedMemPerBlock // 2, warps_per_block=6,
+                block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
                 irrep_dtype = np.float32,
                 weight_dtype = np.float32
