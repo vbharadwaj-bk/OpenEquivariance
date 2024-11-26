@@ -92,7 +92,7 @@ __device__ __forceinline__ void backward_loop_unroll(
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
-                    l2_grad[j] = L2_grad_smem[j + {{L2.slices()[v].start}}];
+                    l2_grad[j] = 0.0; 
                 }
             {%- endif %}
 
@@ -129,7 +129,7 @@ __device__ __forceinline__ void backward_loop_unroll(
                 if(lane_id == 0) {
                     #pragma unroll 
                     for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-                        L2_grad_smem[j + {{L2.slices()[v].start}}] = l2_grad[j];
+                        L2_grad_smem[j + {{L2.slices()[v].start}}] += l2_grad[j];
                 }
                 __syncwarp();
             {%- endif %}

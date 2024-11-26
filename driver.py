@@ -157,7 +157,7 @@ if __name__=='__main__':
         #FCTPP("32x5e", "32x5e", "32x5e"),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x0e + 32x1o + 32x2e", "1x0e + 1x1e", 3), # Last value is Lmax
+        mace_conf("32x1e", "1x0e + 1x1e", 3), # Last value is Lmax
         #mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
@@ -168,7 +168,7 @@ if __name__=='__main__':
     implementations = [LoopUnrollTP]
     directions = ['backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
              for implementation, problem, direction
              in itertools.product(implementations, conv_problems, directions)]
  
