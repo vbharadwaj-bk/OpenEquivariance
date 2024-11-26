@@ -31,18 +31,24 @@ class LoopUnrollTP(TensorProduct):
                 weight_dtype = np.float32
         )
 
-        backward_config = KernelLaunchConfig()
-        backward_config.num_blocks = dp.multiprocessorCount * 4
-        backward_config.num_threads = 128
-        backward_config.smem = (2 * L1.dim + 2 * L2.dim + 2 * config.weight_numel + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
-        logger.info(f"Backward pass needs {backward_config.smem // 1000} KB of shared memory.")
+        backward_schedule = ComputationSchedule(config, 
+                smem_limit=dp.maxSharedMemPerBlock // 2, warps_per_block=4,
+                block_count=dp.multiprocessorCount * 4,
+                direction = "backward",
+                irrep_dtype = np.float32,
+                weight_dtype = np.float32
+        )
+
+        #backward_config = KernelLaunchConfig()
+        #backward_config.num_blocks = dp.multiprocessorCount * 4
+        #backward_config.num_threads = 128
+        #test = (2 * L1.dim + 2 * L2.dim + 2 * config.weight_numel + L3.dim)  * sizeof("float") * backward_config.num_threads // backward_config.warp_size
+        #print(f"Test: {test}B")
 
         #if backward_config.smem > dp.maxSharedMemPerBlock:
         #    raise Exception(f"Error, requested shared memory {backward_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
 
         # =====================================================================
-
-        self.backward_config = backward_config 
 
         class CGTensor:
             def __init__(self, l1, l2, l3, normalization_factor):
@@ -66,12 +72,13 @@ class LoopUnrollTP(TensorProduct):
             config=config,
             interactions=interactions,
             forward_config=forward_schedule.launch_config,
-            backward_config=backward_config,
-            forward_schedule=forward_schedule
+            backward_config=backward_schedule.launch_config,
+            forward_schedule=forward_schedule,
+            backward_schedule=backward_schedule
         )
 
         logger.info("Starting NVRTC")
-        self.internal = JITTPImpl(self.jit_kernel, forward_schedule.launch_config, self.backward_config)
+        self.internal = JITTPImpl(self.jit_kernel, forward_schedule.launch_config, backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
     @staticmethod

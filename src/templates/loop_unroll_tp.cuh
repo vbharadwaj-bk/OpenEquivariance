@@ -75,68 +75,66 @@ __device__ __forceinline__ void backward_loop_unroll(
 
     {%- set num_interact = interactions | length %}
 
-    for(int mul_offset = 0; mul_offset < {{L1[0].mul}}; mul_offset += {{forward_config.warp_size}}) {
-        //if(mul_offset + lane_id < {{L1[0].mul}}) {     # shfl_sync breaks with conditional 
-            {%- for k in range(num_interact) %}
-                {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
-                {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
-                weight = weights_smem[{{weight_start}} + mul_offset];
-                weight_grad = weights_grad_smem[{{weight_start}} + mul_offset];
+    //if(mul_offset + lane_id < {{L1[0].mul}}) {     # shfl_sync breaks with conditional 
+        {%- for k in range(num_interact) %}
+            {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
+            {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
+            weight = weights_smem[{{weight_start}}];
+            weight_grad = weights_grad_smem[{{weight_start}}];
 
-                {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
-                    offset = {{ L1.slices()[u].start}} + mul_offset * {{L1[u].ir.dim}};
-                    {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_smem', 'offset', 'l1_vec')}}
-                    {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad')}}
-                {%- endif %}
+            {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
+                offset = {{ L1.slices()[u].start}};
+                {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_smem', 'offset', 'l1_vec')}}
+                {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad')}}
+            {%- endif %}
 
-                {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
+            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
+                #pragma unroll
+                for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
+                    l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
+                    l2_grad[j] = L2_grad_smem[j + {{L2.slices()[v].start}}];
+                }
+            {%- endif %}
+
+            {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
+                offset = {{ L3.slices()[w].start}}; 
+                {{transpose_load(L3[w].mul, L3[w].ir.dim, 'L3_grad_smem', 'offset', 'l3_grad')}}
+            {%- endif %}
+
+            {%- for i in range(tensor.nnz) %} 
+                {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
+                weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
+                scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
+                l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
+                l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
+            {%- endfor %}
+
+            // Storeback
+            {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
+                offset = {{ L1.slices()[u].start}}; 
+                {{transpose_store(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad', '=', '1.0')}}
+            {%- endif %}
+
+            {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
+                // This assumes that all 32 threads are hit the same l2 vector. 
+                #pragma unroll
+                for (int offset = 16; offset > 0; offset /= 2) {
                     #pragma unroll
                     for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
-                        l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
-                        l2_grad[j] = L2_grad_smem[j + {{L2.slices()[v].start}}];
-                    }
-                {%- endif %}
+                        l2_grad[j] += __shfl_down_sync(FULL_MASK, l2_grad[j], offset);
+                    } 
+                }
 
-                {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
-                    offset = {{ L3.slices()[w].start}} + mul_offset * {{L3[w].ir.dim}};
-                    {{transpose_load(L3[w].mul, L3[w].ir.dim, 'L3_grad_smem', 'offset', 'l3_grad')}}
-                {%- endif %}
+                if(lane_id == 0) {
+                    #pragma unroll 
+                    for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                        L2_grad_smem[j + {{L2.slices()[v].start}}] = l2_grad[j];
+                }
+                __syncwarp();
+            {%- endif %}
 
-                {%- for i in range(tensor.nnz) %} 
-                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                    scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
-                    weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
-                    scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
-                    l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
-                    l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
-                {%- endfor %}
-
-                // Storeback
-                {%- if k == num_interact - 1 or interactions[k][0] != interactions[k+1][0] %}
-                    offset = {{ L1.slices()[u].start}} + mul_offset * {{L1[u].ir.dim}};
-                    {{transpose_store(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad', '=', '1.0')}}
-                {%- endif %}
-
-                {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] %}
-                    // This assumes that all 32 threads are hit the same l2 vector. 
-                    #pragma unroll
-                    for (int offset = 16; offset > 0; offset /= 2) {
-                        #pragma unroll
-                        for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
-                            l2_grad[j] += __shfl_down_sync(FULL_MASK, l2_grad[j], offset);
-                        } 
-                    }
-
-                    if(lane_id == 0) {
-                        #pragma unroll 
-                        for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-                            L2_grad_smem[j + {{L2.slices()[v].start}}] = l2_grad[j];
-                    }
-                    __syncwarp();
-                {%- endif %}
-
-                weights_grad_smem[mul_offset + {{weight_start}}] = weight_grad; 
-            {%- endfor %}
-        //}
-    }
+            weights_grad_smem[{{weight_start}}] = weight_grad; 
+        {%- endfor %}
+    //}
 }

@@ -223,7 +223,7 @@ class ComputationSchedule:
                     self.segments.append((cL1, cL2, cL3, cinst))
                     cL1, cL2, cL3, cinst = set(), set(), set(), []
                 else:
-                    raise Exception("Scheduling failed, memory allocation too small to accomodate segment!")
+                    raise Exception(f"{direction.title()} scheduling failed, memory allocation too small to accomodate segment!")
             else:
                 cL1.add(u)
                 cL2.add(v)
@@ -231,7 +231,7 @@ class ComputationSchedule:
                 cinst.append(inst_idx)
                 inst_idx += 1
 
-        logger.info(f"Scheduling succeeded with {len(self.segments)} segments.")
+        logger.info(f"{direction.title()} scheduling succeeded with {len(self.segments)} segments.")
 
         for i in range(len(self.segments)):
             L1_idxs, L2_idxs, L3_idxs, inst_idxs = self.segments[i]
@@ -260,10 +260,12 @@ class ComputationSchedule:
             self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, 
                     calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset)
 
+        true_max_smem = max([seg.smem["total"] for seg in self.segments])
+        self.memory_per_warp = true_max_smem
 
         launch_config = KernelLaunchConfig()
         launch_config.num_blocks = block_count
-        launch_config.num_threads = warps_per_block * 32 
-        launch_config.smem = smem_limit 
+        launch_config.num_threads = warps_per_block * 32
+        launch_config.smem = self.memory_per_warp * warps_per_block 
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config

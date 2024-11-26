@@ -86,7 +86,7 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const float* __restri
 {%- endfor %}
 
 __global__ void forward(
-    size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
+        size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
     extern __shared__ char s[];
     {{ set_launch_bound_variables(forward_config) }}
     char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
@@ -98,7 +98,6 @@ __global__ void forward(
         float* w = weights + i * {{config.weight_numel}};
 
         {%- for i, segment in enumerate(forward_schedule.segments) %} {
-
             {{ declare_smem_variables(segment, "smem") }}
             {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
@@ -124,25 +123,14 @@ __global__ void forward(
 *   L1_grad, L2_grad, weights_grad 
 */
 __global__ void backward(
-    size_t num_products,
-    float* L1_in, float* L1_grad,
-    float* L2_in, float* L2_grad,
-    float* weights, float* weights_grad,
-    float* L3_grad) {
-
+        size_t num_products,
+        float* L1_in, float* L1_grad,
+        float* L2_in, float* L2_grad,
+        float* weights, float* weights_grad,
+        float* L3_grad) {
+    extern __shared__ char s[];
     {{ set_launch_bound_variables(backward_config) }}
-
-    {{ declare_smem_arrays({
-        "common": [],
-        "per_warp": [
-            ("L1_smem", "float", L1.dim),
-            ("L1_grad_smem", "float", L1.dim),
-            ("L2_smem", "float", L2.dim),
-            ("L2_grad_smem", "float", L2.dim),
-            ("weights_smem", "float", config.weight_numel),
-            ("weights_grad_smem", "float", config.weight_numel),
-            ("L3_grad_smem", "float", L3.dim)
-        ]}, "warp_loc", backward_config)}}
+    char* smem = s + {{backward_schedule.memory_per_warp}} * warp_loc; 
 
     for(size_t i = start; i < end; i++) {
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
@@ -150,26 +138,30 @@ __global__ void backward(
         float* l3_shft = L3_grad + i * {{L3.dim}} + lane_id;
         float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
-        ROW_OPERATION({{L1.dim}}, j, L1_smem[j + lane_id] = l1_shft[j];)
-        ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
-        ROW_OPERATION({{L3.dim}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
-        ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
+        {%- for i, segment in enumerate(backward_schedule.segments) %} {
+            {{ declare_smem_variables(segment, "smem") }}
 
-        ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
-        ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
-        ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
+            {{ load_ir_segments(segment.L1Map, "l1_shft", "L1_smem", "j") }}
+            ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
+            ROW_OPERATION({{L3.dim}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
+            ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
-        __syncwarp();
-        //backward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
-        //        L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
-        __syncwarp();
+            ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
 
-        float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
-        float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
-        float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
+            __syncwarp();
+            backward_loop_unroll(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
+                    L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
+            __syncwarp();
 
-        ROW_OPERATION({{L1.dim}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
-        ROW_OPERATION({{L2.dim}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
-        ROW_OPERATION({{config.weight_numel}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
+            float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
+            float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
+            float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
+
+            ROW_OPERATION({{L1.dim}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
+            ROW_OPERATION({{L2.dim}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
+            ROW_OPERATION({{config.weight_numel}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
+        } {%- endfor %}
     }
 }
