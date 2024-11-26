@@ -138,6 +138,10 @@ __global__ void backward(
         float* l3_shft = L3_grad + i * {{L3.dim}} + lane_id;
         float* weights_shft = weights + i * {{config.weight_numel}} + lane_id;
 
+        float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
+        float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
+        float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
+
         {%- for i, segment in enumerate(backward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
 
@@ -146,6 +150,8 @@ __global__ void backward(
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
+            {# load_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") #}
+            {# load_ir_segments(segment.L2Map, "l2_grad_shft", "L2_grad_smem", "j") #}
             ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{config.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0f;)
@@ -155,12 +161,8 @@ __global__ void backward(
                     L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
             __syncwarp();
 
-            float* l1_grad_shft = L1_grad + i * {{L1.dim}} + lane_id;
-            float* l2_grad_shft = L2_grad + i * {{L2.dim}} + lane_id; 
-            float* weights_grad_shft = weights_grad + i * {{config.weight_numel}} + lane_id;
-
-            ROW_OPERATION({{L1.dim}}, j, l1_grad_shft[j] = L1_grad_smem[j + lane_id];)
-            ROW_OPERATION({{L2.dim}}, j, l2_grad_shft[j] = L2_grad_smem[j + lane_id];)
+            {{ store_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") }}
+            {{ store_ir_segments(segment.L2Map, "l2_grad_shft", "L2_grad_smem", "j") }} 
             ROW_OPERATION({{config.weight_numel}}, j, weights_grad_shft[j] = weights_grad_smem[j + lane_id];)
         } {%- endfor %}
     }
