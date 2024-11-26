@@ -14,16 +14,33 @@ module.to('cuda')
 
 print(module)
 
-batch=10000
+batch=100000
+
+#for i in range(10):
 w = torch.randn((batch, e.inputs[0].irreps.dim)).to('cuda')
 x = torch.randn((batch, e.inputs[1].irreps.dim)).to('cuda')
 y = torch.randn((batch, e.inputs[2].irreps.dim)).to('cuda')
 
+w.requires_grad_()
+x.requires_grad_()
+y.requires_grad_()
+
 start = torch.cuda.Event(enable_timing=True)
 end = torch.cuda.Event(enable_timing=True)
 start.record()
-#result = module(w, x, y, use_fallback=False)
+result = module(w, x, y, use_fallback=False)
 end.record()
+torch.cuda.synchronize() 
+print(start.elapsed_time(end))
+
+grad = torch.randn(*result.shape).to('cuda')
+
+start = torch.cuda.Event(enable_timing=True)
+end = torch.cuda.Event(enable_timing=True)
+
+start.record()
+result.backward(gradient=grad)
+end.record()
+
 torch.cuda.synchronize()
- 
 print(start.elapsed_time(end))

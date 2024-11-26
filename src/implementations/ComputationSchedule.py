@@ -21,6 +21,9 @@ class IrrepMapping:
         src_ranges = [src_irreps.slices()[idx] for idx in self.src_dst_map]
         dst_ranges = [self.dst_irreps.slices()[i] for i in self.src_dst_map.values()]
 
+        self.original_src_ranges = src_ranges
+        self.original_dst_ranges = dst_ranges
+
         # Merge adjacent src and dst ranges
         self.src_ranges = []
         self.dst_ranges = []
@@ -41,6 +44,8 @@ class IrrepMapping:
         self.dst_ranges.append(slice(dst_start, dst_end))
         self.copy_ranges = list(zip(self.src_ranges, self.dst_ranges))
 
+        self.storeback_procedure = {idx: "write" for idx in self.idxs}
+
 class CGTensor:
     def __init__(self, l1, l2, l3, normalization_factor):
         tensor = TensorProduct.load_cg_tensor(l1, l2, l3)
@@ -57,6 +62,8 @@ class ComputationSegment:
         self.L1Map = L1Map
         self.L2Map = L2Map
         self.L3Map = L3Map
+        self.maps = [L1Map, L2Map, L3Map]
+
         self.problem = problem
         self.smem = smem
         self.weight_offset = weight_offset # Starting point for weights in overall problem. 
@@ -259,6 +266,16 @@ class ComputationSchedule:
 
             self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, 
                     calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset)
+
+        # Calculate storeback procedures
+        for ir_idx, ir in enumerate([self.L1, self.L2, self.L3]):
+            for i in range(len(ir)):
+                irrep_used = False
+                for seg in self.segments:    
+                    if i in seg.maps[ir_idx].idxs:
+                        if irrep_used:
+                            seg.maps[ir_idx].storeback_procedure[i] = "accumulate"
+                        irrep_used = True
 
         true_max_smem = max([seg.smem["total"] for seg in self.segments])
         self.memory_per_warp = true_max_smem
