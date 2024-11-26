@@ -142,8 +142,8 @@ __global__ void backward(
             {{ declare_smem_variables(segment, "smem") }}
 
             {{ load_ir_segments(segment.L1Map, "l1_shft", "L1_smem", "j") }}
-            ROW_OPERATION({{L2.dim}}, j, L2_smem[j + lane_id] = l2_shft[j];)
-            ROW_OPERATION({{L3.dim}}, j, L3_grad_smem[j + lane_id] = l3_shft[j];)
+            {{ load_ir_segments(segment.L2Map, "l2_shft", "L2_smem", "j") }}
+            {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{config.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[j];)
 
             ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
