@@ -14,7 +14,7 @@ module.to('cuda')
 
 print(module)
 
-batch=1000
+batch=100000
 
 w = torch.randn((batch, e.inputs[0].irreps.dim)).to('cuda')
 x = torch.randn((batch, e.inputs[1].irreps.dim)).to('cuda')
