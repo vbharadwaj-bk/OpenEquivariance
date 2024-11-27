@@ -40,8 +40,7 @@ class LoopUnrollTP(TensorProduct):
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
-            backward_schedule=backward_schedule
-        )
+            backward_schedule=backward_schedule)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, 

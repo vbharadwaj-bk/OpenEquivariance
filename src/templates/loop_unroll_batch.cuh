@@ -1,27 +1,18 @@
 {# Jinja2 Template #}
 
 {% include 'common.cuh' %}
-{%- from 'macros.jinja' import declare_smem_arrays, transpose_load, transpose_store with context %}
-{%- from 'macros.jinja' import load_ir_segments, store_ir_segments, declare_smem_variables with context %}
+{%- from 'macros.jinja' import
+        transpose_load, transpose_store, 
+        load_ir_segments, store_ir_segments, 
+        declare_smem_variables,
+        set_launch_bound_variables with context %}
 
-{%- include 'loop_unroll_tp.cuh' %}
-{%- from 'loop_unroll_tp.cuh' import generate_segment_kernel_forward, generate_segment_kernel_backward %}
+{%- from 'loop_unroll_tp.cuh' import 
+        generate_segment_kernel_forward, 
+        generate_segment_kernel_backward %}
 
 #define THREADS_PER_WARP {{ forward_schedule.launch_config.warp_size }} // Warp size should be the same for forward and backward
 #define FULL_MASK 0xffffffff
-
-{%- macro set_launch_bound_variables(config) %}
-    {%- set warps_per_block = divide(config.num_threads, config.warp_size) %}
-    int t_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int warp_id = t_idx / THREADS_PER_WARP;
-    int lane_id = t_idx % THREADS_PER_WARP;
-    int warp_loc = warp_id % {{ warps_per_block }};
-    size_t warps_launched = blockDim.x * gridDim.x / THREADS_PER_WARP;
-    size_t nnz_per_warp = (num_products + warps_launched - 1) / warps_launched;
-
-    size_t start = nnz_per_warp * ((size_t) warp_id);
-    size_t end = min(start + nnz_per_warp, num_products);
-{%- endmacro %}
 
 {%- for i, segment in enumerate(forward_schedule.segments) %}
 {{ generate_segment_kernel_forward(i, segment) }}
