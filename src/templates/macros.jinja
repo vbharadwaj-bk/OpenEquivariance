@@ -74,9 +74,9 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
 {%- endmacro %}
 
 {%- macro store_ir_segments(map, glb_ptr_shft, smem_ptr, loop_var) %}
-    {%- for i, src_rng in enumerate(map.src_ranges) %}
+    {%- for i, src_rng in enumerate(map.original_src_ranges) %}
         {%- set idx = map.idxs[i] %}
-        {%- set dst_rng = map.dst_ranges[i] %}
+        {%- set dst_rng = map.original_dst_ranges[i] %}
         {%- set range_len = src_rng.stop - src_rng.start %}
         {%- if map.storeback_procedure[idx] == "write" %}
             ROW_OPERATION({{range_len}}, {{loop_var}}, {{glb_ptr_shft}}[{{loop_var}} + {{src_rng.start}}] = {{smem_ptr}}[{{loop_var}} + {{dst_rng.start}} + lane_id];)

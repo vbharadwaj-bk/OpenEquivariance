@@ -27,6 +27,38 @@
 {%- include 'loop_unroll_tp.cuh' %}
 {%- from 'loop_unroll_tp.cuh' import generate_segment_kernel_forward %}
 
+{%- for i, segment in enumerate(forward_schedule.segments) %}
+{{ generate_segment_kernel_forward(i, segment) }}
+{%- endfor %}
+
+__global__ void forward(
+        size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
+    extern __shared__ char s[];
+    {{ set_launch_bound_variables(forward_config) }}
+    char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
+
+    for(size_t i = start; i < end; i++) {
+        float* l1 = L1_in + i * {{L1.dim}} + lane_id;
+        float* l2 = L2_in + i * {{L2.dim}} + lane_id; 
+        float* l3 = L3_out + i * {{L3.dim}} + lane_id;
+        float* w = weights + i * {{config.weight_numel}};
+
+        {%- for i, segment in enumerate(forward_schedule.segments) %} {
+            {{ declare_smem_variables(segment, "smem") }}
+            {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
+            {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
+            ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
+
+            __syncwarp();
+            forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
+            __syncwarp();
+
+            {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
+        } {%- endfor %}
+    }
+}
+
 {%- macro generate_segment_kernel_backward(id, segment) %}
 {%- set L1, L2, L3, interactions, problem = segment.L1, segment.L2, segment.L3, segment.interactions, segment.problem %}
 
@@ -123,41 +155,9 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
 }
 {%- endmacro %}
 
-{%- for i, segment in enumerate(forward_schedule.segments) %}
-{{ generate_segment_kernel_forward(i, segment) }}
-{%- endfor %}
-
 {%- for i, segment in enumerate(backward_schedule.segments) %}
 {{ generate_segment_kernel_backward(i, segment) }}
 {%- endfor %}
-
-__global__ void forward(
-        size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
-    extern __shared__ char s[];
-    {{ set_launch_bound_variables(forward_config) }}
-    char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
-
-    for(size_t i = start; i < end; i++) {
-        float* l1 = L1_in + i * {{L1.dim}} + lane_id;
-        float* l2 = L2_in + i * {{L2.dim}} + lane_id; 
-        float* l3 = L3_out + i * {{L3.dim}} + lane_id;
-        float* w = weights + i * {{config.weight_numel}};
-
-        {%- for i, segment in enumerate(forward_schedule.segments) %} {
-            {{ declare_smem_variables(segment, "smem") }}
-            {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
-            {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
-            ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
-            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
-
-            __syncwarp();
-            forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
-            __syncwarp();
-
-            {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
-        } {%- endfor %}
-    }
-}
 
 /*
 * Backward pass kernel. Currently assumes that each tensor product
@@ -192,8 +192,8 @@ __global__ void backward(
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[{{segment.weight_offset}} + j];)
 
-            ROW_OPERATION({{L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
-            ROW_OPERATION({{L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+            ROW_OPERATION({{segment.L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
             __syncwarp();
