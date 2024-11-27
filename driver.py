@@ -174,7 +174,7 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=100000,
+        bench_batch_size=10000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
