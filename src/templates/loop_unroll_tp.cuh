@@ -55,7 +55,14 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const float* __restri
 }
 {%- endmacro %}
 
-__device__ __forceinline__ void backward_loop_unroll(
+{%- macro generate_segment_kernel_backward(id, segment) %}
+{%- set L1, L2, L3, interactions, problem = segment.L1, segment.L2, segment.L3, segment.interactions, segment.problem %}
+
+{%- set L1_irrep_lengths = L1 | map(attribute="ir") | map(attribute="dim") | list %}
+{%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
+{%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
+
+__device__ __forceinline__ void backward_loop_unroll_{{id}}(
         const float* L1_smem,
         const float* L2_smem,
         const float* weights_smem,
@@ -75,15 +82,15 @@ __device__ __forceinline__ void backward_loop_unroll(
     float weight, weight_grad;
     int offset;
 
-    {% set num_scratch_reg = 1 %}
+    {%- set num_scratch_reg = 1 %}
     float scratch1[{{num_scratch_reg}}];
     float scratch2[{{num_scratch_reg}}];
 
     {%- set num_interact = interactions | length %}
 
     {%- for k in range(num_interact) %}
-        {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
-        {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
+        {%- set u, v, w, tensor = interactions[k] %}
+        {%- set weight_start, _, _ = problem.weight_range_and_shape_for_instruction(k)%}
         weight = weights_smem[{{weight_start}}];
         weight_grad = weights_grad_smem[{{weight_start}}];
 
@@ -142,3 +149,4 @@ __device__ __forceinline__ void backward_loop_unroll(
         weights_grad_smem[{{weight_start}}] = weight_grad; 
     {%- endfor %}
 }
+{%- endmacro %}
