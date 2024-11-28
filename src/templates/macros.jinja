@@ -82,6 +82,8 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
             ROW_OPERATION({{range_len}}, {{loop_var}}, {{glb_ptr_shft}}[{{loop_var}} + {{src_rng.start}}] = {{smem_ptr}}[{{loop_var}} + {{dst_rng.start}} + lane_id];)
         {%- elif map.storeback_procedure[idx] == "accumulate" %}
             ROW_OPERATION({{range_len}}, {{loop_var}}, {{glb_ptr_shft}}[{{loop_var}} + {{src_rng.start}}] += {{smem_ptr}}[{{loop_var}} + {{dst_rng.start}} + lane_id];)
+        {%- elif map.storeback_procedure[idx] == "atomic_accumulate" %}
+            ROW_OPERATION({{range_len}}, {{loop_var}}, atomicAdd({{glb_ptr_shft}} + {{src_rng.start}} + {{loop_var}}, {{smem_ptr}}[{{dst_rng.start}} + lane_id + {{loop_var}}]);)
         {%- endif %}
     {%- endfor %}
 {%- endmacro %}

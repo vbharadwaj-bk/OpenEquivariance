@@ -27,16 +27,14 @@ class LoopUnrollTP(TensorProduct):
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
                 irrep_dtype = np.float32,
-                weight_dtype = np.float32
-        )
+                weight_dtype = np.float32)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
                 irrep_dtype = np.float32,
-                weight_dtype = np.float32
-        )
+                weight_dtype = np.float32)
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,

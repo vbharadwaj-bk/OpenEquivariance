@@ -155,12 +155,12 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
         #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        #mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 

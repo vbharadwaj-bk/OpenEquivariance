@@ -139,11 +139,12 @@ if __name__=='__main__':
     config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
-        single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
+        mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     cut_size = len(graph.rows)
