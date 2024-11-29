@@ -101,3 +101,16 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
     size_t start = nnz_per_warp * ((size_t) warp_id);
     size_t end = min(start + nnz_per_warp, num_products);
 {%- endmacro %}
+
+
+{%- macro load_ir_async(map, glb_ptr, smem_ptr, loop_var) %}
+    {%- for (src_rng, dst_rng) in map.copy_ranges %}
+        {%- set range_len = src_rng.stop - src_rng.start %}
+            {
+                Segment<4>* glb_group_shft = ((Segment<4>*) ({{glb_ptr}} + {{src_rng.start}})) + lane_id;
+                Segment<4>* smem_group_shft = ((Segment<4>*) ({{smem_ptr}} + {{dst_rng.start}})) + lane_id;
+                ROW_OPERATION({{range_len // 4}}, {{loop_var}},
+                    __pipeline_memcpy_async(smem_group_shft + {{loop_var}}, glb_group_shft + {{loop_var}}, 16, 0);)
+            }
+    {%- endfor %}
+{%- endmacro %}

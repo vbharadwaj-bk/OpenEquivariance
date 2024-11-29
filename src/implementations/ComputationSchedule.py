@@ -143,14 +143,18 @@ class ComputationSchedule:
         self.memory_per_warp -= self.memory_per_warp % 4
 
         # =====================================================================
-        # Shared memory partitioning functions 
+        # Shared memory partitioning functions
+
+        def r16(x):
+            return (x + 15) // 16 * 16
+
 
         def calculate_forward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
             smem = {
-                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L1": {"size": r16(sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L2": {"size": r16(sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L3": {"size": r16(sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
             }
 
@@ -162,7 +166,7 @@ class ComputationSchedule:
                     if inst.connection_mode == "uvu":
                         weights_smem += np.prod(inst.path_shape)
 
-            smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+            smem["weights"]["size"] = r16(weights_smem * np.dtype(weight_dtype).itemsize)
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
@@ -176,11 +180,11 @@ class ComputationSchedule:
         def calculate_backward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
             smem = {
-                "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L1_grad": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L2_grad": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
-                "L3_grad": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
+                "L1": {"size": r16(sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L1_grad": {"size": r16(sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L2": {"size": r16(sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L2_grad": {"size": r16(sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
+                "L3_grad": {"size": r16(sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize), "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
                 "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
@@ -193,8 +197,8 @@ class ComputationSchedule:
                     if inst.connection_mode == "uvu":
                         weights_smem += np.prod(inst.path_shape)
 
-            smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
-            smem["weights_grad"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+            smem["weights"]["size"] = r16(weights_smem * np.dtype(weight_dtype).itemsize)
+            smem["weights_grad"]["size"] = r16(weights_smem * np.dtype(weight_dtype).itemsize)
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
@@ -286,3 +290,18 @@ class ComputationSchedule:
         launch_config.smem = self.memory_per_warp * warps_per_block 
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
+
+        # Calculate alignments for all irreps
+        self.irrep_align = [4, 4, 4]
+
+        for i, irrep in enumerate([self.L1, self.L2, self.L3]):
+            for j, mul_ir in enumerate(irrep):
+                if mul_ir.mul % 4 != 0:
+                    self.irrep_align[i] = 2
+                if mul_ir.mul % 2 != 0:
+                    self.irrep_align[i] = 1 
+        
+        for i in range(3):
+            self.irrep_align[i] *= np.dtype(irrep_dtype).itemsize
+
+        logger.debug(f"Irrep Alignments: {self.irrep_align}")
