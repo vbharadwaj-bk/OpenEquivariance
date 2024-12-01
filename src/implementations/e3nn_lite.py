@@ -354,7 +354,8 @@ class TPProblem:
         irrep_normalization: str = "component",
         path_normalization: str = "element",
         internal_weights: Optional[bool] = None,
-        shared_weights: Optional[bool] = None) -> None:
+        shared_weights: Optional[bool] = None,
+        description: Optional[str] = None) -> None:
         # === Setup ===
         super().__init__()
 
@@ -371,6 +372,7 @@ class TPProblem:
         self.out_var = out_var
         self.irrep_normalization = irrep_normalization
         self.path_normalization = path_normalization
+        self.description = description
         del irreps_in1, irreps_in2, irreps_out
 
         instructions = [x if len(x) == 6 else x + (1.0,) for x in instructions]
@@ -524,17 +526,9 @@ class TPProblem:
         result = result.replace("self.","")
         return result 
     
-
-def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
-    if not self.instructions[instruction].has_weight:
-        raise ValueError(f"Instruction {instruction} has no weights.")
-    offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
-    ins = self.instructions[instruction]
-    return offset, offset + prod(ins.path_shape), ins.path_shape
-
-
-# Patch classes, including those in E3NN, to include custom functions that we define 
-TPProblem.weight_range_and_shape_for_instruction = weight_range_and_shape_for_instruction
-if 'e3nn' in sys.modules:
-    import e3nn
-    e3nn.o3.TensorProduct.weight_range_and_shape_for_instruction = weight_range_and_shape_for_instruction
+    def weight_range_and_shape_for_instruction(self, instruction: int) -> Tuple[int, int, tuple]: 
+        if not self.instructions[instruction].has_weight:
+            raise ValueError(f"Instruction {instruction} has no weights.")
+        offset = sum(prod(ins.path_shape) for ins in self.instructions[:instruction])
+        ins = self.instructions[instruction]
+        return offset, offset + prod(ins.path_shape), ins.path_shape

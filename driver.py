@@ -14,7 +14,6 @@ from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
-from src.implementations.ComputationSchedule import ComputationSchedule
 
 logger = getLogger()
 
@@ -113,6 +112,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
 
 if __name__=='__main__':  
     FCTPP = FullyConnectedTPProblem
+    ChannelTPP = ChannelwiseTPP 
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
         FCTPP("1x1e", "1x1e", "2x1e"),
@@ -160,7 +160,7 @@ if __name__=='__main__':
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 

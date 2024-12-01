@@ -48,6 +48,7 @@ class TestBenchmarkSuite:
     def generate_metadata(test_list : Iterable[TestDefinition]) -> dict[str, Any]: 
         impls, tpps, directions, corectnesses, benchmarks = zip(*test_list)
         config_names = list(set([str(tpp) for tpp in tpps]))
+        config_descriptions = list(set([str(tpp.description) for tpp in tpps]))
         implementation_names = list(set([impl.name() for impl in impls])) 
         directions = list(set(directions))
         did_correctness = any(corectnesses)
@@ -56,6 +57,7 @@ class TestBenchmarkSuite:
         metadata = {
                 "configs" : config_names,
                 "implementations" : implementation_names,
+                "descriptions": config_descriptions, 
                 "directions" : directions,
                 "did_correctness" :  did_correctness, 
                 "did_benchmark" : did_benchmark,
@@ -93,6 +95,7 @@ class TestBenchmarkSuite:
 
             result = {
                 "config": repr(tpp),
+                "description": tpp.description,
                 "direction": test.direction, 
                 "implementation_name": impl.name(),
                 "correctness": str(test.correctness),
