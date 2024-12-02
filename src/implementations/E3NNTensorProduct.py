@@ -48,16 +48,40 @@ class E3NNTensorProduct(TensorProduct):
         L3_out[:] = torch_L3_out.detach().numpy()
 
     def benchmark_forward(
-            self, 
-            num_warmup: int, 
-            num_iter: int, 
-            L1_in: np.ndarray, 
-            L2_in: np.ndarray, 
-            L3_buffer: np.ndarray, 
-            weights: np.ndarray
-            ) -> np.ndarray:
-        raise NotImplementedError("E3NNTensorProduct does not support benchmark forward")
-    
+        self, 
+        num_warmup : int, 
+        num_iter : int, 
+        L1_in : np.ndarray, 
+        L2_in : np.ndarray, 
+        L3_buffer : np.ndarray, 
+        weights : np.ndarray
+        ) -> np.ndarray:
+        '''
+        Returns the total time for num_iter iterations of the core inner loop forwards
+        after num_warmup warmup iterations. Can override for other implementations
+        Returns a np array of execution times in milliseconds
+        '''
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
+        torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
+        torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+        self.e3nn_tp.to(device='cuda')
+
+        for i in range(num_warmup): 
+            torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
+
+        for i in range(num_iter):
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+            torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
+            end.record()
+            torch.cuda.synchronize()
+            time_millis[i] = start.elapsed_time(end)
+            
+        return time_millis
+
     def backward(self, batch_size: np.uint64,
                 L1_in: np.uint64, L1_grad: np.uint64, 
                 L2_in: np.uint64, L2_grad: np.uint64,
@@ -93,3 +117,7 @@ class E3NNTensorProduct(TensorProduct):
 
     def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
         raise NotImplementedError("E3NNTensorProduct does not support benchmark backward")
+
+    @staticmethod
+    def name():
+        return "E3NNTensorProduct"

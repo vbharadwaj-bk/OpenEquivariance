@@ -45,5 +45,12 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("benchmark_forward_cpu", &ConvolutionImpl::benchmark_forward_cpu)
         .def("benchmark_backward_cpu", &ConvolutionImpl::benchmark_backward_cpu);
     py::class_<JITConvImpl, ConvolutionImpl>(m, "JITConvImpl")
-        .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>()); 
+        .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
+    py::class_<DeviceProp>(m, "DeviceProp")
+        .def(py::init<int>())
+        .def_readonly("warpsize", &DeviceProp::warpsize)
+        .def_readonly("major", &DeviceProp::major)
+        .def_readonly("minor", &DeviceProp::minor)
+        .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
+        .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock);
 }
