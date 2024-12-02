@@ -163,9 +163,9 @@ if __name__=='__main__':
         ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
     ]
 
-    #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [LoopUnrollTP]
-    directions = ['forward'] 
+    from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
+    implementations = [E3NNTensorProduct]
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
