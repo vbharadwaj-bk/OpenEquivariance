@@ -165,7 +165,7 @@ if __name__=='__main__':
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
     implementations = [LoopUnrollTP]
-    directions = ['forward']
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction

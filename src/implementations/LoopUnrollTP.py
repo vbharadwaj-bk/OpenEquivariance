@@ -46,6 +46,8 @@ class LoopUnrollTP(TensorProduct):
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
+        logger.info(f"CUDA Kernel File Size: {len(self.jit_kernel) // 1000} KB")
+
     @staticmethod
     def name():
         return "LoopUnrollTP"

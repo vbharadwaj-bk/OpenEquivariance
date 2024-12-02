@@ -150,7 +150,8 @@ class ChannelwiseTPP(TPProblem):
         instructions = sorted(instructions, key=lambda x: x[2])
         super().__init__(irreps1, irreps2, irreps_out, instructions,
             internal_weights=False,
-            shared_weights=False)
+            shared_weights=False,
+            description=description)
 
 def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable) -> TPProblem:
     irreps1 = Irreps(irreps1)
