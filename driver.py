@@ -165,7 +165,7 @@ if __name__=='__main__':
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [CUETensorProduct]
+    implementations = [CUETensorProduct, LoopUnrollTP]
     directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -186,4 +186,3 @@ if __name__=='__main__':
     bench_suite.run(tests)
 
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
-

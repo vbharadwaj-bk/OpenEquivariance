@@ -1,7 +1,9 @@
 import numpy as np
+import torch
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
+from src.benchmark.tpp_creation_utils import ChannelwiseTPP
 
 logger = getLogger()
 
@@ -15,11 +17,11 @@ class CUETensorProduct(TensorProduct):
 
         # Currently, we only support channelwise tensor products.
         # Can expand to include self-connection layers 
-        assert(isinstance(config, ChannelwiseTensorProduct))
+        assert(isinstance(config, ChannelwiseTPP))
 
         e = cue.descriptors.channelwise_tensor_product(
             cue.Irreps("O3", str(config.irreps_in1)),
-            cue.Irreps("O3", str(config.irreps_in2)) 
+            cue.Irreps("O3", str(config.irreps_in2)), 
             cue.Irreps("O3", str(config.irreps_out))
         )
 
@@ -107,4 +109,4 @@ class CUETensorProduct(TensorProduct):
 
     @staticmethod
     def name():
-        return "E3NNTensorProduct"
+        return "CUETensorProduct"
