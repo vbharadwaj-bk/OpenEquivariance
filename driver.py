@@ -147,13 +147,6 @@ if __name__=='__main__':
         FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
     ]
 
-    problems = list(itertools.chain(
-        basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
-        basic_multi_interaction_problems,
-    ))
-
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
         #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
@@ -164,13 +157,30 @@ if __name__=='__main__':
         ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
     ]
 
+    problems = list(itertools.chain(
+        # basic_fully_connected_problems,
+        # increasing_multiplicty_fully_connected_problems,
+        full_size_uvw_case,
+        # basic_multi_interaction_problems,
+        # conv_problems,
+    ))
+
+    
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [CUETensorProduct, LoopUnrollTP]
-    directions = ['forward'] 
+    implementations = [
+        CUETensorProduct, 
+        # LoopUnrollTP,
+        MultiplicityOuterProductTP
+        ]
+    
+    directions = [
+        'forward',
+        # 'backward',
+        ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
-             for implementation, problem, direction
-             in itertools.product(implementations, conv_problems, directions)]
+             for problem, direction, implementation
+             in itertools.product(problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
