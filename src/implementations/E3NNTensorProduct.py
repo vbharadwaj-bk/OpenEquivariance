@@ -1,4 +1,3 @@
-import e3nn, torch
 import numpy as np
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
@@ -10,6 +9,7 @@ logger = getLogger()
 class E3NNTensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=False):
         super().__init__(config, torch_op=torch_op)
+        import e3nn, torch
         self.e3nn_tp = e3nn.o3.TensorProduct(
                     config.irreps_in1, 
                     config.irreps_in2, 
