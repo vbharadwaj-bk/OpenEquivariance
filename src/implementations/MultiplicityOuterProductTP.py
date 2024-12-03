@@ -77,7 +77,6 @@ class MultiplicityOuterProductTP(TensorProduct):
                 values = [str(float.hex(float(val))) + "f" for val in float_values]
 
                 self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
-              # self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
                 self.nnz = len(values)
 
         # =====================================================================
@@ -148,7 +147,6 @@ class MultiplicityOuterProductTP(TensorProduct):
             w = ins.i_out
             interaction = (u, v, w, CGTensor(irreps_in1[u].ir.l, irreps_in2[v].ir.l, irreps_out[w].ir.l))
             interactions.append(interaction)
-        # interactions.sort(key=lambda x: (x[2], x[0], x[1]))
 
 
         assert len(interactions) != 0
@@ -176,6 +174,6 @@ class MultiplicityOuterProductTP(TensorProduct):
         logger.info("Kernel compiled!")
 
 
-    @staticmethod
-    def name():
-        return "MultiplicityOuterProductTP"
+    @classmethod
+    def name(cls):
+        return cls.__name__
