@@ -1,10 +1,10 @@
-import torch
+import torch, time
 import cuequivariance as cue
 import cuequivariance_torch as cuet
 
 e = cue.descriptors.channelwise_tensor_product(
     cue.Irreps("O3", "128x0e + 128x1o + 128x2e"),
-    cue.Irreps("O3", "1x0e + 1x1e"))
+    cue.Irreps("O3", "1x0e + 1x1e + 1x2e + 1x3e"))
     #cue.Irreps("O3", "32x5e"),
     #cue.Irreps("O3", "1x3e"),
     #cue.Irreps("O3", "32x5e"))
@@ -14,7 +14,7 @@ module.to('cuda')
 
 print(module)
 
-batch=100000
+batch=50000
 
 w = torch.randn((batch, e.inputs[0].irreps.dim)).to('cuda')
 x = torch.randn((batch, e.inputs[1].irreps.dim)).to('cuda')
@@ -26,13 +26,15 @@ y = torch.randn((batch, e.inputs[2].irreps.dim)).to('cuda')
 results = []
 
 for i in range(10):
-    start = torch.cuda.Event(enable_timing=True)
-    end = torch.cuda.Event(enable_timing=True)
-    start.record()
-    results.append(module(w, x, y, use_fallback=False))
-    end.record()
-    torch.cuda.synchronize() 
-    print(start.elapsed_time(end))
+    #start = torch.cuda.Event(enable_timing=True)
+    #end = torch.cuda.Event(enable_timing=True)
+    #start.record()
+    start = time.time)
+    result = module(w, x, y, use_fallback=False)
+    #results.append(module(w, x, y, use_fallback=False))
+    #end.record()
+    #torch.cuda.synchronize() 
+    #print(start.elapsed_time(end))
 
 #grad = torch.randn(*result.shape).to('cuda')
 

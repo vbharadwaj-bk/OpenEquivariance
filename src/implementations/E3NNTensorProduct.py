@@ -100,9 +100,9 @@ class E3NNTensorProduct(TensorProduct):
             weights : np.ndarray,
             weights_grad : np.ndarray,
             ) -> None:
+
         torch_L1_in = torch.tensor(L1_in, requires_grad=True)
-        torch_L2_in = torch.tensor(L2_in, requires_grad=True)
-        
+        torch_L2_in = torch.tensor(L2_in, requires_grad=True)        
         torch_weights = torch.tensor(weights, requires_grad=True)
 
         torch_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
@@ -115,8 +115,41 @@ class E3NNTensorProduct(TensorProduct):
         L2_grad[:] = torch_L2_in.grad.detach().numpy()
         weights_grad[:] = torch_weights.grad.detach().numpy()
 
+
     def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
-        raise NotImplementedError("E3NNTensorProduct does not support benchmark backward")
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        torch_L1_in = torch.tensor(L1_in, requires_grad=True)
+        torch_L2_in = torch.tensor(L2_in, requires_grad=True) 
+        torch_weights = torch.tensor(weights, requires_grad=True)
+        torch_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
+        torch_L3_grad_in = torch.tensor(L3_buffer)
+
+        for i in range(num_warmup): 
+            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+        for i in range(num_iter):
+            torch_L1_in.grad.zero_()
+            torch_L2_in.grad.zero_()
+            torch_weights.grad.zero_()
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+
+            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+            end.record()
+            torch.cuda.synchronize()
+            time_millis[i] = start.elapsed_time(end)
+
+        L1_grad[:] = 0.0
+        L1_grad[:] = 0.0
+
+        L1_grad[:] = torch_L1_in.grad.detach().numpy()
+        L2_grad[:] = torch_L2_in.grad.detach().numpy()
+        weights_grad[:] = torch_weights.grad.detach().numpy()
+
+        return time_millis
 
     @staticmethod
     def name():

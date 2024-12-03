@@ -22,7 +22,7 @@ class TensorProduct:
     def __init__(self, config : TPProblem, torch_op : bool = False):
         assert isinstance(config, TPProblem)
         assert isinstance(torch_op, bool)
-        self.config = config 
+        self.config, self.torch_op = config, torch_op
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
 
         self.tp_id = TensorProduct.next_tp_id
@@ -31,7 +31,7 @@ class TensorProduct:
         if torch_op:
             self.setup_torch_module()
 
-    def forward(
+    def forward_raw(
         self,
         batch : np.uint64,
         L1_in: np.uint64,
@@ -57,7 +57,7 @@ class TensorProduct:
         '''
         self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
 
-    def backward(self, batch_size: np.uint64,
+    def backward_raw(self, batch_size: np.uint64,
                 L1_in: np.uint64, L1_grad: np.uint64, 
                 L2_in: np.uint64, L2_grad: np.uint64,
                 weights: np.uint64, weights_grad: np.uint64,
@@ -94,18 +94,33 @@ class TensorProduct:
         L1_in : np.ndarray, 
         L2_in : np.ndarray, 
         L3_buffer : np.ndarray, 
-        weights : np.ndarray
-        ) -> np.ndarray:
+        weights : np.ndarray) -> np.ndarray:
         '''
-        Returns the total time for num_iter iterations of the core inner loop forwards
-        after num_warmup warmup iterations. Can override for other implementations
-        Returns a np array of execution times in milliseconds
+        Returns array of execution times in milliseconds
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
+        if self.torch_op:
+            import torch
+            torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.Tensor(weights).to(device='cuda').detach()
 
-        self.internal.benchmark_forward_cpu(
-                    L1_in, L2_in, L3_buffer, weights,
-                    num_warmup, time_millis)
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+
+            for i in range(num_warmup): 
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+            for i in range(num_iter):
+                start.record()
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+                end.record()
+                torch.cuda.synchronize()
+                time_millis[i] = start.elapsed_time(end)
+        else:
+            self.internal.benchmark_forward_cpu(
+                        L1_in, L2_in, L3_buffer, weights,
+                        num_warmup, time_millis)
             
         return time_millis
     
@@ -157,8 +172,8 @@ class TensorProduct:
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
-            L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
-            self.exec_tensor_product(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
+            L3_out = torch.empty((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
+            self.forward_raw(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
             return L3_out
         
         @forward.register_fake
@@ -171,11 +186,11 @@ class TensorProduct:
         @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
         def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                      weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
-            L1_grad = torch.zeros_like(L1_in)
-            L2_grad = torch.zeros_like(L2_in)
-            weights_grad = torch.zeros_like(weights)
+            L1_grad = torch.empty_like(L1_in)
+            L2_grad = torch.empty_like(L2_in)
+            weights_grad = torch.empty_like(weights)
             
-            self.backward( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
+            self.backward_raw( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
                         L2_in.data_ptr(), L2_grad.data_ptr(),
                         weights.data_ptr(), weights_grad.data_ptr(),
                         L3_grad.data_ptr() )

@@ -13,6 +13,7 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.implementations.CUETensorProduct import CUETensorProduct 
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
 
 logger = getLogger()
@@ -160,11 +161,11 @@ if __name__=='__main__':
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [LoopUnrollTP]
+    implementations = [CUETensorProduct, LoopUnrollTP]
     directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -174,7 +175,7 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=100000,
+        bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
@@ -185,4 +186,3 @@ if __name__=='__main__':
     bench_suite.run(tests)
 
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
-

@@ -4,8 +4,9 @@ import itertools, typing
 
 from src.benchmark.logging_utils import *
 
-from src.implementations.NumpyTensorProduct import NumpyTensorProduct 
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
 from src.implementations.LoopUnrollTP import LoopUnrollTP
+from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
 
@@ -24,18 +25,23 @@ nequip_conv = [
     CTPP('64x0o + 64x0e + 64x1o + 64x1e', '0e + 1o', 1, 'nequip-revmd17-aspirin'),
     CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e', '0e + 1o + 2e', 2, 'nequip-revmd17-toluene'),
     CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', 3, 'nequip-revmd17-benzene'),
-    CTPP('32x0o + 32x0e + 32x1o + 32x1e', '0e + 1o', 1, 'nequip-water'),
-    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-water')
+    CTPP('32x0o + 32x0e + 32x1o + 32x1e', '0e + 1o', 1, 'nequip-waterA'),
+    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
 ]
 
 def benchmark_conv():
-    implementations = [LoopUnrollTP]
+    implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
     directions = ['forward', 'backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, mace_conv + nequip_conv, directions)]
- 
+
+    # CUE tensor product cannot handle backwards pass 
+    tests = [test for test in tests 
+            if test.direction == 'forward' 
+            or test.implementation != CUETensorProduct]
+
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,

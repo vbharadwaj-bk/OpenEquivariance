@@ -53,7 +53,8 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
         label=True,
         edgecolor='k',
         edgewidth=1.0,
-        bar_height_fontsize=7):
+        bar_height_fontsize=7,
+        xticklabel=True):
     '''
     data is a dictionary with the following structure:
     xtick_label -> dict(bar_label->value)
@@ -111,12 +112,14 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
                 ax.bar_label(rects, padding=3, fontsize=bar_height_fontsize) 
 
         coord += len(bars) * bar_width + group_spacing
-        
-    if rotate_xlabels:
-        ax.set_xticks(xticks, labels=xtick_labels, rotation=45, ha='right')
-    else:
-         ax.set_xticks(xticks, labels=xtick_labels)
-            
+
+    if xticklabel: 
+        if rotate_xlabels:
+            ax.set_xticks(xticks, labels=xtick_labels, rotation=45, ha='right')
+        else:
+            ax.set_xticks(xticks, labels=xtick_labels)
+    else: 
+        ax.set_xticks(xticks) 
 
 def barchart(xlabels, heights, ax, bar_width=1.0, spacing=3.0, rotate_xlabels=True, colormap=None, data_label="_", 
         edgecolor='k', edgewidth=1.0, bar_height_fontsize=10):
