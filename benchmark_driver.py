@@ -6,6 +6,7 @@ from src.benchmark.logging_utils import *
 
 from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
 from src.implementations.LoopUnrollTP import LoopUnrollTP
+from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
 
@@ -29,13 +30,18 @@ nequip_conv = [
 ]
 
 def benchmark_conv():
-    implementations = [E3NNTensorProduct, LoopUnrollTP]
+    implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
     directions = ['forward', 'backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, mace_conv + nequip_conv, directions)]
- 
+
+    # CUE tensor product cannot handle backwards pass 
+    tests = [test for test in tests 
+            if test.direction == 'forward' 
+            or test.implementation != CUETensorProduct]
+
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
