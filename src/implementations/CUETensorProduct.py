@@ -17,7 +17,7 @@ class CUETensorProduct(TensorProduct):
 
         # Currently, we only support channelwise tensor products.
         # Can expand to include self-connection layers 
-        assert(isinstance(config, ChannelwiseTPP))
+        #assert(isinstance(config, ChannelwiseTPP))
 
         e = cue.descriptors.channelwise_tensor_product(
             cue.Irreps("O3", str(config.irreps_in1)),

@@ -61,7 +61,7 @@ def benchmark_conv():
     bench_suite.run(tests)
 
 def benchmark_roofline():
-    implementations = [LoopUnrollTP]
+    implementations = [LoopUnrollTP, CUETensorProduct]
     directions = ['forward', 'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
