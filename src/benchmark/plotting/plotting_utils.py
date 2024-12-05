@@ -7,7 +7,7 @@ FIGURES_FOLDER      =pathlib.Path("/global/homes/a/aglover/equivariant_spmm/figu
 
 Project = Literal[
     'e3nn',
-    'cuEquivariance', 
+    'cuE', 
     'ours'
 ]
 
@@ -15,13 +15,13 @@ impl_to_project_map : dict[str, Project] = defaultdict(
     lambda: 'ours', 
     { 
     'E3NNTensorProduct' : 'e3nn',
-    'CUETensorProduct' : 'cuEquivariance',
+    'CUETensorProduct' : 'cuE',
     }
 )
 
 project_to_color_map : dict[Project, str] = {
     'e3nn' : 'lightblue',
-    'cuEquivariance' : 'orange',
+    'cuE' : 'orange',
     'ours' : 'green'
 }
 
