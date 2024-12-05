@@ -10,6 +10,7 @@ from build.kernel_wrapper import *
 from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
@@ -159,8 +160,8 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        # increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
+         increasing_multiplicty_fully_connected_problems,
+        # full_size_uvw_case,
         # basic_multi_interaction_problems,
         # conv_problems,
     ))
@@ -168,6 +169,7 @@ if __name__=='__main__':
     
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
     implementations = [
+        E3NNTensorProduct,
         CUETensorProduct, 
         # LoopUnrollTP,
         MultiplicityOuterProductTP
