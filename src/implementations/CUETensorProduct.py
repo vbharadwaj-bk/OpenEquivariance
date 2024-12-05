@@ -103,7 +103,6 @@ class CUETensorProduct(TensorProduct):
             ) -> None:
         raise NotImplementedError("CUETensorProduct does not support backward_cpu!")
 
-
     def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
         return time_millis
 

@@ -161,12 +161,12 @@ if __name__=='__main__':
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
+        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [CUETensorProduct, LoopUnrollTP]
-    directions = ['forward'] 
+    implementations = [LoopUnrollTP]
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
@@ -175,7 +175,7 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=50000,
+        bench_batch_size=10000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
