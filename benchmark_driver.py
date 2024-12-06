@@ -29,12 +29,16 @@ nequip_conv = [
     CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
 ]
 
+
 roofline_configs = [
-    SingleInstruction("32x1e", "1x1e", "32x1e", "uvu", "[1]"),
-    SingleInstruction("32x2e", "1x1e", "32x2e", "uvu", "[2]"),
-    SingleInstruction("32x3e", "1x3e", "32x3e", "uvu", "[3]"),
-    SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", "[4]"),
-    SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", "[5]"),
+    SingleInstruction(L1, L2, L3, cm, f"[{i+1}]#{L1} x {L2} -> {L3} ({cm})")
+    for i, (L1, L2, L3, cm) in enumerate([
+        ("32x1e", "1x1e", "32x1e", "uvu"), 
+        ("32x2e", "1x1e", "32x2e", "uvu"),
+        ("32x3e", "1x3e", "32x3e", "uvu"),
+        ("32x5e", "1x5e", "32x3e", "uvu"),
+        ("32x5e", "1x3e", "32x5e", "uvu") 
+    ])
 ]
 
 def benchmark_conv():
