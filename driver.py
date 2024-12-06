@@ -122,11 +122,12 @@ if __name__=='__main__':
         FCTPP("2x1e", "1x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "2x1e"),
+        FCTPP("2x1e", "2x1e", "4x1e"),
         
     ]
 
     increasing_multiplicty_fully_connected_problems = [
-        FCTPP("2x1e", "2x1e", "4x1e"),
+        FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
         FCTPP("8x1e", "8x1e", "8x1e"),
         FCTPP("16x1e", "16x1e", "16x1e"),
@@ -177,7 +178,7 @@ if __name__=='__main__':
     
     directions = [
         'forward',
-        # 'backward',
+        'backward',
         ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
