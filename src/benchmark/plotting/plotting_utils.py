@@ -25,6 +25,12 @@ project_to_color_map : dict[Project, str] = {
     'ours' : 'green'
 }
 
+project_to_display_order_map : dict[Project, int] = {
+    'e3nn' : 0, 
+    'cuE'  : 1,
+    'ours' : 2, 
+}
+
 def get_latest_experiment_path() -> pathlib.Path:
     latest_experiment = max(
         (folder for folder in BENCHMARK_FOLDER.iterdir() if folder.is_dir() and folder.name.isdigit()),
