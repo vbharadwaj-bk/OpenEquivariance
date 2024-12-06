@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os, json, pathlib, sys, logging
+import os, json, pathlib, sys, logging, re
 
 from plotting_utils import (
     BENCHMARK_FOLDER,
@@ -8,6 +8,7 @@ from plotting_utils import (
     Project, 
     impl_to_project_map, 
     project_to_color_map,
+    project_to_display_order_map,
     get_latest_experiment_path
     )
 
@@ -27,6 +28,11 @@ benchmarks, metadata = load_benchmarks(BENCHMARK_FOLDER, latest_experiment_path.
 
 configs = metadata['configs']
 implementations = metadata['implementations']
+directions = metadata['directions']
+
+sort_key = lambda s: int(re.search(r'->\s*(\d+)', s).group(1))
+configs.sort(key=sort_key)
+implementations.sort(key=lambda x : project_to_display_order_map[impl_to_project_map[x]])
 
 labelmap = impl_to_project_map
 colormap = project_to_color_map
@@ -35,16 +41,16 @@ def calculate_tp_per_sec(exp):
     return exp["benchmark results"]["batch_size"] / (np.mean(exp["benchmark results"]["time_millis"]) * 0.001)
 
 data = {"forward": {}, "backward": {}}
-for i, config in enumerate(configs):
-    for direction in ["forward"]:
+for direction in directions:
+    data[direction] = {}
+    for config in configs: 
         data[direction][config] = {}
         for impl in implementations:
-            if True: # direction == "forward":
-                exp = filter(benchmarks, {"config": config, 
-                                          "direction": direction, 
-                                          "implementation_name": impl}, match_one=True)
-                
-                data[direction][config][labelmap[impl]] = calculate_tp_per_sec(exp)
+            exp = filter(benchmarks, {"config": config, 
+                                        "direction": direction, 
+                                        "implementation_name": impl}, match_one=True)
+            
+            data[direction][config][labelmap[impl]] = calculate_tp_per_sec(exp)
 
 
 def set_grid(ax):
@@ -55,13 +61,21 @@ fig, axs = plt.subplots(ncols=1, nrows=2, figsize=(5.0, 7.0))
 axs[0].set_title("Node Update Tensor Products")
 fig.supylabel("Throughput (# tensor products / s)", x=0.03, y=0.56)
 grouped_barchart(data["forward"], axs[0], bar_height_fontsize=0, xticklabel=False, colormap=colormap)
-# grouped_barchart(data["backward"], axs[1], bar_height_fontsize=0, colormap=colormap)
+grouped_barchart(data["backward"], axs[1], bar_height_fontsize=0, xticklabel=True, colormap=colormap)
 
 set_grid(axs[0])
 set_grid(axs[1])
 axs[0].xaxis.set_ticklabels([])
 
-#axs[1].set_xlabel("Input Configuration")
+xtick_labels = axs[1].get_xticklabels()
+
+for tick in xtick_labels:
+    text = tick.get_text()
+    modified_text = text[text.index('('):]
+    tick.set_text(modified_text)
+    tick.set_fontsize(8)
+
+axs[1].set_xticklabels(xtick_labels)
 
 axs[0].set_ylabel("Forward")
 axs[1].set_ylabel("Backward")
