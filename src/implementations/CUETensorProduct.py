@@ -74,14 +74,14 @@ class CUETensorProduct(TensorProduct):
         ) -> np.ndarray:
         '''
         Returns the total time for num_iter iterations of the core inner loop forwards
-        after num_warmup warmup iterations. Can override for other implementations
+        after num_warmup warmup iterations.
         Returns a np array of execution times in milliseconds
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
-        torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
-        torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+        torch_L1_in = torch.tensor(L1_in, device='cuda')
+        torch_L2_in = torch.tensor(L2_in, device='cuda')
+        torch_weights = torch.tensor(weights, device='cuda')
 
         start = torch.cuda.Event(enable_timing=True)
         end = torch.cuda.Event(enable_timing=True)
@@ -119,9 +119,55 @@ class CUETensorProduct(TensorProduct):
         raise NotImplementedError("CUETensorProduct does not support backward_cpu!")
 
 
-    def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
-        return time_millis
+    def benchmark_backward(
+            self, 
+            num_warmup: int, 
+            num_iter: int, 
+            L1_in: np.ndarray, 
+            L2_in: np.ndarray, 
+            L3_buffer: np.ndarray, 
+            weights: np.ndarray, 
+            L1_grad: np.ndarray, 
+            L2_grad: np.ndarray, 
+            weights_grad: np.ndarray
+            ) -> np.ndarray:
+        
+        time_millis = np.zeros(num_iter, dtype=np.float32)
 
+        torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+        torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
+        torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+
+        torch_out = self.cue_tp(torch_weights, torch_L1_in, torch_L2_in, use_fallback=False)
+
+        torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
+
+        for i in range(num_warmup): 
+            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+        for i in range(num_iter):
+            torch_L1_in.grad.zero_()
+            torch_L2_in.grad.zero_()
+            torch_weights.grad.zero_()
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+
+            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+            end.record()
+            torch.cuda.synchronize()
+            time_millis[i] = start.elapsed_time(end)
+
+        L1_grad[:] = 0.0
+        L1_grad[:] = 0.0
+
+        L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+        L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+        weights_grad[:] = torch_weights.grad.numpy(force=True)
+
+        return time_millis
+        
     @staticmethod
     def name():
         return "CUETensorProduct"
