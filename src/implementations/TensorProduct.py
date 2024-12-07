@@ -112,18 +112,14 @@ class TensorProduct:
             torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
             torch_weights = torch.Tensor(weights).to(device='cuda').detach()
 
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-
             for i in range(num_warmup): 
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
 
+            timer = GPUTimer()
             for i in range(num_iter):
-                start.record()
+                timer.start()
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
-                end.record()
-                torch.cuda.synchronize()
-                time_millis[i] = start.elapsed_time(end)
+                time_millis[i] = timer.stop_clock_get_elapsed() 
         else:
             batch = L1_in.shape[0]
             L1_d = DeviceBuffer(L1_in)
@@ -134,19 +130,10 @@ class TensorProduct:
             for i in range(num_warmup):
                 self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
 
-            import torch
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-
             timer = GPUTimer()
-
             for i in range(num_iter):
-                #start.record()
-                #end.record()
-                #torch.cuda.synchronize()
-                #time_millis[i] = start.elapsed_time(end)
                 timer.start()
-                #self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+                self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
                 time_millis[i] = timer.stop_clock_get_elapsed() 
             
         return time_millis

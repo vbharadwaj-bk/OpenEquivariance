@@ -9,7 +9,7 @@ from src.benchmark.e3nn_lite_utils import count_cg_non_zero
 logger = getLogger()
 
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, config, torch_op=False):
+    def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
