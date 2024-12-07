@@ -1,6 +1,8 @@
+import math
+from typing import NamedTuple
+
 import numpy as np
 
-from typing import NamedTuple
 from src.benchmark.e3nn_lite_utils import calc_weight_offsets
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
@@ -151,6 +153,7 @@ class LoopReorderUVWTP(TensorProduct):
         env.globals['range'] = range
         env.globals['enumerate'] = enumerate 
         env.globals['len'] = len
+        env.globals['math.prod'] = math.prod
         main_template = env.get_template("subkernel_per_interaction_multirep.cuh")
         
 
