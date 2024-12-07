@@ -181,6 +181,17 @@ __global__ void forward(
     if (group.thread_rank() == 0){
         init(&barrier, group.size());
     }
+    
+    {%- for II in InstructionInfoList %}
+    {
+        float* instruction_weights = weights + {{II.weight_offset}};
+        int instruction_num_weights = {{math.prod(II.weight_shape)}}; 
+
+        
+
+    }
+    {% endfor %}    
+
 
     group.sync(); 
     // GRID STRIDE LOOP
