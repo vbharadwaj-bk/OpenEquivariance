@@ -40,29 +40,6 @@ public:
             reinterpret_cast<float*>(weights));
     } 
 
-    // Executes function with CPU inputs from Python. Issues
-    // memcpy to / from device. This function fills the weight matrix
-    // with ones for now. 
-    void exec_tensor_product_cpu(
-            py::array_t<float> L1_in_py,
-            py::array_t<float> L2_in_py,
-            py::array_t<float> L3_out_py,
-            py::array_t<float> weights_py) {
-        
-        // To get batch dimension 
-        Buffer<float> L3_out_host(L3_out_py);
-        auto batch_dim = L3_out_host.shape[0];
-
-        // Copies data to device 
-        DeviceBuffer<float> L1_in(L1_in_py);
-        DeviceBuffer<float> L2_in(L2_in_py);
-        DeviceBuffer<float> L3_out(L3_out_host.size());
-        DeviceBuffer<float> weights(weights_py);
-
-        exec_tensor_product(batch_dim, L1_in.ptr, L2_in.ptr, L3_out.ptr, weights.ptr);
-        L3_out.copy_to_host_buffer(L3_out_host);
-    }
-
     virtual void backward(
             size_t num_products,
             float* L1_in, float* L1_grad,
@@ -120,18 +97,6 @@ public:
         L2_grad.copy_to_host_buffer(L2_grad_host);
         weight_grad.copy_to_host_buffer(weight_grad_host);
     }
-
-    /*
-    * This benchmarking function does not clear cache, etc. between runs. It copies
-    * data from the CPU to the GPU, but only once. This time is not included in benchmarking.
-    */
-    void benchmark_forward_cpu(
-            py::array_t<float> L1_in_py,
-            py::array_t<float> L2_in_py,
-            py::array_t<float> L3_out_py,
-            py::array_t<float> weights_py,
-            uint64_t num_warmup,
-            py::array_t<float> time_millis_py);
 
     void benchmark_backward_cpu(
             py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,

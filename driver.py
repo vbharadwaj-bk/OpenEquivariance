@@ -155,9 +155,9 @@ if __name__=='__main__':
     ))
 
     conv_problems = [  
-        FCTPP("32x2e", "32x1e", "32x2e"),
+        #FCTPP("32x2e", "32x1e", "32x2e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
+        SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
@@ -165,7 +165,7 @@ if __name__=='__main__':
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [MultiplicityOuterProductTP]
+    implementations = [LoopUnrollTP]
     directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
