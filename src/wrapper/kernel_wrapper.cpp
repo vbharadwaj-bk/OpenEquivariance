@@ -30,9 +30,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     //=========== Batch tensor products =========
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product_device_rawptrs)
-        .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
-        .def("backward", &GenericTensorProductImpl::backward_device_rawptrs)
-        .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
+        .def("backward", &GenericTensorProductImpl::backward_device_rawptrs);
     py::class_<JITTPImpl, GenericTensorProductImpl>(m, "JITTPImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 

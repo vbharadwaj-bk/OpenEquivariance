@@ -14,8 +14,6 @@
 
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
-    bool record_internal_stats = false;
-
     GenericTensorProductImpl() { }
 
     virtual void exec_tensor_product(
@@ -65,46 +63,6 @@ public:
             reinterpret_cast<float*>(L3_grad)
         );
     }
-
-    void backward_cpu(
-            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
-            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
-            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
-            py::array_t<float> L3_grad_py) {
-
-        Buffer<float> L1_grad_host(L1_grad_py);
-        Buffer<float> L2_grad_host(L2_grad_py);
-        Buffer<float> L3_grad_host(L3_grad_py);
-        Buffer<float> weight_grad_host(weight_grad_py);
-
-        // Copies data to device 
-        DeviceBuffer<float> L1_in(L1_in_py);
-        DeviceBuffer<float> L2_in(L2_in_py);
-        DeviceBuffer<float> weight(weight_py);
-        DeviceBuffer<float> L3_grad(L3_grad_py);
-
-        DeviceBuffer<float> L1_grad(L1_grad_py.size());
-        DeviceBuffer<float> L2_grad(L2_grad_py.size());
-        DeviceBuffer<float> weight_grad(weight_grad_py.size());
-
-        backward(L3_grad_host.shape[0], 
-                L1_in.ptr, L1_grad.ptr,
-                L2_in.ptr, L2_grad.ptr,
-                weight.ptr, weight_grad.ptr,
-                L3_grad.ptr);
-
-        L1_grad.copy_to_host_buffer(L1_grad_host);
-        L2_grad.copy_to_host_buffer(L2_grad_host);
-        weight_grad.copy_to_host_buffer(weight_grad_host);
-    }
-
-    void benchmark_backward_cpu(
-            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
-            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
-            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
-            py::array_t<float> L3_grad_py,
-            uint64_t num_warmup,
-            py::array_t<float> time_millis_py);
 
     virtual ~GenericTensorProductImpl() {};
 };
