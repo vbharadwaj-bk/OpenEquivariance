@@ -50,11 +50,6 @@ public:
     virtual ~GenericTensorProductImpl() {};
 };
 
-
-//=========================================================================
-/*
-* A tensor product where we write out all instructions into a JIT-compiled kernel.
-*/
 class __attribute__ ((visibility ("default"))) JITTPImpl : public GenericTensorProductImpl {
 public:
     JITKernel jit;

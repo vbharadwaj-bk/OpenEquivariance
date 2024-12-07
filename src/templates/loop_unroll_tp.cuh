@@ -7,12 +7,12 @@
 {%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
-__device__ __forceinline__ void forward_loop_unroll_{{id}}(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
-        const float* __restrict__ weights_smem, float* __restrict__ L3_smem, int lane_id) {
-    float l1_vec[{{L1_irrep_lengths | max}}];
-    float l2_vec[{{L2_irrep_lengths | max}}];
-    float l3_vec[{{L3_irrep_lengths | max}}];
-    float weight;
+__device__ __forceinline__ void forward_loop_unroll_{{id}}(const IRREP_T* __restrict__ L1_smem, const IRREP_T* __restrict__ L2_smem, 
+        const WEIGHT_T* __restrict__ weights_smem, IRREP_T* __restrict__ L3_smem, int lane_id) {
+    IRREP_T l1_vec[{{L1_irrep_lengths | max}}];
+    IRREP_T l2_vec[{{L2_irrep_lengths | max}}];
+    IRREP_T l3_vec[{{L3_irrep_lengths | max}}];
+    WEIGHT_T weight;
     int offset;
 
     {%- set num_interact = interactions | length %}
@@ -63,28 +63,28 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const float* __restri
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
 __device__ __forceinline__ void backward_loop_unroll_{{id}}(
-        const float* L1_smem,
-        const float* L2_smem,
-        const float* weights_smem,
-        const float* L3_grad_smem,
+        const IRREP_T* L1_smem,
+        const IRREP_T* L2_smem,
+        const WEIGHT_T* weights_smem,
+        const IRREP_T* L3_grad_smem,
 
-        float* L1_grad_smem,
-        float* L2_grad_smem,
-        float* weights_grad_smem,
+        IRREP_T* L1_grad_smem,
+        IRREP_T* L2_grad_smem,
+        WEIGHT_T* weights_grad_smem,
         int lane_id) {
 
-    float l1_vec[{{L1_irrep_lengths  | max}}]; 
-    float l1_grad[{{L1_irrep_lengths | max}}]; 
-    float l2_vec[{{L2_irrep_lengths  | max}}];
-    float l2_grad[{{L2_irrep_lengths | max}}]; 
-    float l3_grad[{{L3_irrep_lengths | max}}];
+    IRREP_T l1_vec[{{L1_irrep_lengths  | max}}]; 
+    IRREP_T l1_grad[{{L1_irrep_lengths | max}}]; 
+    IRREP_T l2_vec[{{L2_irrep_lengths  | max}}];
+    IRREP_T l2_grad[{{L2_irrep_lengths | max}}]; 
+    IRREP_T l3_grad[{{L3_irrep_lengths | max}}];
 
-    float weight, weight_grad;
+    WEIGHT_T weight, weight_grad;
     int offset;
 
     {%- set num_scratch_reg = 1 %}
-    float scratch1[{{num_scratch_reg}}];
-    float scratch2[{{num_scratch_reg}}];
+    IRREP_T scratch1[{{num_scratch_reg}}];
+    IRREP_T scratch2[{{num_scratch_reg}}];
 
     {%- set num_interact = interactions | length %}
 

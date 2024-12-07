@@ -14,22 +14,25 @@
 #define THREADS_PER_WARP {{ forward_schedule.launch_config.warp_size }} // Warp size should be the same for forward and backward
 #define FULL_MASK 0xffffffff
 
+using IRREP_T  = float;
+using WEIGHT_T = float;
+
 {%- for i, segment in enumerate(forward_schedule.segments) %}
 {{ generate_segment_kernel_forward(i, segment) }}
 {%- endfor %}
 
 __global__ void forward(
-        size_t num_products, float* L1_in, float* L2_in, float* L3_out, float* weights) {
+        size_t num_products, IRREP_T* L1_in, IRREP_T* L2_in, IRREP_T* L3_out, WEIGHT_T* weights) {
     extern __shared__ char s[];
     {{ set_launch_bound_variables(forward_schedule.launch_config) }}
     {%- set tpp = forward_schedule.updated_config %}
     char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
 
     for(size_t i = start; i < end; i++) {
-        float* l1 = L1_in + i * {{forward_schedule.L1.dim}} + lane_id;
-        float* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
-        float* l3 = L3_out + i * {{forward_schedule.L3.dim}} + lane_id;
-        float* w = weights + i * {{tpp.weight_numel}};
+        IRREP_T* l1 = L1_in + i * {{forward_schedule.L1.dim}} + lane_id;
+        IRREP_T* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
+        IRREP_T* l3 = L3_out + i * {{forward_schedule.L3.dim}} + lane_id;
+        WEIGHT_T* w = weights + i * {{tpp.weight_numel}};
 
         {%- for i, segment in enumerate(forward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
@@ -53,20 +56,20 @@ __global__ void forward(
 
 __global__ void backward(
         size_t num_products,
-        float* L1_in, float* L1_grad,
-        float* L2_in, float* L2_grad,
-        float* weights, float* weights_grad,
-        float* L3_grad) {
+        IRREP_T* L1_in, IRREP_T* L1_grad,
+        IRREP_T* L2_in, IRREP_T* L2_grad,
+        WEIGHT_T* weights, WEIGHT_T* weights_grad,
+        IRREP_T* L3_grad) {
     extern __shared__ char s[];
     {{ set_launch_bound_variables(backward_schedule.launch_config) }}
     char* smem = s + {{backward_schedule.memory_per_warp}} * warp_loc; 
 
     for(size_t i = start; i < end; i++) {
         {%- set tpp = backward_schedule.updated_config %}
-        float* l1_shft = L1_in + i * {{backward_schedule.L1.dim}} + lane_id;
-        float* l2_shft = L2_in + i * {{backward_schedule.L2.dim}} + lane_id; 
-        float* l3_shft = L3_grad + i * {{backward_schedule.L3.dim}} + lane_id;
-        float* weights_shft = weights + i * {{tpp.weight_numel}} + lane_id;
+        IRREP_T* l1_shft = L1_in + i * {{backward_schedule.L1.dim}} + lane_id;
+        IRREP_T* l2_shft = L2_in + i * {{backward_schedule.L2.dim}} + lane_id; 
+        IRREP_T* l3_shft = L3_grad + i * {{backward_schedule.L3.dim}} + lane_id;
+        WEIGHT_T* weights_shft = weights + i * {{tpp.weight_numel}} + lane_id;
 
         {%- for i, segment in enumerate(backward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
@@ -85,9 +88,9 @@ __global__ void backward(
                     L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
             __syncwarp();
 
-            float* l1_grad_shft = L1_grad + i * {{backward_schedule.L1.dim}} + lane_id;
-            float* l2_grad_shft = L2_grad + i * {{backward_schedule.L2.dim}} + lane_id;
-            float* weights_grad_shft = weights_grad + i * {{backward_schedule.updated_config.weight_numel}} + lane_id;
+            IRREP_T* l1_grad_shft = L1_grad + i * {{backward_schedule.L1.dim}} + lane_id;
+            IRREP_T* l2_grad_shft = L2_grad + i * {{backward_schedule.L2.dim}} + lane_id;
+            WEIGHT_T* weights_grad_shft = weights_grad + i * {{backward_schedule.updated_config.weight_numel}} + lane_id;
 
             {{ store_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") }}
             {{ store_ir_segments(segment.L2Map, "l2_grad_shft", "L2_grad_smem", "j") }}

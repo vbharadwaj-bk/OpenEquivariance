@@ -47,5 +47,4 @@ void JITTPImpl::backward(
 
     void *args[] = { &num_products, &L1_in, &L1_grad, &L2_in, &L2_grad, &weight, &weight_grad, &L3_grad}; 
     jit.execute(1, backward_config.num_blocks, backward_config.num_threads, args, backward_config.smem);
-} 
-
+}
