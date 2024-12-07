@@ -13,8 +13,8 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from src.implementations.CUETensorProduct import CUETensorProduct 
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
+#from src.implementations.CUETensorProduct import CUETensorProduct 
 
 logger = getLogger()
 
@@ -156,17 +156,17 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
     #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
     implementations = [LoopUnrollTP]
-    directions = ['backward'] 
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
@@ -175,7 +175,7 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=10000,
+        bench_batch_size=100000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )

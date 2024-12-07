@@ -29,6 +29,8 @@ class TensorProduct:
         TensorProduct.next_tp_id += 1
 
         if torch_op:
+            global torch
+            import torch
             self.setup_torch_module()
 
     def forward_raw(
@@ -44,19 +46,6 @@ class TensorProduct:
         '''
         self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out, weights) 
 
-    def forward_cpu(
-        self, 
-        L1_in: np.ndarray, 
-        L2_in: np.ndarray, 
-        L3_out: np.ndarray, 
-        weights: np.ndarray
-        ) -> None:
-        '''
-        All state initialization for the internal class occurs inside the
-        constructor. 
-        '''
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-
     def backward_raw(self, batch_size: np.uint64,
                 L1_in: np.uint64, L1_grad: np.uint64, 
                 L2_in: np.uint64, L2_grad: np.uint64,
@@ -71,6 +60,25 @@ class TensorProduct:
                 L2_in, L2_grad,
                 weights, weights_grad,
                 L3_grad)
+
+    def forward_cpu(
+        self, 
+        L1_in: np.ndarray, 
+        L2_in: np.ndarray, 
+        L3_out: np.ndarray, 
+        weights: np.ndarray
+        ) -> None:
+        '''
+        All state initialization for the internal class occurs inside the
+        constructor. 
+        '''
+        batch = L1_in.shape[0]
+        L1_d = DeviceBuffer(L1_in)
+        L2_d = DeviceBuffer(L2_in)
+        L3_d = DeviceBuffer(L3_out)
+        weights_d = DeviceBuffer(weights)
+        self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+        L3_d.copy_to_host()
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad) -> None:
         '''
@@ -100,7 +108,6 @@ class TensorProduct:
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
         if self.torch_op:
-            import torch
             torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
             torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
             torch_weights = torch.Tensor(weights).to(device='cuda').detach()
@@ -118,9 +125,29 @@ class TensorProduct:
                 torch.cuda.synchronize()
                 time_millis[i] = start.elapsed_time(end)
         else:
-            self.internal.benchmark_forward_cpu(
-                        L1_in, L2_in, L3_buffer, weights,
-                        num_warmup, time_millis)
+            batch = L1_in.shape[0]
+            L1_d = DeviceBuffer(L1_in)
+            L2_d = DeviceBuffer(L2_in)
+            L3_d = DeviceBuffer(L3_buffer)
+            weights_d = DeviceBuffer(weights)
+
+            for i in range(num_warmup):
+                self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+
+            import torch
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+
+            timer = GPUTimer()
+
+            for i in range(num_iter):
+                #start.record()
+                #end.record()
+                #torch.cuda.synchronize()
+                #time_millis[i] = start.elapsed_time(end)
+                timer.start()
+                #self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+                time_millis[i] = timer.stop_clock_get_elapsed() 
             
         return time_millis
     

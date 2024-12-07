@@ -52,9 +52,13 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def_readonly("major", &DeviceProp::major)
         .def_readonly("minor", &DeviceProp::minor)
         .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
-        .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock);
+        .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock); 
     py::class_<PyDeviceBuffer>(m, "DeviceBuffer")
         .def(py::init<py::buffer>())
         .def("copy_to_host", &PyDeviceBuffer::copy_to_host)
         .def("data_ptr", &PyDeviceBuffer::data_ptr);
+    py::class_<GPUTimer>(m, "GPUTimer")
+        .def(py::init<>())
+        .def("start", &GPUTimer::start)
+        .def("stop_clock_get_elapsed", &GPUTimer::stop_clock_get_elapsed);
 }
