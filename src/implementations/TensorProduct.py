@@ -1,8 +1,9 @@
-import pickle, pathlib
+import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+import torch
 
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
@@ -100,10 +101,9 @@ class TensorProduct:
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
         if self.torch_op:
-            import torch
-            torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
-            torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
-            torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+            torch_L1_in = torch.tensor(L1_in, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, device='cuda')
+            torch_weights = torch.tensor(weights, device='cuda')
 
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
@@ -143,7 +143,40 @@ class TensorProduct:
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        self.internal.benchmark_backward_cpu(
+        if self.torch_op: 
+            torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
+            torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights)
+
+            torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
+
+            for i in range(num_warmup): 
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+            for i in range(num_iter):
+                torch_L1_in.grad.zero_()
+                torch_L2_in.grad.zero_()
+                torch_weights.grad.zero_()
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record()
+
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
+
+                end.record()
+                torch.cuda.synchronize()
+                time_millis[i] = start.elapsed_time(end)
+
+            L1_grad[:] = 0.0
+            L1_grad[:] = 0.0
+
+            L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+            L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+            weights_grad[:] = torch_weights.grad.numpy(force=True)
+        else:
+            self.internal.benchmark_backward_cpu(
                     L1_in, L1_grad,
                     L2_in, L2_grad,
                     weights, weights_grad,
@@ -166,7 +199,7 @@ class TensorProduct:
 
 
     def setup_torch_module(self):
-        import torch, typing
+
 
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
