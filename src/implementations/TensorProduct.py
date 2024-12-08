@@ -1,8 +1,9 @@
-import pickle, pathlib
+import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+import torch
 
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
@@ -100,7 +101,6 @@ class TensorProduct:
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
         if self.torch_op:
-            import torch
             torch_L1_in = torch.tensor(L1_in, device='cuda')
             torch_L2_in = torch.tensor(L2_in, device='cuda')
             torch_weights = torch.tensor(weights, device='cuda')
@@ -144,8 +144,6 @@ class TensorProduct:
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
         if self.torch_op: 
-            import torch
-
             torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
             torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
             torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
@@ -201,7 +199,7 @@ class TensorProduct:
 
 
     def setup_torch_module(self):
-        import torch, typing
+
 
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")

@@ -1,5 +1,9 @@
 import numpy as np
+
 import torch
+import cuequivariance as cue
+import cuequivariance_torch as cuet
+
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
@@ -10,10 +14,6 @@ logger = getLogger()
 class CUETensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=False):
         super().__init__(config, torch_op=torch_op)
-
-        import torch
-        import cuequivariance as cue
-        import cuequivariance_torch as cuet
 
         # Currently, we only support channelwise tensor products.
         # Can expand to include self-connection layers 
