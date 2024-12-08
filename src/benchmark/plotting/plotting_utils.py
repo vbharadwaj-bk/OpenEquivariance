@@ -2,8 +2,8 @@ import pathlib
 from typing import Literal
 from collections import defaultdict
 
-BENCHMARK_FOLDER    =pathlib.Path("/global/homes/a/aglover/equivariant_spmm/outputs")
-FIGURES_FOLDER      =pathlib.Path("/global/homes/a/aglover/equivariant_spmm/figures")
+BENCHMARK_FOLDER    =pathlib.Path(__file__).parent.parent.parent.parent / "outputs" 
+FIGURES_FOLDER      =pathlib.Path(__file__).parent.parent.parent.parent / "figures"
 
 Project = Literal[
     'e3nn',
@@ -30,6 +30,16 @@ project_to_display_order_map : dict[Project, int] = {
     'cuE'  : 1,
     'ours' : 2, 
 }
+
+def set_grid(ax):
+        ax.set_axisbelow(True)
+        ax.grid(True)
+
+def calculate_tp_per_sec(exp):
+    return exp["benchmark results"]["batch_size"] / (np.mean(exp["benchmark results"]["time_millis"]) * 0.001)
+
+def sort_impls_by_display_order(implementations : list[str]) -> None :
+    implementations.sort(key=lambda x : project_to_display_order_map[impl_to_project_map[x]])  
 
 def get_latest_experiment_path() -> pathlib.Path:
     latest_experiment = max(
