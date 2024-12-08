@@ -47,18 +47,23 @@ class IrrepMapping:
         self.storeback_procedure = {idx: "write" for idx in self.idxs}
 
 class CGTensor:
-    def __init__(self, l1, l2, l3, normalization_factor):
+    def __init__(self, l1, l2, l3, normalization_factor, dtype):
+        suffix_map = {
+            np.float32: "f",
+            np.float64: "L"
+        }
+
         tensor = TensorProduct.load_cg_tensor(l1, l2, l3)
         coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
-        float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy() * normalization_factor
-        values = [str(float.hex(float(val))) + "f" for val in float_values]
+        float_values = tensor[np.nonzero(tensor)].astype(dtype).copy() * normalization_factor
+        values = [str(float.hex(float(val))) + suffix_map[dtype] for val in float_values]
 
         self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
         self.tuples.sort(key=lambda tup: (tup[1], tup[0], tup[2]))
         self.nnz = len(values)
 
 class ComputationSegment:
-    def __init__(self, L1Map, L2Map, L3Map, problem, smem, weight_offset):
+    def __init__(self, L1Map, L2Map, L3Map, problem, smem, weight_offset, irrep_dtype):
         self.L1Map = L1Map
         self.L2Map = L2Map
         self.L3Map = L3Map
@@ -73,7 +78,7 @@ class ComputationSegment:
         self.L3 = problem.irreps_out
 
         self.interactions = [(u, v, w,
-                CGTensor(self.L1[u].ir.l, self.L2[v].ir.l, self.L3[w].ir.l, path_weight)) 
+                CGTensor(self.L1[u].ir.l, self.L2[v].ir.l, self.L3[w].ir.l, path_weight, irrep_dtype)) 
                 for (u, v, w, _, _, path_weight, _) in problem.instructions]
 
         #self.interactions.sort(key=lambda x: (x[2], x[0], x[1]))
@@ -265,7 +270,7 @@ class ComputationSchedule:
                 weight_offset = self.segments[i-1].weight_offset + self.segments[i-1].problem.weight_numel
 
             self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, 
-                    calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset)
+                    calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset, irrep_dtype)
 
         # Calculate storeback procedures
         for ir_idx, ir in enumerate([self.L1, self.L2, self.L3]):

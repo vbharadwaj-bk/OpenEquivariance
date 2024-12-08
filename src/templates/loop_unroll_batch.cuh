@@ -14,8 +14,8 @@
 #define THREADS_PER_WARP {{ forward_schedule.launch_config.warp_size }} // Warp size should be the same for forward and backward
 #define FULL_MASK 0xffffffff
 
-using IRREP_T  = float;
-using WEIGHT_T = float;
+using IRREP_T  = {{ forward_schedule.irrep_dtype_cstr }};
+using WEIGHT_T = {{ forward_schedule.weight_dtype_cstr }};
 
 {%- for i, segment in enumerate(forward_schedule.segments) %}
 {{ generate_segment_kernel_forward(i, segment) }}

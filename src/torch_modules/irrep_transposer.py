@@ -11,7 +11,7 @@ class IrrepTransposer:
         IrrepTransposer.next_id += 1
 
         @torch.library.custom_op(f"fast_tp::transpose_forward{self.id}", mutates_args=(), device_types="cuda")
-        def forward(input : torch.Tensor, row_major: bool) -> torch.Tensor:
+        def forward(input : torch.tensor, row_major: bool) -> torch.tensor:
             irreps_to_transpose = np.array(input.contiguous().detach().cpu().numpy(), copy=True)
             self.rep.transpose_irreps_cpu(irreps_to_transpose, row_major)
             return torch.tensor(irreps_to_transpose, device='cuda')

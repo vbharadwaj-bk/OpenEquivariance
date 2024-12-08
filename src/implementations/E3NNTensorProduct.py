@@ -10,6 +10,11 @@ logger = getLogger()
 class E3NNTensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=False):
         super().__init__(config, torch_op=torch_op)
+
+        assert(config.irrep_dtype == config.weight_dtype)
+        if config.irrep_dtype == np.float64:
+            torch.set_default_dtype(torch.float64)
+
         self.e3nn_tp = e3nn.o3.TensorProduct(
                     config.irreps_in1, 
                     config.irreps_in2, 
@@ -22,7 +27,10 @@ class E3NNTensorProduct(TensorProduct):
                     path_normalization=config.path_normalization,
                     internal_weights=config.internal_weights,
                     shared_weights=config.shared_weights)
-        
+
+        if config.irrep_dtype == np.float64:
+            torch.set_default_dtype(torch.float32)  # Reset to default
+
     def forward(self,
             batch : np.uint64,
             L1_in: np.uint64,
@@ -39,10 +47,10 @@ class E3NNTensorProduct(TensorProduct):
             L3_out : np.ndarray, 
             weights : np.ndarray,
             ) -> None:
-        torch_L1_in = torch.Tensor(L1_in)
-        torch_L2_in = torch.Tensor(L2_in)
-        torch_weights = torch.Tensor(weights)
-        
+        torch_L1_in = torch.tensor(L1_in)
+        torch_L2_in = torch.tensor(L2_in)
+        torch_weights = torch.tensor(weights)
+
         torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
 
         L3_out[:] = torch_L3_out.detach().numpy()
@@ -63,9 +71,10 @@ class E3NNTensorProduct(TensorProduct):
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
-        torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
-        torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+        torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+        torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+
+        torch_weights = torch.tensor(weights).to(device='cuda').detach()
         self.e3nn_tp.to(device='cuda')
 
         for i in range(num_warmup): 

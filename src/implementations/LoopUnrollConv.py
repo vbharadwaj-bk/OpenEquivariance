@@ -22,15 +22,15 @@ class LoopUnrollConv(Convolution):
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
-                irrep_dtype = np.float32,
-                weight_dtype = np.float32)
+                irrep_dtype = self.irrep_dtype,
+                weight_dtype = self.weight_dtype)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
-                irrep_dtype = np.float32,
-                weight_dtype = np.float32)
+                irrep_dtype = self.irrep_dtype,
+                weight_dtype = self.weight_dtype)
 
         for sched in [forward_schedule, backward_schedule]:
             for segment in sched.segments:

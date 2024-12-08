@@ -64,9 +64,9 @@ class CUETensorProduct(TensorProduct):
         '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
 
-        torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
-        torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
-        torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+        torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+        torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+        torch_weights = torch.tensor(weights).to(device='cuda').detach()
 
         start = torch.cuda.Event(enable_timing=True)
         end = torch.cuda.Event(enable_timing=True)

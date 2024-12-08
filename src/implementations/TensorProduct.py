@@ -19,11 +19,13 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely.
     '''
-    def __init__(self, config : TPProblem, torch_op : bool = False):
+    def __init__(self, config : TPProblem,
+            torch_op : bool = False):
         assert isinstance(config, TPProblem)
         assert isinstance(torch_op, bool)
         self.config, self.torch_op = config, torch_op
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
+        self.irrep_dtype, self.weight_dtype = config.irrep_dtype, config.weight_dtype 
 
         self.tp_id = TensorProduct.next_tp_id
         TensorProduct.next_tp_id += 1
@@ -101,9 +103,9 @@ class TensorProduct:
             weights : np.ndarray) -> np.ndarray:
         time_millis = np.zeros(num_iter, dtype=np.float32)
         if self.torch_op:
-            torch_L1_in = torch.Tensor(L1_in).to(device='cuda').detach()
-            torch_L2_in = torch.Tensor(L2_in).to(device='cuda').detach()
-            torch_weights = torch.Tensor(weights).to(device='cuda').detach()
+            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
 
             for i in range(num_warmup): 
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
@@ -189,7 +191,7 @@ class TensorProduct:
 
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
-        def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
+        def forward(L1_in : torch.tensor, L2_in : torch.tensor, weights : torch.tensor) -> torch.tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
             L3_out = torch.empty((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
             self.forward_raw(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
@@ -203,8 +205,8 @@ class TensorProduct:
         
         # ---------------- Backward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
-        def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
-                     weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
+        def grad_helper( L1_in : torch.tensor, L2_in : torch.tensor, 
+                     weights : torch.tensor, L3_grad : torch.tensor ) -> typing.List[torch.tensor]:
             L1_grad = torch.empty_like(L1_in)
             L2_grad = torch.empty_like(L2_in)
             weights_grad = torch.empty_like(weights)
