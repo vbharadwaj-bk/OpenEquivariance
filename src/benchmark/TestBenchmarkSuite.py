@@ -48,17 +48,19 @@ class TestBenchmarkSuite:
     @staticmethod
     def generate_metadata(test_list : list[TestDefinition]) -> dict[str, Any]: 
         impls, tpps, directions, corectnesses, benchmarks = zip(*test_list)
-        config_names = list(set([str(tpp) for tpp in tpps]))
-        config_descriptions = list(set([repr(tpp) for tpp in tpps]))
-        implementation_names = list(set([impl.name() for impl in impls])) 
-        directions = list(set(directions))
+        config_strs = list(dict.fromkeys([str(tpp) for tpp in tpps]))
+        config_reprs = list(dict.fromkeys([repr(tpp) for tpp in tpps]))
+        config_labels = list(dict.fromkeys([tpp.label for tpp in tpps]))
+        implementation_names = list(dict.fromkeys([impl.name() for impl in impls])) 
+        directions = list(dict.fromkeys(directions))
         did_correctness = any(corectnesses)
         did_benchmark = any(benchmarks)
 
         metadata = {
-                "configs" : config_names,
+                "config_strs" : config_strs,
+                "config_reprs": config_reprs, 
+                "config_labels" : config_labels,
                 "implementations" : implementation_names,
-                "descriptions": config_descriptions, 
                 "directions" : directions,
                 "did_correctness" :  did_correctness, 
                 "did_benchmark" : did_benchmark,
@@ -95,9 +97,10 @@ class TestBenchmarkSuite:
             logger.info(f'Test Direction: {test.direction}')
 
             result = {
-                "config": str(tpp),
-                "description": repr(tpp),
-                "direction": test.direction, 
+                "config_str" : str(tpp),
+                "config_repr" : repr(tpp),
+                "config_label" : tpp.label, 
+                "direction" :  test.direction, 
                 "implementation_name": impl.name(),
                 "correctness": str(test.correctness),
                 "benchmark": str(test.benchmark)
