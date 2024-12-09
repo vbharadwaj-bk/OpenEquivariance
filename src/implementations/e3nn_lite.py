@@ -356,10 +356,10 @@ class TPProblem:
         path_normalization: str = "element",
         internal_weights: Optional[bool] = None,
         shared_weights: Optional[bool] = None,
-        description: Optional[str] = None,
+        label: Optional[str] = None, 
         irrep_dtype : np.dtype = np.float32,
-        weight_dtype : np.dtype = np.float32, 
-        ) -> None:
+        weight_dtype : np.dtype = np.float32) -> None:
+
         # === Setup ===
         super().__init__()
 
@@ -376,7 +376,7 @@ class TPProblem:
         self.out_var = out_var
         self.irrep_normalization = irrep_normalization
         self.path_normalization = path_normalization
-        self.description = description
+        self.label = label
         del irreps_in1, irreps_in2, irreps_out
 
         instructions = [x if len(x) == 6 else x + (1.0,) for x in instructions]

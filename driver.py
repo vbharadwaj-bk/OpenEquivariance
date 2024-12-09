@@ -14,7 +14,6 @@ from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
-#from src.implementations.CUETensorProduct import CUETensorProduct 
 
 logger = getLogger()
 
@@ -106,7 +105,6 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
             print(test_result / ground_truth, "ratio")
             print("LA.Norm:")
             print(la.norm((test_result - ground_truth).flatten(), ord=np.inf))
-            print("")
     else:
         assert(False)
     np.set_printoptions()
@@ -120,11 +118,12 @@ if __name__=='__main__':
         FCTPP("1x1e", "2x1e", "1x1e"), 
         FCTPP("2x1e", "1x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "1x1e"),
-        FCTPP("2x1e", "2x1e", "2x1e") 
+        FCTPP("2x1e", "2x1e", "2x1e"),
+        FCTPP("2x1e", "2x1e", "4x1e") 
     ]
 
     increasing_multiplicty_fully_connected_problems = [
-        FCTPP("2x1e", "2x1e", "4x1e"),
+        FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
         FCTPP("8x1e", "8x1e", "8x1e"),
         FCTPP("16x1e", "16x1e", "16x1e"),
@@ -146,46 +145,51 @@ if __name__=='__main__':
         FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
     ]
 
-    problems = list(itertools.chain(
-        basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
-        basic_multi_interaction_problems,
-    ))
-
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
     for problem in conv_problems:
         problem.irrep_dtype = np.float64
         problem.weight_dtype = np.float64
 
-    #from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-    implementations = [LoopUnrollTP]
+    problems = list(itertools.chain(
+        # basic_fully_connected_problems,
+        # increasing_multiplicty_fully_connected_problems,
+        # full_size_uvw_case,
+        # basic_multi_interaction_problems,
+        conv_problems,
+    ))
+ 
+    from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+    from src.implementations.CUETensorProduct import CUETensorProduct
+    implementations = [
+        #E3NNTensorProduct,
+        CUETensorProduct, 
+        LoopUnrollTP,
+        #MultiplicityOuterProductTP
+        ]
+    
     directions = ['forward'] 
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
-             for implementation, problem, direction
-             in itertools.product(implementations, conv_problems, directions)]
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+             for problem, direction, implementation
+             in itertools.product(problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=10000,
+        bench_batch_size=100000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
 
     logger.setLevel(logging.INFO)
-
-    #bench_suite.run([TestDefinition(MultiplicityOuterProductTP,FCTPP("32x1e", "32x5e", "32x5e"),'forward',True, True)])
     bench_suite.run(tests)
-
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")

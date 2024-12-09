@@ -1,8 +1,9 @@
-import pickle, pathlib
+import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+import torch
 
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
@@ -102,6 +103,7 @@ class TensorProduct:
             L3_buffer : np.ndarray, 
             weights : np.ndarray) -> np.ndarray:
         time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
         if self.torch_op:
             torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
             torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
@@ -111,7 +113,6 @@ class TensorProduct:
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
 
             # GPU introduces significantly less overhead when kernel runtime < 1ms
-            timer = GPUTimer()    
             for i in range(num_iter):
                 timer.start()
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
@@ -124,7 +125,6 @@ class TensorProduct:
             for i in range(num_warmup):
                 self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
 
-            timer = GPUTimer()
             for i in range(num_iter):
                 timer.start()
                 self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
@@ -145,32 +145,54 @@ class TensorProduct:
             weights_grad : np.ndarray
             ) -> np.ndarray:
         time_millis = np.zeros(num_iter, dtype=np.float32)
-
-        batch = L1_in.shape[0]
-        L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_buffer)
-        L1_grad_d, L2_grad_d = DeviceBuffer(L1_grad), DeviceBuffer(L2_grad)
-        weights_d, weights_grad_d = DeviceBuffer(weights), DeviceBuffer(weights_grad)
-
         timer = GPUTimer()
 
-        for i in range(num_warmup):
-            self.internal.backward(
-                    batch,
-                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
-                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
-                    weights_d.data_ptr(), weights_grad_d.data_ptr(), 
-                    L3_d.data_ptr())
+        if self.torch_op: 
+            torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
+            torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights)
+            torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
 
-        for i in range(num_iter):
-            timer.start()
-            self.internal.backward(
-                    batch,
-                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
-                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
-                    weights_d.data_ptr(), weights_grad_d.data_ptr(), 
-                    L3_d.data_ptr())
-            time_millis[i] = timer.stop_clock_get_elapsed()
+            for i in range(num_warmup): 
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
 
+            for i in range(num_iter):
+                torch_L1_in.grad.zero_()
+                torch_L2_in.grad.zero_()
+                torch_weights.grad.zero_()
+
+                timer.start()
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+                time_millis[i] = timer.stop_clock_get_elapsed()
+
+            L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+            L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+            weights_grad[:] = torch_weights.grad.numpy(force=True)
+        else:
+            batch = L1_in.shape[0]
+            L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_buffer)
+            L1_grad_d, L2_grad_d = DeviceBuffer(L1_grad), DeviceBuffer(L2_grad)
+            weights_d, weights_grad_d = DeviceBuffer(weights), DeviceBuffer(weights_grad)
+
+            for i in range(num_warmup):
+                self.internal.backward(
+                        batch,
+                        L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                        L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                        weights_d.data_ptr(), weights_grad_d.data_ptr(), 
+                        L3_d.data_ptr())
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.backward(
+                        batch,
+                        L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                        L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                        weights_d.data_ptr(), weights_grad_d.data_ptr(), 
+                        L3_d.data_ptr())
+                time_millis[i] = timer.stop_clock_get_elapsed()
+        
         return time_millis
 
     def calculate_memory_streamed_forward(self, batch_size : int) -> dict: 
@@ -187,13 +209,13 @@ class TensorProduct:
 
 
     def setup_torch_module(self):
-        import torch, typing
+
 
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
-        def forward(L1_in : torch.tensor, L2_in : torch.tensor, weights : torch.tensor) -> torch.tensor:
+        def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
-            L3_out = torch.empty((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
+            L3_out = torch.empty((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
             self.forward_raw(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
             return L3_out
         
@@ -205,8 +227,8 @@ class TensorProduct:
         
         # ---------------- Backward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
-        def grad_helper( L1_in : torch.tensor, L2_in : torch.tensor, 
-                     weights : torch.tensor, L3_grad : torch.tensor ) -> typing.List[torch.tensor]:
+        def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                     weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
             L1_grad = torch.empty_like(L1_in)
             L2_grad = torch.empty_like(L2_in)
             weights_grad = torch.empty_like(weights)
@@ -216,7 +238,7 @@ class TensorProduct:
                         weights.data_ptr(), weights_grad.data_ptr(),
                         L3_grad.data_ptr() )
             
-            return [L1_grad, L2_grad, weights_grad]
+            return [L1_grad, L2_grad, weights_grad] 
         
         @grad_helper.register_fake
         def _(L1_in, L2_in, weights, L3_grad):

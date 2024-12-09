@@ -122,7 +122,7 @@ class ChannelwiseTPP(TPProblem):
         irreps_in1: Irreps,
         irreps_in2: Irreps,
         lmax: int,
-        description: Optional[str] = None):
+        label: Optional[str] = None):
 
         trainable = True
         irreps1 = Irreps(irreps_in1)
@@ -151,7 +151,7 @@ class ChannelwiseTPP(TPProblem):
         super().__init__(irreps1, irreps2, irreps_out, instructions,
             internal_weights=False,
             shared_weights=False,
-            description=description)
+            label=label)
 
 class SingleInstruction(TPProblem):
     def __init__(
@@ -160,7 +160,7 @@ class SingleInstruction(TPProblem):
         irreps_in2: Irreps,
         irreps_in3: Irreps,
         mode: str,
-        description: Optional[str] = None):
+        label: Optional[str] = None):
 
         trainable = True
         irreps1 = Irreps(irreps_in1)
@@ -171,4 +171,4 @@ class SingleInstruction(TPProblem):
         super().__init__(irreps1, irreps2, irreps3, instructions,
             internal_weights=False,
             shared_weights=False,
-            description=description)
+            label=label)

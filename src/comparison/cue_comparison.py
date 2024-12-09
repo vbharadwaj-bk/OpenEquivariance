@@ -1,4 +1,4 @@
-import torch
+import torch, time
 import cuequivariance as cue
 import cuequivariance_torch as cuet
 import time
