@@ -9,7 +9,7 @@ from src.benchmark.e3nn_lite_utils import count_cg_non_zero
 logger = getLogger()
 
 class LoopUnrollTP(TensorProduct):
-    def __init__(self, config, torch_op=True):
+    def __init__(self, config, torch_op=False):
         super().__init__(config, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -26,23 +26,23 @@ class LoopUnrollTP(TensorProduct):
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
-                irrep_dtype = np.float32,
-                weight_dtype = np.float32)
+                irrep_dtype = config.irrep_dtype,
+                weight_dtype = config.weight_dtype)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
-                irrep_dtype = np.float32,
-                weight_dtype = np.float32)
+                irrep_dtype = config.irrep_dtype,
+                weight_dtype = config.weight_dtype)
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
             backward_schedule=backward_schedule)
 
         logger.info("Starting NVRTC")
-        self.internal = JITTPImpl(self.jit_kernel, 
-                forward_schedule.launch_config, 
+        self.internal = JITTPImpl(self.jit_kernel,
+                forward_schedule.launch_config,
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 

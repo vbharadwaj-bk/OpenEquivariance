@@ -39,8 +39,9 @@ def calculate_performance_statistics(
             "L2_rep_len": problem.irreps_in2.dim,
             "L3_rep_len": problem.irreps_out.dim,
 
-            "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": str(total_flops / total_memory_streamed), 
+            "rep_dtype": str(problem.irrep_dtype),
+            "weight_dtype": str(problem.weight_dtype), 
+            "arithmetic_intensity (FLOPs / byte)": total_flops / total_memory_streamed, 
 
             "batch_size":batch_size,
             "time_millis": time_millis,

@@ -3,6 +3,7 @@ from typing import Tuple, NamedTuple, Union, List, Any, Optional
 from math import sqrt, prod
 import collections
 import sys 
+import numpy as np
 
 '''
 This file contains lightly modified code from E3NN. The code has been modified to remove
@@ -355,7 +356,10 @@ class TPProblem:
         path_normalization: str = "element",
         internal_weights: Optional[bool] = None,
         shared_weights: Optional[bool] = None,
-        label: Optional[str] = None) -> None:
+        label: Optional[str] = None, 
+        irrep_dtype : np.dtype = np.float32,
+        weight_dtype : np.dtype = np.float32) -> None:
+
         # === Setup ===
         super().__init__()
 
@@ -484,6 +488,9 @@ class TPProblem:
         # === Determine weights ===
         self.weight_numel = sum(prod(ins.path_shape) for ins in self.instructions if ins.has_weight)
         self.output_mask = None
+
+        self.irrep_dtype = irrep_dtype
+        self.weight_dtype = weight_dtype
 
     def __str__(self) -> str:
         """Simple representation, definitely incomplete"""

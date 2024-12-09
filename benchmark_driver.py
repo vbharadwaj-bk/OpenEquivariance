@@ -29,6 +29,18 @@ nequip_conv = [
     CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
 ]
 
+
+roofline_configs = [
+    SingleInstruction(L1, L2, L3, cm, f"[{i+1}]#{L1} x {L2} -> {L3} ({cm})")
+    for i, (L1, L2, L3, cm) in enumerate([
+        ("32x1e", "1x1e", "32x1e", "uvu"), 
+        ("32x2e", "1x1e", "32x2e", "uvu"),
+        ("32x3e", "1x3e", "32x3e", "uvu"),
+        ("32x5e", "1x5e", "32x3e", "uvu"),
+        ("32x5e", "1x3e", "32x5e", "uvu") 
+    ])
+]
+
 def benchmark_conv():
     implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
     directions = ['forward', 'backward']
@@ -36,6 +48,29 @@ def benchmark_conv():
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, mace_conv + nequip_conv, directions)]
+
+    # CUE tensor product cannot handle backwards pass for all input configs 
+    tests = [test for test in tests 
+            if test.direction == 'forward' 
+            or test.implementation != CUETensorProduct]
+
+    bench_suite = TestBenchmarkSuite(
+        correctness_threshold = 5e-5,
+        num_iter=5,
+        bench_batch_size=50000,
+        prng_seed=11111
+    )
+
+    logger.setLevel(logging.INFO)
+    bench_suite.run(tests)
+
+def benchmark_roofline():
+    implementations = [LoopUnrollTP, CUETensorProduct]
+    directions = ['forward', 'backward']
+
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+             for implementation, problem, direction
+             in itertools.product(implementations, roofline_configs, directions)]
 
     # CUE tensor product cannot handle backwards pass 
     tests = [test for test in tests 
@@ -54,3 +89,4 @@ def benchmark_conv():
 
 if __name__=='__main__':
     benchmark_conv()
+    #benchmark_roofline()

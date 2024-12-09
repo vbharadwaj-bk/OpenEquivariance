@@ -153,13 +153,22 @@ class ChannelwiseTPP(TPProblem):
             shared_weights=False,
             label=label)
 
-def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable) -> TPProblem:
-    irreps1 = Irreps(irreps1)
-    irreps2 = Irreps(irreps2)
-    irreps_out = Irreps(irreps_out)
-    instructions = [(0, 0, 0, mode, trainable)]
+class SingleInstruction(TPProblem):
+    def __init__(
+        self,
+        irreps_in1: Irreps,
+        irreps_in2: Irreps,
+        irreps_in3: Irreps,
+        mode: str,
+        label: Optional[str] = None):
 
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
-        internal_weights=False,
-        shared_weights=False)
-    return result
+        trainable = True
+        irreps1 = Irreps(irreps_in1)
+        irreps2 = Irreps(irreps_in2)
+        irreps3 = Irreps(irreps_in3)
+        instructions = [(0, 0, 0, mode, trainable)]
+
+        super().__init__(irreps1, irreps2, irreps3, instructions,
+            internal_weights=False,
+            shared_weights=False,
+            label=label)

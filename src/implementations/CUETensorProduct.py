@@ -1,39 +1,40 @@
 import numpy as np
 
-import torch
-import cuequivariance as cue
-import cuequivariance_torch as cuet
-
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
-from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem
+from src.benchmark.tpp_creation_utils import *
 
 logger = getLogger()
 
 class CUETensorProduct(TensorProduct):
-    def __init__(self, config : TPProblem, torch_op=False):
-        super().__init__(config, torch_op=torch_op)
+    def __init__(self, config : TPProblem):
+        super().__init__(config, torch_op=True)
 
-        # Currently, we only support channelwise tensor products.
-        # Can expand to include self-connection layers 
+        global torch
+        import torch
+        import cuequivariance as cue
+        import cuequivariance_torch as cuet
+
         supported_tpp_types = [
             ChannelwiseTPP,
             FullyConnectedTPProblem,
+            SingleInstruction
         ]
 
+        assert(config.irrep_dtype == config.weight_dtype)
+
+        np_to_torch_dtype = {
+            np.float32: torch.float32,
+            np.float64: torch.float64
+        }
+
         assert(any([isinstance(config, supported_ttp_type)] for supported_ttp_type in supported_tpp_types))
-        if isinstance(config, ChannelwiseTPP):
+        if isinstance(config, ChannelwiseTPP) or isinstance(config, SingleInstruction):
             e = cue.descriptors.channelwise_tensor_product(
                 cue.Irreps("O3", str(config.irreps_in1)),
                 cue.Irreps("O3", str(config.irreps_in2)),
-                cue.Irreps("O3", str(config.irreps_out)),
-            )
-
-            self.cue_tp = cuet.EquivariantTensorProduct(e, layout=cue.ir_mul)
-            
-
-            assert(config.weight_numel == e.inputs[0].irreps.dim)
+                cue.Irreps("O3", str(config.irreps_out)))
         
         if isinstance(config, FullyConnectedTPProblem):
             e = cue.descriptors.fully_connected_tensor_product(
@@ -41,8 +42,9 @@ class CUETensorProduct(TensorProduct):
                 cue.Irreps("O3", str(config.irreps_in2)),
                 cue.Irreps("O3", str(config.irreps_out)),
             )
-            self.cue_tp = cuet.EquivariantTensorProduct(e, layout=cue.ir_mul)
-        
+
+        assert(config.weight_numel == e.inputs[0].irreps.dim)
+        self.cue_tp = cuet.EquivariantTensorProduct(e, layout=cue.ir_mul, math_dtype=np_to_torch_dtype[config.irrep_dtype])        
         self.cue_tp.to('cuda')
         
     def forward(self,

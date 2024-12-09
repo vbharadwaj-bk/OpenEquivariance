@@ -1,4 +1,3 @@
-import e3nn, torch
 import numpy as np
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
@@ -8,8 +7,16 @@ from src.benchmark.logging_utils import getLogger
 logger = getLogger()
 
 class E3NNTensorProduct(TensorProduct):
-    def __init__(self, config : TPProblem, torch_op=False):
+    def __init__(self, config : TPProblem, torch_op=True):
         super().__init__(config, torch_op=torch_op)
+
+        global torch
+        import torch
+        import e3nn 
+        assert(config.irrep_dtype == config.weight_dtype)
+        if config.irrep_dtype == np.float64:
+            torch.set_default_dtype(torch.float64)
+
         self.e3nn_tp = e3nn.o3.TensorProduct(
                     config.irreps_in1, 
                     config.irreps_in2, 
@@ -22,6 +29,9 @@ class E3NNTensorProduct(TensorProduct):
                     path_normalization=config.path_normalization,
                     internal_weights=config.internal_weights,
                     shared_weights=config.shared_weights).to(device='cuda')
+
+        if config.irrep_dtype == np.float64:
+            torch.set_default_dtype(torch.float32)  # Reset to default
         
     def forward(self,
             batch : np.uint64,
@@ -106,13 +116,14 @@ class E3NNTensorProduct(TensorProduct):
 
         torch_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
 
-        torch_L3_grad_in = torch.tensor(L3_grad)
+        torch_L3_grad_in = torch.tensor(L3_grad, device='cuda')
 
         torch_out.backward(gradient=torch_L3_grad_in)
         
         L1_grad[:] = torch_L1_in.grad.numpy(force=True)
         L2_grad[:] = torch_L2_in.grad.numpy(force=True)
         weights_grad[:] = torch_weights.grad.numpy(force=True)
+
 
 
     def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
