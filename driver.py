@@ -14,6 +14,8 @@ from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+from src.implementations.CUETensorProduct import CUETensorProduct
 
 logger = getLogger()
 
@@ -167,8 +169,6 @@ if __name__=='__main__':
         conv_problems,
     ))
  
-    from src.implementations.E3NNTensorProduct import E3NNTensorProduct
-    from src.implementations.CUETensorProduct import CUETensorProduct
     implementations = [
         #E3NNTensorProduct,
         CUETensorProduct, 

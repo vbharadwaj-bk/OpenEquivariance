@@ -1,4 +1,3 @@
-import e3nn, torch
 import numpy as np
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
@@ -8,9 +7,12 @@ from src.benchmark.logging_utils import getLogger
 logger = getLogger()
 
 class E3NNTensorProduct(TensorProduct):
-    def __init__(self, config : TPProblem, torch_op=False):
+    def __init__(self, config : TPProblem, torch_op=True):
         super().__init__(config, torch_op=torch_op)
 
+        global torch
+        import torch
+        import e3nn 
         assert(config.irrep_dtype == config.weight_dtype)
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float64)

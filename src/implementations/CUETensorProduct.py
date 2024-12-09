@@ -1,9 +1,5 @@
 import numpy as np
 
-import torch
-import cuequivariance as cue
-import cuequivariance_torch as cuet
-
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
@@ -12,8 +8,13 @@ from src.benchmark.tpp_creation_utils import *
 logger = getLogger()
 
 class CUETensorProduct(TensorProduct):
-    def __init__(self, config : TPProblem, torch_op=False):
-        super().__init__(config, torch_op=torch_op)
+    def __init__(self, config : TPProblem):
+        super().__init__(config, torch_op=True)
+
+        global torch
+        import torch
+        import cuequivariance as cue
+        import cuequivariance_torch as cuet
 
         supported_tpp_types = [
             ChannelwiseTPP,

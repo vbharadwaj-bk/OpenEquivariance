@@ -88,5 +88,5 @@ def benchmark_roofline():
     bench_suite.run(tests)
 
 if __name__=='__main__':
-    #benchmark_conv()
-    benchmark_roofline()
+    benchmark_conv()
+    #benchmark_roofline()
