@@ -1,5 +1,3 @@
-import torch
-
 import numpy as np
 import numpy.linalg as la
 import itertools, typing
@@ -44,9 +42,8 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    #implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
-    implementations = [LoopUnrollTP]
-    directions = ['backward']
+    implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
+    directions = ['forward', 'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction

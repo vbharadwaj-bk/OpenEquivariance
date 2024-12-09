@@ -157,35 +157,34 @@ if __name__=='__main__':
         ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
-    for problem in conv_problems:
-        problem.irrep_dtype = np.float64
-        problem.weight_dtype = np.float64
+    #for problem in conv_problems:
+    #    problem.irrep_dtype = np.float64
+    #    problem.weight_dtype = np.float64
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        # increasing_multiplicty_fully_connected_problems,
+        increasing_multiplicty_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        conv_problems,
+        #conv_problems,
     ))
  
     implementations = [
         #E3NNTensorProduct,
-        CUETensorProduct, 
-        LoopUnrollTP,
-        #MultiplicityOuterProductTP
-        ]
+        #CUETensorProduct, 
+        #LoopUnrollTP,
+        MultiplicityOuterProductTP]
     
-    directions = ['forward'] 
+    directions = ['forward', 'backward'] 
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=100000,
+        bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
