@@ -1,3 +1,5 @@
+import torch
+
 import numpy as np
 import numpy.linalg as la
 import itertools, typing
@@ -42,14 +44,15 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
-    directions = ['forward', 'backward']
+    #implementations = [CUETensorProduct, LoopUnrollTP, E3NNTensorProduct]
+    implementations = [LoopUnrollTP]
+    directions = ['backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, mace_conv + nequip_conv, directions)]
 
-    # CUE tensor product cannot handle backwards pass 
+    # CUE tensor product cannot handle backwards pass for all input configs 
     tests = [test for test in tests 
             if test.direction == 'forward' 
             or test.implementation != CUETensorProduct]
