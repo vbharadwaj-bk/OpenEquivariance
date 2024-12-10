@@ -34,6 +34,13 @@ class TensorProduct:
         if torch_op:
             global torch
             import torch
+
+            # Perform a dummy matmul here and backwards through it to set up the JIT context 
+            X = torch.randn(2, 2, requires_grad=True)
+            Y = torch.randn(2, 2, requires_grad=True)
+            Z = torch.matmul(X, Y)
+            Z.backward(torch.ones_like(Z))
+
             self.setup_torch_module()
 
     def forward_raw(
@@ -158,17 +165,17 @@ class TensorProduct:
                 torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
 
             for i in range(num_iter):
-                #torch_L1_in.grad.zero_()
-                #torch_L2_in.grad.zero_()
-                #torch_weights.grad.zero_()
+                torch_L1_in.grad.zero_()
+                torch_L2_in.grad.zero_()
+                torch_weights.grad.zero_()
 
                 timer.start()
-                #torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
                 time_millis[i] = timer.stop_clock_get_elapsed()
 
-            #L1_grad[:] = torch_L1_in.grad.numpy(force=True)
-            #L2_grad[:] = torch_L2_in.grad.numpy(force=True)
-            #weights_grad[:] = torch_weights.grad.numpy(force=True)
+            L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+            L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+            weights_grad[:] = torch_weights.grad.numpy(force=True)
         else:
             batch = L1_in.shape[0]
             L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_buffer)
