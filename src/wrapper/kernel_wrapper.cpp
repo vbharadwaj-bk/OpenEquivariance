@@ -30,11 +30,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     //=========== Batch tensor products =========
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product_device_rawptrs)
-        .def("exec_tensor_product_cpu", &GenericTensorProductImpl::exec_tensor_product_cpu)
-        .def("backward_cpu", &GenericTensorProductImpl::backward_cpu)
-        .def("backward", &GenericTensorProductImpl::backward_device_rawptrs)
-        .def("benchmark_forward_cpu", &GenericTensorProductImpl::benchmark_forward_cpu)
-        .def("benchmark_backward_cpu", &GenericTensorProductImpl::benchmark_backward_cpu);
+        .def("backward", &GenericTensorProductImpl::backward_device_rawptrs);
     py::class_<JITTPImpl, GenericTensorProductImpl>(m, "JITTPImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
@@ -45,5 +41,20 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("benchmark_forward_cpu", &ConvolutionImpl::benchmark_forward_cpu)
         .def("benchmark_backward_cpu", &ConvolutionImpl::benchmark_backward_cpu);
     py::class_<JITConvImpl, ConvolutionImpl>(m, "JITConvImpl")
-        .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>()); 
+        .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
+    py::class_<DeviceProp>(m, "DeviceProp")
+        .def(py::init<int>())
+        .def_readonly("warpsize", &DeviceProp::warpsize)
+        .def_readonly("major", &DeviceProp::major)
+        .def_readonly("minor", &DeviceProp::minor)
+        .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
+        .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock); 
+    py::class_<PyDeviceBuffer>(m, "DeviceBuffer")
+        .def(py::init<py::buffer>())
+        .def("copy_to_host", &PyDeviceBuffer::copy_to_host)
+        .def("data_ptr", &PyDeviceBuffer::data_ptr);
+    py::class_<GPUTimer>(m, "GPUTimer")
+        .def(py::init<>())
+        .def("start", &GPUTimer::start)
+        .def("stop_clock_get_elapsed", &GPUTimer::stop_clock_get_elapsed);
 }

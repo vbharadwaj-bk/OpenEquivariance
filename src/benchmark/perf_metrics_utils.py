@@ -14,10 +14,13 @@ def calculate_minimum_memory_streamed_forward(tpp : TPProblem, batch_size : int)
     It returns the number of bytes streamed total and from each source
     """
     data_size = {}
-    data_size["input 1"] = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["output"]  = tpp.irreps_out.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
+    irrep_word_size = np.dtype(tpp.irrep_dtype).itemsize
+    weight_word_size = np.dtype(tpp.weight_dtype).itemsize
+
+    data_size["input 1"] = tpp.irreps_in1.dim * batch_size * irrep_word_size 
+    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * irrep_word_size 
+    data_size["output"]  = tpp.irreps_out.dim * batch_size * irrep_word_size 
+    data_size["weights"] = tpp.weight_numel * batch_size * weight_word_size 
     data_size["total"] = sum(data_size.values())
     return data_size
 
@@ -27,13 +30,16 @@ def calculate_minimum_memory_streamed_backward(tpp : TPProblem, batch_size : int
     It returns the number of bytes streamed total and from each source
     """
     data_size = {}
-    data_size["input 1"]   = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["input 1 grad"] = tpp.irreps_in1.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["input 2 grad"] = tpp.irreps_in2.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["output grad"]  = tpp.irreps_out.dim * batch_size * np.dtype(np.float32).itemsize
-    data_size["weights"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
-    data_size["weights grad"] = tpp.weight_numel if tpp.shared_weights else tpp.weight_numel * batch_size * np.dtype(np.float32).itemsize
+    irrep_word_size = np.dtype(tpp.irrep_dtype).itemsize
+    weight_word_size = np.dtype(tpp.weight_dtype).itemsize
+
+    data_size["input 1"]   = tpp.irreps_in1.dim * batch_size * irrep_word_size 
+    data_size["input 1 grad"] = tpp.irreps_in1.dim * batch_size * irrep_word_size 
+    data_size["input 2"] = tpp.irreps_in2.dim * batch_size * irrep_word_size 
+    data_size["input 2 grad"] = tpp.irreps_in2.dim * batch_size * irrep_word_size 
+    data_size["output grad"]  = tpp.irreps_out.dim * batch_size * irrep_word_size 
+    data_size["weights"] = tpp.weight_numel * batch_size * weight_word_size 
+    data_size["weights grad"] = tpp.weight_numel * batch_size * weight_word_size 
     data_size["total"] = sum(data_size.values())
     return data_size
 

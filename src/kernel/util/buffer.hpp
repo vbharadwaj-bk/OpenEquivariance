@@ -348,3 +348,35 @@ public:
             static_cast<void*>(ptr), sizeof(T) * size);
     }
 };
+ 
+class PyDeviceBuffer {
+public:
+    char* host_ptr;
+    char* device_ptr;
+    size_t size;
+
+    PyDeviceBuffer(py::buffer host_data) {
+        const py::buffer_info &info = host_data.request();
+        host_ptr = static_cast<char*>(info.ptr);
+        size = 1;
+        for(int64_t i = 0; i < info.ndim; i++) {
+            size *= info.shape[i];
+        }
+        size *= info.itemsize;
+
+        device_ptr = static_cast<char*>(gpu_alloc(size));
+        copy_host_to_device(host_ptr, device_ptr, size);
+    }
+
+    ~PyDeviceBuffer() {
+        gpu_free(static_cast<void*>(device_ptr));
+    }
+
+    void copy_to_host() {
+        copy_device_to_host(host_ptr, device_ptr, size);
+    }
+
+    uint64_t data_ptr() {
+        return reinterpret_cast<uint64_t>(device_ptr);
+    }
+};

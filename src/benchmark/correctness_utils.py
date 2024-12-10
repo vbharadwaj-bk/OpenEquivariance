@@ -135,7 +135,7 @@ def correctness_backward(
         weights=weights.copy(), 
         weights_grad=test_weights_grad
         )
-    
+
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
     ## CHECK OUTPUT SIMILARITY 
     for name, to_check, ground_truth, threshold in [
@@ -144,5 +144,5 @@ def correctness_backward(
         ("in2_grad", test_in2_grad, ref_in2_grad, correctness_threshold),
         ]:
         result[name] = check_similiarity(name, to_check, ground_truth, threshold)
-    
+
     return result   

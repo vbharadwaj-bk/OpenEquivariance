@@ -1,11 +1,9 @@
 import json, os, time, pathlib
 
-import numpy as np
 from typing import NamedTuple, Optional, Iterable, Literal, Any, get_args
 from dataclasses import dataclass
 
 from src.implementations.TensorProduct import TensorProduct
-from src.implementations.e3nn_lite import TPProblem
 
 from src.benchmark.logging_utils import *
 from build.kernel_wrapper import *
@@ -32,7 +30,8 @@ class TestBenchmarkSuite:
     reference_implementation : Optional[type[TensorProduct]] = None
     correctness_threshold : float = 5e-7
 
-    def validate_inputs(test_list : Iterable[TestDefinition]) -> None:
+    @staticmethod
+    def validate_inputs(test_list : list[TestDefinition]) -> None:
         """
         Just does empty list and type checking to catch bad input 
         """
@@ -46,16 +45,21 @@ class TestBenchmarkSuite:
             assert isinstance(test.correctness, bool)
             assert isinstance(test.benchmark, bool)
 
-    def generate_metadata(test_list : Iterable[TestDefinition]) -> dict[str, Any]: 
+    @staticmethod
+    def generate_metadata(test_list : list[TestDefinition]) -> dict[str, Any]: 
         impls, tpps, directions, corectnesses, benchmarks = zip(*test_list)
-        config_names = list(set([str(tpp) for tpp in tpps]))
-        implementation_names = list(set([impl.name() for impl in impls])) 
-        directions = list(set(directions))
+        config_strs = list(dict.fromkeys([str(tpp) for tpp in tpps]))
+        config_reprs = list(dict.fromkeys([repr(tpp) for tpp in tpps]))
+        config_labels = list(dict.fromkeys([tpp.label for tpp in tpps]))
+        implementation_names = list(dict.fromkeys([impl.name() for impl in impls])) 
+        directions = list(dict.fromkeys(directions))
         did_correctness = any(corectnesses)
         did_benchmark = any(benchmarks)
 
         metadata = {
-                "configs" : config_names,
+                "config_strs" : config_strs,
+                "config_reprs": config_reprs, 
+                "config_labels" : config_labels,
                 "implementations" : implementation_names,
                 "directions" : directions,
                 "did_correctness" :  did_correctness, 
@@ -70,7 +74,7 @@ class TestBenchmarkSuite:
 
         return metadata
 
-    def run(self, test_list : Iterable[TestDefinition]):        
+    def run(self, test_list : list[TestDefinition]) -> pathlib.Path:        
         
         TestBenchmarkSuite.validate_inputs(test_list)
 
@@ -93,8 +97,10 @@ class TestBenchmarkSuite:
             logger.info(f'Test Direction: {test.direction}')
 
             result = {
-                "config": repr(tpp),
-                "direction": test.direction, 
+                "config_str" : str(tpp),
+                "config_repr" : repr(tpp),
+                "config_label" : tpp.label, 
+                "direction" :  test.direction, 
                 "implementation_name": impl.name(),
                 "correctness": str(test.correctness),
                 "benchmark": str(test.benchmark)
@@ -102,6 +108,7 @@ class TestBenchmarkSuite:
 
             if test.direction == 'forward':
                 if test.correctness:
+                    logger.info("Starting correctness check...")
                     result['correctness results'] = correctness_forward(
                         problem=tpp,
                         test_implementation=impl,
@@ -110,6 +117,7 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed,
                     )
+                    logger.info("Finished correctness check...")
                 if test.benchmark:
                     result['benchmark results'] = benchmark_forward(
                         problem=tpp,
@@ -124,6 +132,7 @@ class TestBenchmarkSuite:
             if test.direction == 'backward':
                 pass 
                 if test.correctness: 
+                    logger.info("Starting correctness check...")
                     result ['correctness results'] = correctness_backward(
                         problem=tpp,
                         test_implementation=impl,
@@ -132,6 +141,7 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed
                     )
+                    logger.info("Finished correctness check...")
                 if test.benchmark: 
                     result ['benchmark results'] = benchmark_backward(
                         problem=tpp,
@@ -150,3 +160,5 @@ class TestBenchmarkSuite:
                 json.dump(result, f, indent=2)
 
             logger.info(f'Finished Test ID: {test_ID}')
+        
+        return output_folder

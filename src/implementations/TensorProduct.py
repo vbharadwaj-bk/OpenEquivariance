@@ -1,17 +1,13 @@
-import pickle, pathlib
+import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+import torch
 
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
-
-class GPUInfo:
-    A100_SMS = 108
-    max_smem = 163840 - 1
-    warp_size = 32
 
 class TensorProduct:
     next_tp_id = 0 # Used to assign unique IDs to each TP instance 
@@ -24,30 +20,43 @@ class TensorProduct:
     a different internal representation, which it can
     initialize uniquely.
     '''
-    def __init__(self, config : TPProblem, torch_op : bool = False):
+    def __init__(self, config : TPProblem,
+            torch_op : bool = False):
         assert isinstance(config, TPProblem)
         assert isinstance(torch_op, bool)
-        self.config = config 
+        self.config, self.torch_op = config, torch_op
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
+        self.irrep_dtype, self.weight_dtype = config.irrep_dtype, config.weight_dtype 
 
         self.tp_id = TensorProduct.next_tp_id
         TensorProduct.next_tp_id += 1
 
         if torch_op:
+            global torch
+            import torch
             self.setup_torch_module()
 
-    def forward(
-        self,
-        batch : np.uint64,
-        L1_in: np.uint64,
-        L2_in: np.uint64,
-        L3_out: np.uint64,
-        weights: np.uint64
-        ) -> None:
-        '''
-        Inputs are integers representing device pointers.
-        '''
+    def forward_raw(
+            self,
+            batch : np.uint64,
+            L1_in: np.uint64,
+            L2_in: np.uint64,
+            L3_out: np.uint64,
+            weights: np.uint64
+            ) -> None:
         self.internal.exec_tensor_product(batch, L1_in, L2_in, L3_out, weights) 
+
+    def backward_raw(self, batch_size: np.uint64,
+            L1_in: np.uint64, L1_grad: np.uint64, 
+            L2_in: np.uint64, L2_grad: np.uint64,
+            weights: np.uint64, weights_grad: np.uint64,
+            L3_grad: np.uint64):
+        self.internal.backward(
+                batch_size,
+                L1_in, L1_grad,
+                L2_in, L2_grad,
+                weights, weights_grad,
+                L3_grad)
 
     def forward_cpu(
         self, 
@@ -56,61 +65,70 @@ class TensorProduct:
         L3_out: np.ndarray, 
         weights: np.ndarray
         ) -> None:
-        '''
-        All state initialization for the internal class occurs inside the
-        constructor. 
-        '''
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights)
-
-    def backward(self, batch_size: np.uint64,
-                L1_in: np.uint64, L1_grad: np.uint64, 
-                L2_in: np.uint64, L2_grad: np.uint64,
-                weights: np.uint64, weights_grad: np.uint64,
-                L3_grad: np.uint64):
-        '''
-        Inputs are integers representing device pointers.
-        '''
-        self.internal.backward(
-                batch_size,
-                L1_in, L1_grad,
-                L2_in, L2_grad,
-                weights, weights_grad,
-                L3_grad)
+        batch = L1_in.shape[0]
+        L1_d = DeviceBuffer(L1_in)
+        L2_d = DeviceBuffer(L2_in)
+        L3_d = DeviceBuffer(L3_out)
+        weights_d = DeviceBuffer(weights)
+        self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+        L3_d.copy_to_host()
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad) -> None:
-        '''
-        All state initialization for the internal class occurs inside the
-        constructor. 
-        '''
-        self.internal.backward_cpu(
-                L1_in, L1_grad, 
-                L2_in, L2_grad,
-                weights, weights_grad, 
-                L3_grad)
+        batch = L1_in.shape[0]
+        L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_grad)
+        L1_grad_d, L2_grad_d = DeviceBuffer(L1_grad), DeviceBuffer(L2_grad)
+        weights_d, weights_grad_d = DeviceBuffer(weights), DeviceBuffer(weights_grad)
+
+        self.internal.backward(
+                batch,
+                L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                weights_d.data_ptr(), weights_grad_d.data_ptr(), 
+                L3_d.data_ptr())
+        
+        L1_grad_d.copy_to_host()
+        L2_grad_d.copy_to_host()
+        weights_grad_d.copy_to_host()
 
     @staticmethod
     def load_cg_tensor(l1, l2, l3):
         return TensorProduct.tensors[(l1, l2, l3)]
 
     def benchmark_forward(
-        self, 
-        num_warmup : int, 
-        num_iter : int, 
-        L1_in : np.ndarray, 
-        L2_in : np.ndarray, 
-        L3_buffer : np.ndarray, 
-        weights : np.ndarray
-        ) -> np.ndarray:
-        '''
-        Returns the total time for num_iter iterations of the core inner loop forwards
-        after num_warmup warmup iterations. Can override for other implementations
-        Returns a np array of execution times in milliseconds
-        '''
+            self, 
+            num_warmup : int, 
+            num_iter : int, 
+            L1_in : np.ndarray, 
+            L2_in : np.ndarray, 
+            L3_buffer : np.ndarray, 
+            weights : np.ndarray) -> np.ndarray:
         time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
+        if self.torch_op:
+            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
 
-        self.internal.benchmark_forward_cpu(
-                    L1_in, L2_in, L3_buffer, weights,
-                    num_warmup, time_millis)
+            for i in range(num_warmup): 
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+            # GPU introduces significantly less overhead when kernel runtime < 1ms
+            for i in range(num_iter):
+                timer.start()
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+                time_millis[i] = timer.stop_clock_get_elapsed() 
+        else:
+            batch = L1_in.shape[0]
+            L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_buffer)
+            weights_d = DeviceBuffer(weights)
+
+            for i in range(num_warmup):
+                self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
+                time_millis[i] = timer.stop_clock_get_elapsed() 
             
         return time_millis
     
@@ -126,19 +144,54 @@ class TensorProduct:
             L2_grad : np.ndarray,
             weights_grad : np.ndarray
             ) -> np.ndarray:
-        '''
-        Returns the total time for num_iter iterations of the core inner loop backward
-        after num_warmup warmup iterations. Can override for other implementations. 
-        Returns a np array of execution times in milliseconds
-        '''
         time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
 
-        self.internal.benchmark_backward_cpu(
-                    L1_in, L1_grad,
-                    L2_in, L2_grad,
-                    weights, weights_grad,
-                    L3_buffer,
-                    num_warmup, time_millis)
+        if self.torch_op: 
+            torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
+            torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights)
+            torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
+
+            for i in range(num_warmup): 
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+
+            for i in range(num_iter):
+                #torch_L1_in.grad.zero_()
+                #torch_L2_in.grad.zero_()
+                #torch_weights.grad.zero_()
+
+                timer.start()
+                #torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+                time_millis[i] = timer.stop_clock_get_elapsed()
+
+            #L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+            #L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+            #weights_grad[:] = torch_weights.grad.numpy(force=True)
+        else:
+            batch = L1_in.shape[0]
+            L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_buffer)
+            L1_grad_d, L2_grad_d = DeviceBuffer(L1_grad), DeviceBuffer(L2_grad)
+            weights_d, weights_grad_d = DeviceBuffer(weights), DeviceBuffer(weights_grad)
+
+            for i in range(num_warmup):
+                self.internal.backward(
+                        batch,
+                        L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                        L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                        weights_d.data_ptr(), weights_grad_d.data_ptr(), 
+                        L3_d.data_ptr())
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.backward(
+                        batch,
+                        L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                        L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                        weights_d.data_ptr(), weights_grad_d.data_ptr(), 
+                        L3_d.data_ptr())
+                time_millis[i] = timer.stop_clock_get_elapsed()
         
         return time_millis
 
@@ -156,14 +209,14 @@ class TensorProduct:
 
 
     def setup_torch_module(self):
-        import torch, typing
+
 
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
-            L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=torch.float32, device='cuda')
-            self.exec_tensor_product(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
+            L3_out = torch.empty((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
+            self.forward_raw(L1_in_c.shape[0], L1_in_c.data_ptr(), L2_in_c.data_ptr(), L3_out.data_ptr(), weights_c.data_ptr())
             return L3_out
         
         @forward.register_fake
@@ -176,16 +229,16 @@ class TensorProduct:
         @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
         def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                      weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
-            L1_grad = torch.zeros_like(L1_in)
-            L2_grad = torch.zeros_like(L2_in)
-            weights_grad = torch.zeros_like(weights)
+            L1_grad = torch.empty_like(L1_in)
+            L2_grad = torch.empty_like(L2_in)
+            weights_grad = torch.empty_like(weights)
             
-            self.backward( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
+            self.backward_raw( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
                         L2_in.data_ptr(), L2_grad.data_ptr(),
                         weights.data_ptr(), weights_grad.data_ptr(),
                         L3_grad.data_ptr() )
             
-            return [L1_grad, L2_grad, weights_grad]
+            return [L1_grad, L2_grad, weights_grad] 
         
         @grad_helper.register_fake
         def _(L1_in, L2_in, weights, L3_grad):

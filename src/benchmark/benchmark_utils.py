@@ -15,10 +15,10 @@ from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
 
 def calculate_performance_statistics( 
-            problem : TPProblem, 
-            batch_size : int, 
-            total_flops : int, 
-            total_memory_streamed : int, 
+            problem : TPProblem,
+            batch_size : int,
+            total_flops : int,
+            total_memory_streamed : int,
             time_millis : np.ndarray,
             ) -> dict:
         result = {}
@@ -39,8 +39,9 @@ def calculate_performance_statistics(
             "L2_rep_len": problem.irreps_in2.dim,
             "L3_rep_len": problem.irreps_out.dim,
 
-            "rep_dtype": "float", # If this changes, also need to modify the arithmetic intensity calculation
-            "arithmetic_intensity (FLOPs / byte)": str(total_flops / total_memory_streamed), 
+            "rep_dtype": str(problem.irrep_dtype),
+            "weight_dtype": str(problem.weight_dtype), 
+            "arithmetic_intensity (FLOPs / byte)": total_flops / total_memory_streamed, 
 
             "batch_size":batch_size,
             "time_millis": time_millis,
@@ -161,7 +162,7 @@ def benchmark_backward(
             flops = tp.calculate_flops_backward(batch_size=batch_size)
         except NotImplementedError:
             try:
-                flops = calculate_minimum_flops_forward(e3nn_tp=implementation.e3nn_tp, batch_size=batch_size)
+                flops = calculate_minimum_flops_forward(tpp=problem, batch_size=batch_size)
                 logger.warning("Actual flops was not calcuated, so minimum values are being used")
             except NotImplementedError: 
                 logger.warning("Minimum Backwards flops calcuations are not implemented, -1 is a placholder")

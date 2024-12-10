@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, Optional
 from src.implementations.e3nn_lite import Irrep, Irreps, TPProblem
 
 """
@@ -113,47 +113,62 @@ class FullTPProblem(TPProblem):
         super().__init__(irreps_in1, irreps_in2, out, instr, **kwargs)
 
 
-def mace_conf(irreps1, irreps2, lmax) -> TPProblem:
+class ChannelwiseTPP(TPProblem):
     '''
     Modified from mace/mace/modules/irreps_tools.py.
     '''
-    trainable = True
-    irreps1 = Irreps(irreps1)
-    irreps2 = Irreps(irreps2)
+    def __init__(
+        self,
+        irreps_in1: Irreps,
+        irreps_in2: Irreps,
+        lmax: int,
+        label: Optional[str] = None):
 
-    # Collect possible irreps and their instructions
-    irreps_out_list = []
-    instructions = []
-    for i, (mul, ir_in) in enumerate(irreps1):
-        for j, (_, ir_edge) in enumerate(irreps2):
-            for ir_out in ir_in * ir_edge:  # | l1 - l2 | <= l <= l1 + l2
-                if ir_out.l <= lmax:
-                    k = len(irreps_out_list)  # instruction index
-                    irreps_out_list.append((mul, ir_out))
-                    instructions.append((i, j, k, "uvu", trainable))
+        trainable = True
+        irreps1 = Irreps(irreps_in1)
+        irreps2 = Irreps(irreps_in2)
 
-    irreps_out = Irreps(irreps_out_list)
-    irreps_out, permut, _ = irreps_out.sort()
+        # Collect possible irreps and their instructions
+        irreps_out_list = []
+        instructions = []
+        for i, (mul, ir_in) in enumerate(irreps1):
+            for j, (_, ir_edge) in enumerate(irreps2):
+                for ir_out in ir_in * ir_edge:  # | l1 - l2 | <= l <= l1 + l2
+                    if ir_out.l <= lmax:
+                        k = len(irreps_out_list)  # instruction index
+                        irreps_out_list.append((mul, ir_out))
+                        instructions.append((i, j, k, "uvu", trainable))
 
-    instructions = [
-        (i_in1, i_in2, permut[i_out], mode, train)
-        for i_in1, i_in2, i_out, mode, train in instructions
-    ]
+        irreps_out = Irreps(irreps_out_list)
+        irreps_out, permut, _ = irreps_out.sort()
 
-    instructions = sorted(instructions, key=lambda x: x[2])
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
-        internal_weights=False,
-        shared_weights=False)
-    return result
+        instructions = [
+            (i_in1, i_in2, permut[i_out], mode, train)
+            for i_in1, i_in2, i_out, mode, train in instructions
+        ]
 
+        instructions = sorted(instructions, key=lambda x: x[2])
+        super().__init__(irreps1, irreps2, irreps_out, instructions,
+            internal_weights=False,
+            shared_weights=False,
+            label=label)
 
-def single_inst_conf(irreps1, irreps2, irreps_out, mode, trainable) -> TPProblem:
-    irreps1 = Irreps(irreps1)
-    irreps2 = Irreps(irreps2)
-    irreps_out = Irreps(irreps_out)
-    instructions = [(0, 0, 0, mode, trainable)]
+class SingleInstruction(TPProblem):
+    def __init__(
+        self,
+        irreps_in1: Irreps,
+        irreps_in2: Irreps,
+        irreps_in3: Irreps,
+        mode: str,
+        label: Optional[str] = None):
 
-    result = TPProblem(irreps1, irreps2, irreps_out, instructions,
-        internal_weights=False,
-        shared_weights=False)
-    return result
+        trainable = True
+        irreps1 = Irreps(irreps_in1)
+        irreps2 = Irreps(irreps_in2)
+        irreps3 = Irreps(irreps_in3)
+        instructions = [(0, 0, 0, mode, trainable)]
+
+        super().__init__(irreps1, irreps2, irreps3, instructions,
+            internal_weights=False,
+            shared_weights=False,
+            label=label)
