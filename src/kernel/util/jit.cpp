@@ -148,15 +148,9 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     NVRTC_SAFE_CALL(nvrtcGetPTX(prog, ptx));
 
     CUDA_SAFE_CALL(cuInit(0));
+    CUDA_SAFE_CALL(cuLibraryLoadData(&library, ptx, 0, 0, 0, 0, 0, 0));
 
-
-    // TODO: No context management here, we use the primary context 
-    // CUdevice cuDevice;
-    // CUcontext context;
-    // CUDA_SAFE_CALL(cuDeviceGet(&cuDevice, 0));
-    // CUDA_SAFE_CALL(cuCtxCreate(&context, 0, cuDevice));
-
-    CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
+    //CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
 
     for (size_t i = 0; i < kernel_names.size(); i++) {
         const char *name;
@@ -168,19 +162,22 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
                 ));
 
         kernels.emplace_back();
-        CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
+        //CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
+        CUDA_SAFE_CALL(cuLibraryGetKernel(&(kernels[i]), library, name));
     }
 
-
+    CUDA_SAFE_CALL(cuDeviceGet(&dev, 0));
 }
 
 void JITKernel::set_max_smem(int kernel_id, uint32_t max_smem_bytes) {
     if(kernel_id >= kernels.size())
         throw std::logic_error("Kernel index out of range!");
 
-    cuFuncSetAttribute(kernels[kernel_id],
-                    CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
-                    max_smem_bytes);
+    CUDA_SAFE_CALL(cuKernelSetAttribute(
+            CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
+            max_smem_bytes,
+            kernels[kernel_id],
+            dev));
 }
 
 void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads, 
@@ -190,7 +187,7 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
         throw std::logic_error("Kernel index out of range!");
 
     CUDA_SAFE_CALL(
-        cuLaunchKernel( kernels[kernel_id],
+        cuLaunchKernel( (CUfunction) (kernels[kernel_id]),
                         num_blocks, 1, 1,    // grid dim
                         num_threads, 1, 1,   // block dim
                         smem, hStream,       // shared mem and stream
@@ -200,7 +197,8 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
 
 JITKernel::~JITKernel() {
     if(compiled) {
-        CUDA_SAFE_CALL(cuModuleUnload(module));
+        CUDA_SAFE_CALL(cuLibraryUnload(library));
+        //CUDA_SAFE_CALL(cuModuleUnload(module));
         delete[] ptx;
     }
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));

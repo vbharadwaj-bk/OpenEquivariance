@@ -35,13 +35,16 @@ class TensorProduct:
             global torch
             import torch
 
-            # Perform a dummy matmul here and backwards through it to set up the JIT context 
-            X = torch.randn(2, 2, requires_grad=True)
-            Y = torch.randn(2, 2, requires_grad=True)
-            Z = torch.matmul(X, Y)
-            Z.backward(torch.ones_like(Z))
-
             self.setup_torch_module()
+
+            # Perform a dummy matmul here and backwards through it to set up the JIT context 
+            #X = torch.randn(2, 2, requires_grad=True)
+            #Y = torch.randn(2, 2, requires_grad=True)
+            #Z = torch.matmul(X, Y)
+            #Z.backward(torch.ones_like(Z))
+
+    def __call__(self, L1_in: torch.Tensor, L2_in: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+        return self.forward(L1_in, L2_in, weights)
 
     def forward_raw(
             self,

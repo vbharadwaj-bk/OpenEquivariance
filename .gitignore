@@ -22,7 +22,7 @@ env.sh
 nvidia-mathdx*
 .vscode/*
 *.ncu-rep
-mace
+mace_dev
 valid_indices*
 
 

@@ -10,6 +10,8 @@ using namespace std;
 
 class __attribute__((visibility("default"))) JITKernel {
 public:
+   string gpu_program;
+
    JITKernel(ifstream& ifile); 
    JITKernel(string gpu_program);
 
@@ -22,20 +24,17 @@ public:
          void* args[], uint32_t smem=0, CUstream hStream=NULL);
 
    ~JITKernel();
-
 private:
-   string gpu_program;
    nvrtcProgram prog;
 
    bool compiled = false;
    char* ptx = nullptr;
 
-   CUdevice cuDevice;
-   CUcontext context;
-   CUmodule module;
+   CUdevice dev;
+   CUlibrary library;
 
    vector<string> kernel_names;
-   vector<CUfunction> kernels;
+   vector<CUkernel> kernels;
 };
 
 class __attribute__((visibility("default"))) KernelLaunchConfig {
