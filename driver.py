@@ -149,12 +149,12 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
     #for problem in conv_problems:
@@ -173,7 +173,8 @@ if __name__=='__main__':
         #E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
-        MultiplicityOuterProductTP]
+        MultiplicityOuterProductTP
+        ]
     
     directions = ['forward', 'backward'] 
 

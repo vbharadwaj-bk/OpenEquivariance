@@ -3,7 +3,6 @@ from math import prod
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
-import torch
 
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.logging_utils import getLogger, bcolors
@@ -35,13 +34,10 @@ class TensorProduct:
             global torch
             import torch
 
-            # Perform a dummy matmul here and backwards through it to set up the JIT context 
-            X = torch.randn(2, 2, requires_grad=True)
-            Y = torch.randn(2, 2, requires_grad=True)
-            Z = torch.matmul(X, Y)
-            Z.backward(torch.ones_like(Z))
-
             self.setup_torch_module()
+
+    def __call__(self, L1_in, L2_in, weights): 
+        return self.forward(L1_in, L2_in, weights)
 
     def forward_raw(
             self,

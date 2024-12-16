@@ -53,8 +53,8 @@ public:
 class __attribute__ ((visibility ("default"))) JITTPImpl : public GenericTensorProductImpl {
 public:
     JITKernel jit;
-    KernelLaunchConfig &forward_config; 
-    KernelLaunchConfig &backward_config; 
+    KernelLaunchConfig forward_config; 
+    KernelLaunchConfig backward_config; 
 
     JITTPImpl(std::string jit_kernel,    
         KernelLaunchConfig &forward_config_i,  
