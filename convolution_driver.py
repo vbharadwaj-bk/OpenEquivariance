@@ -4,7 +4,7 @@ import numpy.linalg as la
 import os
 
 from build.kernel_wrapper import *
-from src.benchmark.tpp_creation_utils import single_inst_conf, mace_conf
+from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollConv import *
 from src.implementations.NumpyConv import *
 
@@ -136,15 +136,15 @@ def debug(conv_impl, config, graph, direction, disable_tensor_op=False):
 
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius3.5")
-    config= single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True)
+    #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
-        #single_inst_conf("32x5e", "1x3e", "32x5e", "uvu", True),
-        mace_conf("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
-        #single_inst_conf("32x5e", "1x5e", "32x3e", "uvu", True),
-        #mace_conf("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        #mace_conf("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        #mace_conf("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
+        #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     cut_size = len(graph.rows)
@@ -156,6 +156,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv], direction="forward", correctness=True)
+    bench.run([LoopUnrollConv], direction="backward", correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
