@@ -172,15 +172,15 @@ if __name__=='__main__':
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
-        LoopUnrollTP,
-        #MultiplicityOuterProductTP
+        #LoopUnrollTP,
+        MultiplicityOuterProductTP
         ]
     
     directions = ['forward', 'backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
-             in itertools.product(conv_problems, directions, implementations)]
+             in itertools.product(problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
