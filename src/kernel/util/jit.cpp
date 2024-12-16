@@ -150,8 +150,6 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     CUDA_SAFE_CALL(cuInit(0));
     CUDA_SAFE_CALL(cuLibraryLoadData(&library, ptx, 0, 0, 0, 0, 0, 0));
 
-    //CUDA_SAFE_CALL(cuModuleLoadDataEx(&module, ptx, 0, 0, 0));
-
     for (size_t i = 0; i < kernel_names.size(); i++) {
         const char *name;
 
@@ -162,7 +160,6 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
                 ));
 
         kernels.emplace_back();
-        //CUDA_SAFE_CALL(cuModuleGetFunction(&(kernels[i]), module, name));
         CUDA_SAFE_CALL(cuLibraryGetKernel(&(kernels[i]), library, name));
     }
 
@@ -198,7 +195,6 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
 JITKernel::~JITKernel() {
     if(compiled) {
         CUDA_SAFE_CALL(cuLibraryUnload(library));
-        //CUDA_SAFE_CALL(cuModuleUnload(module));
         delete[] ptx;
     }
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
