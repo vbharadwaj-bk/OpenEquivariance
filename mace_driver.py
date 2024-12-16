@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/global/cfs/projectdirs/m1982/vbharadw/equivariant_spmm/mace_dev')
+sys.path.append('mace_dev')
 
 import argparse
 import logging
@@ -53,7 +53,6 @@ def create_model(hidden_irreps, max_ell, cueq_config=None):
 def benchmark_model(model, batch, num_iterations=100, warmup=100):
     def run_inference():
         out = model(batch,training=True)
-        print(out)
         torch.cuda.synchronize()
         return out
 
@@ -70,6 +69,9 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100):
     )
     #warmu_up_measurement = timer.timeit(num_iterations)
     measurement = timer.timeit(num_iterations)
+
+    print(run_inference())
+
     return measurement
 
 def load_fast_tp(source_model, device):
@@ -98,7 +100,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--hidden_irreps", type=str, default="128x0e + 128x1o + 128x2e")
     args = parser.parse_args()
-    torch.set_default_dtype(torch.float64)
+    torch.set_default_dtype(torch.float32)
     device = torch.device(args.device)
     hidden_irreps = o3.Irreps(args.hidden_irreps)
 
