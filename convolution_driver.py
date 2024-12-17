@@ -7,6 +7,7 @@ from build.kernel_wrapper import *
 from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollConv import *
 from src.implementations.NumpyConv import *
+from src.implementations.E3NNConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -44,6 +45,7 @@ class ConvBenchmarkSuite:
         num_warmup = 10,
         num_iter = 30,
         disable_tensor_op=False,
+        reference_impl=E3NNConv,
         prng_seed = 12345
     ):
         self.configs = configs
@@ -51,6 +53,7 @@ class ConvBenchmarkSuite:
         self.num_warmup = num_warmup
         self.num_iter = num_iter
         self.disable_tensor_op = disable_tensor_op
+        self.reference_impl = reference_impl
         self.prng_seed = 12345
 
     def run(self, tp_implementations, direction, correctness=True):        
@@ -82,10 +85,10 @@ class ConvBenchmarkSuite:
                 if correctness and direction == "forward":
                     conv.forward_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
                     correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph,
-                            conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
+                            conv_reference_impl=self.reference_impl, disable_tensor_op=self.disable_tensor_op)
 
-                benchmark = conv.benchmark_forward(self.num_warmup,
-                            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                    benchmark = conv.benchmark_forward(self.num_warmup,
+                                self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
 
                 result = {
                     "config": str(config),
