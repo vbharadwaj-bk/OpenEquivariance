@@ -46,7 +46,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         env.globals['range'] = range
         env.globals['enumerate'] = enumerate 
         env.globals['len'] = len
-        main_template = env.get_template("subkernel_per_interaction_multirep.cuh")
+        main_template = env.get_template("mop_tp.cuh")
         # forward_subkernel_template = env.get_template("subkernel_forward_thread.cu.jinja2")
         # backward_subkernel_template = env.get_template("subkernel_backward_thread.cu.jinja2")
         
