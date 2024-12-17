@@ -72,13 +72,7 @@ class ConvBenchmarkSuite:
         exp_count = 0
 
         for config in self.configs: 
-            L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
-            rng = np.random.default_rng(self.prng_seed)
-
-            L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
-            L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
-            weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
-            L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+            L1_in, L2_in, weights, L3_out = get_random_buffers_forward_conv(config, graph.node_count, graph.nnz, self.prng_seed)
 
             for impl in tp_implementations:
                 tc_name = f"{config}, {impl.name()}"
@@ -86,12 +80,12 @@ class ConvBenchmarkSuite:
                 conv = impl(config)
 
                 if correctness and direction == "forward":
-                    conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
+                    conv.forward_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
                     correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph,
                             conv_reference_impl=NumpyConv, disable_tensor_op=self.disable_tensor_op)
 
-                benchmark = conv.benchmark(self.num_warmup,
-                            self.num_iter, self.graph, self.disable_tensor_op, direction, prng_seed=12345)
+                benchmark = conv.benchmark_forward(self.num_warmup,
+                            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
 
                 result = {
                     "config": str(config),
@@ -139,8 +133,8 @@ if __name__=='__main__':
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
-        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
+        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
@@ -156,6 +150,6 @@ if __name__=='__main__':
         configs, graph,
         disable_tensor_op=False
     )
-    bench.run([LoopUnrollConv], direction="backward", correctness=False)
+    bench.run([LoopUnrollConv], direction="forward", correctness=True)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+from src.benchmark.random_buffer_utils import * 
 from src.implementations.TensorProduct import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
@@ -71,14 +72,13 @@ class Convolution:
     def name():
         raise NotImplementedError()
 
-    def exec_conv_cpu(self, 
+    def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
 
-        L1_d = DeviceBuffer(L1_in)
-        L2_d = DeviceBuffer(L2_in)
-        weights_d = DeviceBuffer(weights)
+        L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
         L3_d = DeviceBuffer(L3_out)
+
         rows_d = DeviceBuffer(graph.rows)
         cols_d = DeviceBuffer(graph.cols)
 
@@ -143,7 +143,7 @@ class Convolution:
             logger.warning(f"{bcolors.WARNING}Tensor product disabled within convolution, performing SpMM.{bcolors.ENDC}")
 
         logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
-        conv_reference.exec_conv_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
+        conv_reference.forward_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
         logger.info("Finished reference convolution.")
 
         thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
@@ -171,61 +171,45 @@ class Convolution:
 
         return result, ground_truth
 
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
-            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op):
-
-        time_millis = np.zeros(num_iter, dtype=np.float32)
-
-        if direction == "forward":
-            self.internal.benchmark_forward_cpu(L1_in, L2_in, weights, L3_buffer, 
-                    graph.coords, graph.rows, graph.cols, 
-                    disable_tensor_op,
-                    num_warmup,
-                    time_millis)
-        
-        elif direction == "backward":
-            self.internal.benchmark_backward_cpu(
-                L1_in, L1_grad,
-                L2_in, L2_grad,
-                weights, weights_grad,
-                L3_buffer,
-                graph.rows, graph.cols,
-                disable_tensor_op,
-                num_warmup,
-                time_millis)
-
-        return time_millis
-
-    def benchmark(self, num_warmup, num_iter, graph, disable_tensor_op, direction, prng_seed=12345):
+    def benchmark_forward(self, 
+            num_warmup, 
+            num_iter, 
+            graph, 
+            disable_tensor_op, 
+            prng_seed=12345):
         '''
         This function only works for scalar L-values right now, need to change
         to handle any multiplicity.
         '''
-        L1, L2, L3, config = self.L1, self.L2, self.L3, self.config
-        rng = np.random.default_rng(prng_seed)
+        L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
 
-        L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
-        L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
-        weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
-        L3_buffer = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+        L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
+        L3_d = DeviceBuffer(L3_buffer)
+        rows_d = DeviceBuffer(graph.rows)
+        cols_d = DeviceBuffer(graph.cols)
 
-        L1_grad, L2_grad, weights_grad = [None] * 3
-        if direction == "backward":
-            L3_buffer[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
-            L1_grad = np.zeros_like(L1_in)
-            L2_grad = np.zeros_like(L2_in)
-            weights_grad = np.zeros_like(weights)
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
 
-        # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
-            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op)
-        # ==================================== 
+        for i in range(num_warmup):
+            self.internal.exec_conv_rawptrs(
+                L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                disable_tensor_op)
 
-        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, direction)
+        for i in range(num_iter):
+            timer.start()
+            self.internal.exec_conv_rawptrs(
+                L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                disable_tensor_op)
+            time_millis[i] = timer.stop_clock_get_elapsed() 
+
+        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
         if disable_tensor_op:
-            ops_per_tp = 2 * L3.dim
+            ops_per_tp = 2 * self.config.irreps_out.dim
         else:
-            ops_per_tp += L3.dim # Output accumulation... should check this 
+            ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
 
         throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
 
@@ -234,16 +218,15 @@ class Convolution:
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "tp_direction": direction,
+            "direction": "forward",
             "total_cg_nnz": nnz,
             "flops_per_tp": ops_per_tp,
             "data_per_tp": data_per_tp,
 
             "disable_tensor_op": disable_tensor_op,
-            "direction": direction,
-            "L1": str(L1),
-            "L2": str(L2), 
-            "L3": str(L3),
+            "L1": str(self.config.irreps_in1),
+            "L2": str(self.config.irreps_in2), 
+            "L3": str(self.config.irreps_out),
             "graph_node_count": graph.node_count,
             "graph_adj_nnz": graph.nnz,
             "num_warmup": num_warmup,
