@@ -74,16 +74,27 @@ class Convolution:
     def exec_conv_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
-                graph.rows, graph.cols, disable_tensor_op)
 
-            #py::array_t<float> &L1_in_py,
-            #py::array_t<float> &L2_in_py,
-            #py::array_t<float> &weights_py,
-            #py::array_t<float> &L3_out_py,
-            #py::array_t<uint32_t> &rows_py,
-            #py::array_t<uint32_t> &cols_py,
-            #bool disable_tensor_op)
+        L1_d = DeviceBuffer(L1_in)
+        L2_d = DeviceBuffer(L2_in)
+        weights_d = DeviceBuffer(weights)
+        L3_d = DeviceBuffer(L3_out)
+        rows_d = DeviceBuffer(graph.rows)
+        cols_d = DeviceBuffer(graph.cols)
+
+        self.internal.exec_conv_rawptrs(
+            L1_d.data_ptr(),
+            L2_d.data_ptr(),
+            weights_d.data_ptr(),
+            L3_d.data_ptr(),
+            rows_d.data_ptr(),
+            cols_d.data_ptr(),
+            graph.nnz,
+            graph.node_count,
+            disable_tensor_op)
+
+        L3_d.copy_to_host()
+
 
     def backward_cpu(self, 
             L1_in, L2_in, weights, L3_grad,
@@ -96,13 +107,29 @@ class Convolution:
         L2_grad = np.zeros_like(L2_in)
         weights_grad = np.zeros_like(weights)
 
-        self.internal.backward_cpu(
-            L1_in, L1_grad,
-            L2_in, L2_grad,
-            weights, weights_grad,
-            L3_grad,
-            graph.rows, graph.cols,
+        L1_d = DeviceBuffer(L1_in)
+        L2_d = DeviceBuffer(L2_in)
+        weights_d = DeviceBuffer(weights)
+        L3_d = DeviceBuffer(L3_grad)
+        rows_d = DeviceBuffer(graph.rows)
+        cols_d = DeviceBuffer(graph.cols)
+        
+        L1_grad_d = DeviceBuffer(L1_grad)
+        L2_grad_d = DeviceBuffer(L2_grad)
+        weights_grad_d = DeviceBuffer(weights_grad)
+
+        self.internal.backward_rawptrs(
+            L1_d.data_ptr(), L1_grad_d.data_ptr(),
+            L2_d.data_ptr(), L2_grad_d.data_ptr(),
+            weights_d.data_ptr(), weights_grad_d.data_ptr(),
+            L3_d.data_ptr(),
+            rows_d.data_ptr(), cols_d.data_ptr(),
+            graph.nnz, graph.node_count,
             disable_tensor_op)
+
+        L1_grad_d.copy_to_host()
+        L2_grad_d.copy_to_host()
+        weights_grad_d.copy_to_host()
 
         return L1_grad, L2_grad, weights_grad
 
