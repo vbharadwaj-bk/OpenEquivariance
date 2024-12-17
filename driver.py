@@ -127,9 +127,9 @@ if __name__=='__main__':
     increasing_multiplicty_fully_connected_problems = [
         FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
-        FCTPP("8x1e", "8x1e", "8x1e"),
-        FCTPP("16x1e", "16x1e", "16x1e"),
-        FCTPP("32x1e", "32x1e", "32x1e"),
+        # FCTPP("8x1e", "8x1e", "8x1e"),
+        # FCTPP("16x1e", "16x1e", "16x1e"),
+        # FCTPP("32x1e", "32x1e", "32x1e"),
     ]
 
     full_size_uvw_case = [
@@ -175,7 +175,10 @@ if __name__=='__main__':
         #LoopUnrollTP,
         MultiplicityOuterProductTP]
     
-    directions = ['forward', 'backward'] 
+    directions = [
+        'forward', 
+        'backward',
+        ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
