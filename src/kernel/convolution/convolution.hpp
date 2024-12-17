@@ -18,25 +18,83 @@ public:
     }
 
     virtual void exec_conv(
-            float* L1_in,
-            float* L2_in,
-            float* weights, 
-            float* L3_out,
-            uint32_t* rows,
-            uint32_t* cols,
-            uint64_t nnz,
-            uint32_t node_count,
-            bool disable_tensor_op
-            ) = 0; 
+        void* L1_in,
+        void* L2_in,
+        void* weights, 
+        void* L3_out,
+        uint32_t* rows,
+        uint32_t* cols,
+        uint64_t nnz,
+        uint32_t node_count,
+        bool disable_tensor_op) = 0;
 
+    void exec_conv_rawptrs(
+        uint64_t L1_in,
+        uint64_t L2_in,
+        uint64_t weights,
+        uint64_t L3_out,
+        uint64_t rows,
+        uint64_t cols,
+        uint64_t nnz,
+        uint32_t node_count,
+        bool disable_tensor_op) {
+
+        exec_conv(
+            reinterpret_cast<void*>(L1_in),
+            reinterpret_cast<void*>(L2_in),
+            reinterpret_cast<void*>(weights),
+            reinterpret_cast<void*>(L3_out),
+            reinterpret_cast<uint32_t*>(rows),
+            reinterpret_cast<uint32_t*>(cols),
+            nnz,
+            node_count,
+            disable_tensor_op);
+    }
+
+    virtual void backward(
+        void* L1_in, void* L1_grad,
+        void* L2_in, void* L2_grad,
+        void* weight, void* weight_grad,
+        void* L3_grad,
+        uint32_t* rows, uint32_t* cols,
+        uint64_t nnz, uint32_t node_count,
+        bool disable_tensor_op) = 0;
+
+    void backward_rawptrs(
+        uint64_t L1_in, uint64_t L1_grad,
+        uint64_t L2_in, uint64_t L2_grad,
+        uint64_t weight, uint64_t weight_grad,
+        uint64_t L3_grad,
+        uint64_t rows, uint64_t cols,
+        uint64_t nnz, uint32_t node_count,
+        bool disable_tensor_op) {
+
+        backward(
+            reinterpret_cast<void*>(L1_in),
+            reinterpret_cast<void*>(L1_grad),
+            reinterpret_cast<void*>(L2_in),
+            reinterpret_cast<void*>(L2_grad),
+            reinterpret_cast<void*>(weight),
+            reinterpret_cast<void*>(weight_grad),
+            reinterpret_cast<void*>(L3_grad),
+            reinterpret_cast<uint32_t*>(rows),
+            reinterpret_cast<uint32_t*>(cols),
+            nnz,
+            node_count,
+            disable_tensor_op);
+    }
+
+    virtual ~ConvolutionImpl() {};
+
+    /*
     void exec_conv_cpu(
-            py::array_t<float> &L1_in_py,
-            py::array_t<float> &L2_in_py,
-            py::array_t<float> &weights_py,
-            py::array_t<float> &L3_out_py,
-            py::array_t<uint32_t> &rows_py,
-            py::array_t<uint32_t> &cols_py,
-            bool disable_tensor_op) {
+        py::array_t<float> &L1_in_py,
+        py::array_t<float> &L2_in_py,
+        py::array_t<float> &weights_py,
+        py::array_t<float> &L3_out_py,
+        py::array_t<uint32_t> &rows_py,
+        py::array_t<uint32_t> &cols_py,
+        bool disable_tensor_op) {
 
         Buffer<float> L3_out_host(L3_out_py);
         Buffer<uint32_t> rows_host(rows_py);
@@ -58,13 +116,13 @@ public:
     }
 
     void backward_cpu(
-            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
-            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
-            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
-            py::array_t<float> L3_grad_py,
-            py::array_t<uint32_t> &rows_py,
-            py::array_t<uint32_t> &cols_py,
-            bool disable_tensor_op) { 
+        py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+        py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+        py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+        py::array_t<float> L3_grad_py,
+        py::array_t<uint32_t> &rows_py,
+        py::array_t<uint32_t> &cols_py,
+        bool disable_tensor_op) { 
 
         Buffer<float> L1_grad_host(L1_grad_py);
         Buffer<float> L2_grad_host(L2_grad_py);
@@ -101,49 +159,37 @@ public:
         weight_grad.copy_to_host_buffer(weight_grad_host); 
     }
 
-    virtual void backward(
-            float* L1_in, float* L1_grad,
-            float* L2_in, float* L2_grad,
-            float* weight, float* weight_grad,
-            float* L3_grad,
-            uint32_t* rows, uint32_t* cols,
-            uint64_t nnz, uint32_t node_count,
-            bool disable_tensor_op) {
-        throw std::logic_error("Backward pass not implemented yet!");
-    }
-
     void benchmark_forward_cpu(
-            py::array_t<float> &L1_in_py,
-            py::array_t<float> &L2_in_py,
-            py::array_t<float> &weights,
-            py::array_t<float> &L3_out_py,
-            py::array_t<float> &coords_py,
-            py::array_t<uint32_t> &rows_py,
-            py::array_t<uint32_t> &cols_py,
-            bool disable_tensor_op,
-            uint64_t num_warmup,
-            py::array_t<float> time_millis_py);
+        py::array_t<float> &L1_in_py,
+        py::array_t<float> &L2_in_py,
+        py::array_t<float> &weights,
+        py::array_t<float> &L3_out_py,
+        py::array_t<float> &coords_py,
+        py::array_t<uint32_t> &rows_py,
+        py::array_t<uint32_t> &cols_py,
+        bool disable_tensor_op,
+        uint64_t num_warmup,
+        py::array_t<float> time_millis_py);
 
     void benchmark_backward_cpu(
-            py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
-            py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
-            py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
-            py::array_t<float> L3_grad_py,
-            py::array_t<uint32_t> &rows_py,
-            py::array_t<uint32_t> &cols_py,
-            bool disable_tensor_op, 
-            uint64_t num_warmup,
-            py::array_t<float> time_millis_py);
-
-    virtual ~ConvolutionImpl() {};
+        py::array_t<float> L1_in_py, py::array_t<float> L1_grad_py,
+        py::array_t<float> L2_in_py, py::array_t<float> L2_grad_py,
+        py::array_t<float> weight_py, py::array_t<float> weight_grad_py,
+        py::array_t<float> L3_grad_py,
+        py::array_t<uint32_t> &rows_py,
+        py::array_t<uint32_t> &cols_py,
+        bool disable_tensor_op, 
+        uint64_t num_warmup,
+        py::array_t<float> time_millis_py);
+    */
 };
 
 
 class __attribute__ ((visibility ("default"))) JITConvImpl : public ConvolutionImpl{
 public:
     JITKernel jit;
-    KernelLaunchConfig &forward_config; 
-    KernelLaunchConfig &backward_config; 
+    KernelLaunchConfig forward_config; 
+    KernelLaunchConfig backward_config; 
 
     JITConvImpl(
         std::string jit_kernel,    
@@ -151,27 +197,24 @@ public:
         KernelLaunchConfig &backward_config_i);
 
     void exec_conv(
-            float* L1_in,
-            float* L2_in,
-            float* weights,
-            float* L3_out,
-            uint32_t* rows,
-            uint32_t* cols,
-            uint64_t nnz,
-            uint32_t node_count,
-            bool disable_tensor_op
-            ); 
+        void* L1_in,
+        void* L2_in,
+        void* weights, 
+        void* L3_out,
+        uint32_t* rows,
+        uint32_t* cols,
+        uint64_t nnz,
+        uint32_t node_count,
+        bool disable_tensor_op); 
 
     void backward(
-            float* L1_in, float* L1_grad,
-            float* L2_in, float* L2_grad,
-            float* weight, float* weight_grad,
-            float* L3_grad,
-            uint32_t* rows, uint32_t* cols,
-            uint64_t nnz, uint32_t node_count,
-            bool disable_tensor_op);
+        void* L1_in, void* L1_grad,
+        void* L2_in, void* L2_grad,
+        void* weight, void* weight_grad,
+        void* L3_grad,
+        uint32_t* rows, uint32_t* cols,
+        uint64_t nnz, uint32_t node_count,
+        bool disable_tensor_op);
 
     ~JITConvImpl() = default; 
 };
-
-

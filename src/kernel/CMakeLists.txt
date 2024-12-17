@@ -20,7 +20,6 @@ add_library(espmm SHARED
   tensorproducts/jit_tp.cu
 
   convolution/convolution.hpp
-  convolution/generic_conv.cpp
   convolution/jit_conv.cpp
 )
 
