@@ -175,7 +175,7 @@ if __name__=='__main__':
         #LoopUnrollTP,
         MultiplicityOuterProductTP]
     
-    directions = [
+    directions : list[Direction] = [
         'forward', 
         'backward',
         ] 
