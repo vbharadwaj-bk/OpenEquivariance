@@ -14,7 +14,7 @@ from src.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
 Direction = Literal['forward', 'backward']
 
 class TestDefinition(NamedTuple):
-    implementation : TensorProduct
+    implementation : type[TensorProduct]
     problem : TPProblem
     direction : Direction
     correctness : bool = True
