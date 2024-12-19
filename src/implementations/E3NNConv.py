@@ -39,11 +39,22 @@ class E3NNConv(Convolution):
     def name():
         return "E3NNConvolution" 
 
-    def forward_cpu(self, 
-            L1_in, L2_in, weights, L3_out,
-            graph, disable_tensor_op=False):
-        disable_tensor_op = False
-
-        tp_outputs = np.zeros((graph.nnz, self.L3.dim), dtype=np.float32)
+    def forward_cpu(self, L1_in, L2_in, weights, L3_out, graph):
+        tp_outputs = np.zeros((graph.nnz, self.L3.dim), dtype=L3_out.dtype)
         self.reference_tp.forward_cpu(L1_in[graph.cols], L2_in, tp_outputs, weights)
         np.add.at(L3_out, graph.rows, tp_outputs)
+
+    def backward_cpu(
+            self,
+            L1_in : np.ndarray,
+            L1_grad : np.ndarray,
+            L2_in : np.ndarray,
+            L2_grad : np.ndarray,
+            L3_grad : np.ndarray,
+            weights : np.ndarray,
+            weights_grad : np.ndarray,
+            graph):
+        L1_grad_bcast = np.zeros((graph.nnz, self.L1.dim), dtype=L1_grad.dtype)
+        self.reference_tp.backward_cpu(
+                L1_in[graph.cols], L1_grad_bcast, L2_in, L2_grad, L3_grad[graph.rows], weights, weights_grad)
+        np.add.at(L1_grad, graph.cols, L1_grad_bcast)

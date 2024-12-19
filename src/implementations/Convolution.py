@@ -5,6 +5,7 @@ from src.benchmark.random_buffer_utils import *
 from src.implementations.TensorProduct import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
+from src.benchmark.correctness_utils import check_similiarity
 logger = getLogger()
 
 def flops_data_per_tp(config, bytes_per_word, direction):
@@ -97,16 +98,8 @@ class Convolution:
 
 
     def backward_cpu(self, 
-            L1_in, L2_in, weights, L3_grad,
-            graph, disable_tensor_op=False):
-        '''
-        We break from convention here by allocating and returning
-        the appropriate buffers. 
-        '''
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
-
+            L1_in, L1_grad, L2_in, L2_grad, weights, weights_grad, 
+            L3_grad, graph, disable_tensor_op=False):
         L1_d = DeviceBuffer(L1_in)
         L2_d = DeviceBuffer(L2_in)
         weights_d = DeviceBuffer(weights)
@@ -133,43 +126,42 @@ class Convolution:
 
         return L1_grad, L2_grad, weights_grad
 
-    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
+    def test_correctness_forward(self, graph, thresh, prng_seed, reference_implementation=None):
         L1, L2, L3 = self.L1, self.L2, self.L3
 
-        ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
-        conv_reference = conv_reference_impl(self.config)
+        if reference_implementation is None:
+            from src.implementations.E3NNConv import E3NNConv
+            reference_implementation = E3NNConv
 
-        if disable_tensor_op:
-            logger.warning(f"{bcolors.WARNING}Tensor product disabled within convolution, performing SpMM.{bcolors.ENDC}")
-
-        logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
-        conv_reference.forward_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
-        logger.info("Finished reference convolution.")
-
-        thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
-            "disable_tensor_op": disable_tensor_op,
-            "shape_match": False,
-            "diff_Linf_norm": np.inf,
-            "thresh": thresh, # Above floating point interval machine epsilon 
-            "pass": False
+            "thresh": thresh 
         }
 
-        if L3_out_comp.shape != ground_truth.shape:
-            result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
-        else:
-            result["shape_match"] = True 
-            diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
-            result["diff_Linf_norm"] = diff_Linf_norm 
-            result["pass"] = bool(diff_Linf_norm < thresh) 
+        in1, in2, weights, out = get_random_buffers_forward_conv(self.config, 
+                graph.node_count, graph.nnz, prng_seed)
 
-            if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}Convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
-            else:
-                logger.error(f"{bcolors.FAIL}Convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
+        ref_tp = reference_implementation(self.config)
+        ref_out = out.copy()
+        ref_tp.forward_cpu(
+            L1_in=in1.copy(), 
+            L2_in=in2.copy(), 
+            weights=weights.copy(),
+            L3_out=ref_out,
+            graph=graph)
 
-        return result, ground_truth
+        test_out = out.copy()
+        self.forward_cpu(
+            L1_in=in1.copy(), 
+            L2_in=in2.copy(),
+            weights=weights.copy(),
+            L3_out=test_out,
+            graph=graph)
+
+        for name, to_check, ground_truth in [
+            ("output", ref_out, test_out)]:
+            result[name] = check_similiarity(name, to_check, ground_truth, thresh)
+
+        return result
 
     def benchmark_forward(self, 
             num_warmup, 

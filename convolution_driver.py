@@ -55,6 +55,7 @@ class ConvBenchmarkSuite:
         self.disable_tensor_op = disable_tensor_op
         self.reference_impl = reference_impl
         self.prng_seed = 12345
+        self.correctness_threshold = 1e-5
 
     def run(self, tp_implementations, direction, correctness=True):        
         millis_since_epoch = round(time.time() * 1000)
@@ -83,9 +84,10 @@ class ConvBenchmarkSuite:
                 conv = impl(config)
 
                 if correctness and direction == "forward":
-                    conv.forward_cpu( L1_in, L2_in, weights, L3_out, self.graph, self.disable_tensor_op)
-                    correctness, _ = conv.test_correctness(L1_in, L2_in, weights, L3_out, self.graph,
-                            conv_reference_impl=self.reference_impl, disable_tensor_op=self.disable_tensor_op)
+                    correctness, _ = conv.test_correctness_forward(self.graph, 
+                            thresh=self.correctness_threshold, 
+                            prng_seed=self.prng_seed, 
+                            reference_implementation=self.reference_impl)
 
                     benchmark = conv.benchmark_forward(self.num_warmup,
                                 self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
@@ -137,11 +139,11 @@ if __name__=='__main__':
 
     configs = [
         SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3)
-        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
-        #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
+        ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     cut_size = len(graph.rows)
