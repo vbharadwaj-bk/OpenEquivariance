@@ -83,11 +83,12 @@ class ConvBenchmarkSuite:
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
 
-                if correctness and direction == "forward":
-                    correctness, _ = conv.test_correctness_forward(self.graph, 
-                            thresh=self.correctness_threshold, 
-                            prng_seed=self.prng_seed, 
-                            reference_implementation=self.reference_impl)
+                if direction == "forward":
+                    if correctness:
+                        correctness, _ = conv.test_correctness_forward(self.graph, 
+                                thresh=self.correctness_threshold, 
+                                prng_seed=self.prng_seed, 
+                                reference_implementation=self.reference_impl)
 
                     benchmark = conv.benchmark_forward(self.num_warmup,
                                 self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
@@ -134,7 +135,7 @@ def debug(conv_impl, config, graph, direction, disable_tensor_op=False):
             graph, False)
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -153,7 +154,8 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         configs, graph,
-        disable_tensor_op=False
+        disable_tensor_op=False,
+        reference_impl=NumpyConv
     )
     bench.run([LoopUnrollConv], direction="forward", correctness=True)
 
