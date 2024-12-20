@@ -236,3 +236,56 @@ class Convolution:
         logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
         logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
+
+
+    def test_correctness_backward(self, graph, thresh, prng_seed, reference_implementation=None):
+        L1, L2, L3 = self.L1, self.L2, self.L3
+
+        if reference_implementation is None:
+            from src.implementations.E3NNConv import E3NNConv
+            reference_implementation = E3NNConv
+
+        result = {
+            "thresh": thresh 
+        }
+
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
+
+        ref_tp = reference_implementation(self.config)
+
+        ref_weights_grad = weights_grad.copy()
+        ref_in1_grad = in1_grad.copy()
+        ref_in2_grad = in2_grad.copy()
+
+        ref_tp.backward_cpu(
+            L1_in=in1.copy(),
+            L1_grad=ref_in1_grad,
+            L2_in=in2.copy(), 
+            L2_grad=ref_in2_grad, 
+            L3_grad=out_grad.copy(), 
+            weights=weights.copy(), 
+            weights_grad=ref_weights_grad,
+            graph=graph) 
+
+        # run test version
+        test_weights_grad = weights_grad.copy()
+        test_in1_grad = in1_grad.copy()
+        test_in2_grad = in2_grad.copy()
+
+        self.backward_cpu(
+            L1_in=in1.copy(),
+            L1_grad=test_in1_grad,
+            L2_in=in2.copy(), 
+            L2_grad=test_in2_grad, 
+            L3_grad=out_grad.copy(), 
+            weights=weights.copy(), 
+            weights_grad=test_weights_grad,
+            graph=graph)
+
+        for name, to_check, ground_truth, threshold in [
+                ("weight_grad", test_weights_grad, ref_weights_grad, thresh),
+                ("in1_grad", test_in1_grad, ref_in1_grad, thresh),
+                ("in2_grad", test_in2_grad, ref_in2_grad, thresh)]:
+            result[name] = check_similiarity(name, to_check, ground_truth, threshold)
+
+        return result   

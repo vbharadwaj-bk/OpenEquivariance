@@ -85,7 +85,7 @@ class ConvBenchmarkSuite:
 
                 if direction == "forward":
                     if correctness:
-                        correctness, _ = conv.test_correctness_forward(self.graph, 
+                        correctness = conv.test_correctness_forward(self.graph, 
                                 thresh=self.correctness_threshold, 
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
@@ -93,12 +93,23 @@ class ConvBenchmarkSuite:
                     benchmark = conv.benchmark_forward(self.num_warmup,
                                 self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
 
+
+                if direction == "backward":
+                    if correctness:
+                        correctness = conv.test_correctness_backward(self.graph, 
+                                thresh=self.correctness_threshold, 
+                                prng_seed=self.prng_seed, 
+                                reference_implementation=self.reference_impl)
+
+                    #benchmark = conv.benchmark_backward(self.num_warmup,
+                    #            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+
                 result = {
                     "config": str(config),
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
-                    "benchmark": benchmark
+                    "benchmark": None # benchmark 
                 }
          
                 fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
@@ -108,43 +119,17 @@ class ConvBenchmarkSuite:
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
-def debug(conv_impl, config, graph, direction, disable_tensor_op=False):
-    logger.info("Starting debugging routine...")
-    conv = conv_impl(config)
-
-    rng = np.random.default_rng(12345)
-    L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
-    L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
-    L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
-    weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
-    L3_out = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
-
-    if direction == "forward":
-        conv.exec_conv_cpu( L1_in, L2_in, weights, L3_out, graph, disable_tensor_op=disable_tensor_op)
-        correctness, ground_truth = conv.test_correctness(L1_in, L2_in, weights, L3_out, graph, 
-                conv_reference_impl=NumpyConv, disable_tensor_op=disable_tensor_op)
-
-        print((L3_out - ground_truth)[:2, 0])
-        print(la.norm((L3_out-ground_truth).flatten(), ord=np.inf))
-    elif direction == "backward":
-        L3_grad = L3_out
-        L3_grad[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
-
-        L1_grad, L2_grad, weights_grad = conv.backward_cpu( 
-            L1_in, L2_in, weights, L3_grad,
-            graph, False)
-
 if __name__=='__main__':
     graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
         SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
-        SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
-        ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
+        #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     cut_size = len(graph.rows)
@@ -154,9 +139,7 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         configs, graph,
-        disable_tensor_op=False,
-        reference_impl=NumpyConv
-    )
-    bench.run([LoopUnrollConv], direction="forward", correctness=True)
+        disable_tensor_op=False)
+    bench.run([LoopUnrollConv], direction="backward", correctness=True)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
