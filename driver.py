@@ -127,9 +127,9 @@ if __name__=='__main__':
     increasing_multiplicty_fully_connected_problems = [
         FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
-        # FCTPP("8x1e", "8x1e", "8x1e"),
-        # FCTPP("16x1e", "16x1e", "16x1e"),
-        # FCTPP("32x1e", "32x1e", "32x1e"),
+        FCTPP("8x1e", "8x1e", "8x1e"),
+        FCTPP("16x1e", "16x1e", "16x1e"),
+        FCTPP("32x1e", "32x1e", "32x1e"),
     ]
 
     full_size_uvw_case = [
@@ -162,10 +162,10 @@ if __name__=='__main__':
     #    problem.weight_dtype = np.float64
 
     problems = list(itertools.chain(
-        # basic_fully_connected_problems,
+        basic_fully_connected_problems,
         increasing_multiplicty_fully_connected_problems,
-        # full_size_uvw_case,
-        # basic_multi_interaction_problems,
+        full_size_uvw_case,
+        basic_multi_interaction_problems,
         #conv_problems,
     ))
  
