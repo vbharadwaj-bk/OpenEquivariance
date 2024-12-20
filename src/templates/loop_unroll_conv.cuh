@@ -22,7 +22,6 @@ using WEIGHT_T = {{ forward_schedule.weight_dtype_cstr }};
 {{ generate_segment_kernel_forward(i, segment) }}
 {%- endfor %}
 
-
 struct ConvData {
     unsigned int* rows;
     unsigned int* cols;
@@ -90,10 +89,10 @@ __global__ void backward(
         {%- set tpp = backward_schedule.updated_config %}
         unsigned int row = c.rows[i]; unsigned int col = c.cols[i];
 
-        IRREP_T* l1_shft = L1_in + col * {{forward_schedule.L1.dim}} + lane_id;
-        IRREP_T* l2_shft = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
-        IRREP_T* l3_shft = L3_grad + row * {{forward_schedule.L3.dim}} + lane_id;
-        WEIGHT_T* weights_shft = weights + i * {{tpp.weight_numel}};
+        IRREP_T* l1_shft = L1_in + col * {{backward_schedule.L1.dim}} + lane_id;
+        IRREP_T* l2_shft = L2_in + i * {{backward_schedule.L2.dim}} + lane_id; 
+        IRREP_T* l3_shft = L3_grad + row * {{backward_schedule.L3.dim}} + lane_id;
+        WEIGHT_T* weights_shft = weights + i * {{tpp.weight_numel}} + lane_id;
 
         {%- for i, segment in enumerate(backward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
@@ -102,6 +101,10 @@ __global__ void backward(
             {{ load_ir_segments(segment.L2Map, "l2_shft", "L2_smem", "j") }}
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[{{segment.weight_offset}} + j];)
+
+            //__syncwarp();
+            //printf("t_idx, weight: %d, %f\n", t_idx, weights_smem[t_idx]);
+            //__syncwarp();
 
             ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{segment.L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
