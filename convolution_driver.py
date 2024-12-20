@@ -139,6 +139,10 @@ if __name__=='__main__':
         ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
+    for config in configs:
+        config.irrep_dtype = np.float64
+        config.weight_dtype = np.float64
+
     cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
     graph.cols = graph.cols[:cut_size]
