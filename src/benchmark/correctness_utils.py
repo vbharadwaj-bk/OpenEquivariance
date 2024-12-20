@@ -121,7 +121,7 @@ def correctness_backward(
         ) 
 
     # run test version
-    test_weights_grad = weights.copy()
+    test_weights_grad = weights_grad.copy()
     test_in1_grad = in1_grad.copy()
     test_in2_grad = in2_grad.copy()
 
