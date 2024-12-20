@@ -28,9 +28,18 @@ def load_graph(name):
             logger.info(f"Graph {name} loaded with {len(coords)} nodes and {len(rows)} edges.")
 
     if name == "debug":
+        #coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
+        #rows = np.array([0, 0, 1, 2, 2, 2], dtype=np.uint32)
+        #cols = np.array([0, 2, 2, 0, 1, 2], dtype=np.uint32)
+
         coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
         rows = np.array([0, 0, 1, 2, 2, 2], dtype=np.uint32)
         cols = np.array([0, 2, 2, 0, 1, 2], dtype=np.uint32)
+
+        coords = coords[:1]
+        rows = rows[:1]
+        cols = cols[:1] 
+
         name = "debug" 
 
     if coords is None or rows is None or cols is None:
@@ -106,6 +115,7 @@ class ConvBenchmarkSuite:
 
                 result = {
                     "config": str(config),
+                    "direction": direction,
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
@@ -120,7 +130,8 @@ class ConvBenchmarkSuite:
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
 if __name__=='__main__':
-    graph = load_graph("covid_spike_radius2.0")
+    graph = load_graph("debug")
+    #graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
