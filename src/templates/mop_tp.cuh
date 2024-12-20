@@ -7,7 +7,8 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
-typedef cooperative_groups::thread_block_tile<32> Warp_Tile;
+namespace cg = cooperative_groups;
+typedef cg::thread_block_tile<32> Warp_Tile;
 
 // FORWARD DECLARATIONS
 template<typename T, typename Group, int Num_Elements> 
@@ -36,12 +37,11 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     float L1_local_vec[{{L1.irrep_lengths | max}}];
     float L2_local_vec[{{L2.irrep_lengths | max}}];
     float L3_local_vec[{{L3.irrep_lengths | max}}];
-    
-    auto group = cooperative_groups::this_thread_block(); 
 
-    // block_contiguous_set<float>(L3_smem, 0.0f, {{L3.rep_len}});
-    static_contiguous_set<float, Tile, {{L3.rep_len}}>(tile, L3_smem, 0.0f);
+    static_contiguous_set<float, Tile, {{L3.rep_len}}>(tile, L3_smem_warp, 0.0f);
     
+    tile.sync(); 
+
     // Loop Through Interactions
     {%- set num_interact = interactions | length %}
     {%- for interaction_index in range(num_interact) %}
@@ -65,16 +65,16 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
  
         constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
 
-        // Assign Each Thread one multiplictiy interaction, BlockDim stride kernel  
+        // Assign Each Thread one multiplictiy interaction, tile.size() stride kernel  
         for (int L1_L2_block_start_index = 0; 
              L1_L2_block_start_index < num_L1_L2_combinations; 
-             L1_L2_block_start_index += blockDim.x
+             L1_L2_block_start_index += tile.size()
             ){
             
-            int num_L1_L2_blocks_to_do = min(blockDim.x, num_L1_L2_combinations - L1_L2_block_start_index);
+            int num_L1_L2_blocks_to_do = min(tile.size(), num_L1_L2_combinations - L1_L2_block_start_index);
             int n = num_L1_L2_blocks_to_do; 
 
-            int L1_L2_thread_index = L1_L2_block_start_index + threadIdx.x; 
+            int L1_L2_thread_index = L1_L2_block_start_index + tile.thread_rank(); 
             int L1_mult_index = L1_L2_thread_index / L2_mults; 
             int L2_mult_index = L1_L2_thread_index % L2_mults; 
 
@@ -83,12 +83,11 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
             // READ N SETS OF WEIGHTS FROM GLOBAL MEMORY, 
             // HOPEFULLY L2 CACHE TO SMEM COLUMN MAJOR ORDER
-            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_block_start_index * {{L3.mults[w]}}); 
-            // cooperative_groups::memcpy_async(group, smem_gemm_weights, weights_mult1_mult2_shift, sizeof(float) * n * {{L3.mults[w]}});            
-            dynamic_contiguous_copy<float, Tile>(tile, smem_gemm_weights, weights_mult1_mult2_shift, n * L3_mults); 
+            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_block_start_index * {{L3.mults[w]}});           
+            dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
 
             // N threads perform a tensor product 
-            if (threadIdx.x < n) {
+            if (tile.thread_rank() < n) {
                 
                 // CLEAR L3 REGISTERS
                 #pragma unroll
@@ -117,18 +116,14 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 // WRITE TO SMEM_GEMM_L3 
                 #pragma unroll 
                 for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
-                    gemm_L3_smem_warp[(threadIdx.x * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = L3_local_vec[L3_irrep_index]; 
+                    gemm_L3_smem_warp[(tile.thread_rank() * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = L3_local_vec[L3_irrep_index]; 
                 }
             }
-
-            // WAIT FOR WEIGHTS TO HAVE ARRIVED
-            // cooperative_groups::wait(group); 
-            
 
             tile.sync();
 
             // PERFORM MATMUL 
-            int i = threadIdx.x;
+            int i = tile.thread_rank();
             if(i < L3_mults){
                 float accumulators[{{L3.irrep_lengths[w]}}]; 
                 
@@ -138,11 +133,11 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 }
 
                 for(int k = 0; k < n; k++){
-                    float local_weight = smem_warp_gemm_weights[(k  * L3_mults) + i];
+                    float local_weight = gemm_weights_smem_warp[(k  * L3_mults) + i];
                     #pragma unroll 
                     for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
                     //    C[i j]    +=    A[i k]    *     B[kj]
-                    accumulators[j] += local_weight * smem_warp_gemm_L3[(k * {{L3.irrep_lengths[w]}}) + j];
+                    accumulators[j] += local_weight * gemm_L3_smem_warp[(k * {{L3.irrep_lengths[w]}}) + j];
                     }
                 } 
 
@@ -188,9 +183,7 @@ __global__ void forward(
         ]
         }, "warp_loc", forward_config)}}    
 
-    Warp_Tile warp_tile = cooperative_groups::tiled_partition<THREADS_PER_WARP>(cooperative_groups::this_thread_block());
-
-    warp_tile.sync(); 
+    Warp_Tile warp_tile = cg::tiled_partition<THREADS_PER_WARP>(cg::this_thread_block());
 
     // GRID STRIDE LOOP
     for(
@@ -200,16 +193,15 @@ __global__ void forward(
         )
     {   
         // CALCULATE PTRS TO THE ACTIVE BATCH ELEMENT REGION
-        float* L1_warp_shift = L1_in  + (batch_index * {{L1.rep_len}}); 
-        float* L2_warp_shift = L2_in  + (batch_index * {{L2.rep_len}}); 
-        float* L3_warp_shift = L3_out + (batch_index * {{L3.rep_len}}); 
+        float* L1_global_shift_warp = L1_in  + (batch_index * {{L1.rep_len}}); 
+        float* L2_global_shift_warp = L2_in  + (batch_index * {{L2.rep_len}}); 
+        float* L3_global_shift_warp = L3_out + (batch_index * {{L3.rep_len}}); 
 
-
-        static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}> (warp_tile, L1_smem_warp, L1_warp_shift);
-        static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}> (warp_tile, L2_smem_warp, L2_warp_shift);
         // COPY FROM GLOBAL
-        // cuda::memcpy_async(group, L1_smem, L1_shift, sizeof(float) * {{L1.rep_len}}, barrier);
-        // cuda::memcpy_async(group, L2_smem, L2_shift, sizeof(float) * {{L2.rep_len}}, barrier);              
+        static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}> (warp_tile, L1_smem_warp, L1_global_shift_warp);
+        static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}> (warp_tile, L2_smem_warp, L2_global_shift_warp);
+
+        warp_tile.sync(); 
 
         // PERFORM TP 
         forward_kernel_shared_memory<Warp_Tile>(
@@ -224,9 +216,8 @@ __global__ void forward(
 
         warp_tile.sync();
         
-        static_contiguous_copy<float, Warp_Tile, {{L3.rep_len}}> (warp_tile, L3_warp_shift, L3_smem_warp); 
         // WRITE TO GLOBAL
-        // cuda::memcpy_async(group, L3_shift, L3_smem, sizeof(float) * {{L3.rep_len}}, barrier);        
+        static_contiguous_copy<float, Warp_Tile, {{L3.rep_len}}> (warp_tile, L3_global_shift_warp, L3_smem_warp);
     } 
 }
 
@@ -252,7 +243,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
     float scratch1[{{num_scratch_reg}}];
     float scratch2[{{num_scratch_reg}}];
 
-    auto group = cooperative_groups::this_thread_block();
+    cg::thread_block block = cg::this_thread_block();
 
     dynamic_contiguous_set<float,Tile>(tile, L1_grad_shared_shift_warp, 0.0f, {{L1.rep_len}});
     dynamic_contiguous_set<float,Tile>(tile, L2_grad_shared_shift_warp, 0.0f, {{L2.rep_len}}); 
@@ -285,11 +276,11 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         for ( 
             int block_start_weight_index = 0;
             block_start_weight_index < num_weights;  
-            block_start_weight_index += blockDim.x 
+            block_start_weight_index += tile.size() 
             )
             {
             
-            int weight_index = block_start_weight_index + threadIdx.x; 
+            int weight_index = block_start_weight_index + tile.thread_rank(); 
 
             int L1_mult_index = weight_index / (L2_mults * L3_mults);
             int remaining = weight_index % (L2_mults * L3_mults);
@@ -327,7 +318,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                 }
                 
                 // LOAD WEIGHT 
-                float local_weight = weights_interaction_shift[weight_index]; 
+                float local_weight = weights_global_shift_interaction[weight_index]; 
 
                 // ZERO ACUMULATORS 
 
@@ -372,11 +363,11 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                 }
                 
                 // DEVICE-WIDE ATOMIC ADD WEIGHT_GRAD 
-                atomicAdd(&weights_grad_interaction_shift[weight_index], local_weight_grad); 
+                atomicAdd(&weights_grad_global_shift_interaction[weight_index], local_weight_grad); 
             }
-            __syncwarp(); 
+            tile.sync(); 
             }
-        __syncthreads(); 
+        block.sync(); 
     }
     {%- endfor %}  
     
@@ -404,7 +395,7 @@ __global__ void backward(
     float* weights_grad,
     float* L3_grad) 
 {
-    {%- set warps_per_block = divide(forward_config.num_threads, forward_config.warp_size) %}
+    {%- set warps_per_block = divide(backward_config.num_threads, backward_config.warp_size) %}
     constexpr int warps_per_block = {{warps_per_block}}; 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = idx / THREADS_PER_WARP; 
@@ -423,13 +414,8 @@ __global__ void backward(
         ]
         }, "warp_loc", forward_config)}}    
 
-    Warp_Tile warp_tile = cooperative_groups::tiled_partition<THREADS_PER_WARP>(cooperative_groups::this_thread_block());
-    auto block = cooperative_groups::this_thread_block(); 
-
-    block.sync(); 
-    dynamic_contiguous_set<float, cooperative_groups::thread_block>(block, weights_grad, 0.0f, {{weight_numel}}); 
-    block.sync(); 
-
+    Warp_Tile warp_tile = cg::tiled_partition<THREADS_PER_WARP>(cg::this_thread_block());
+    
     // GRID STRIDE LOOP
     for(
         int batch_index = (blockIdx.x * warps_per_block) + warp_loc; 
@@ -437,26 +423,22 @@ __global__ void backward(
         batch_index += (gridDim.x * warps_per_block)
         )
     {   
-        // THIS TAKES INTO ACCOUNT THAT EACH WARP IS DOING A DIFFERENT BATCH ELEMENT 
+        // THIS FOR LOOP TAKES INTO ACCOUNT THAT EACH WARP IS DOING A DIFFERENT BATCH ELEMENT 
 
         // CALCULATE PTRS TO THE ACTIVE BATCH ELEMENT REGION
         float* L1_global_shift_warp = L1_in  + (batch_index * {{L1.rep_len}}); 
         float* L1_grad_global_shift_warp = L1_grad + (batch_index * {{L1.rep_len}}); 
-        float* L2_global_warp_shift = L2_in  + (batch_index * {{L2.rep_len}}); 
+        float* L2_global_shift_warp = L2_in  + (batch_index * {{L2.rep_len}}); 
         float* L2_grad_global_shift_warp = L2_grad + (batch_index * {{L2.rep_len}}); 
         float* L3_grad_global_shift_warp = L3_grad + (batch_index * {{L3.rep_len}}); 
         
-
+        // COPY FROM GLOBAL
         static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}>(warp_tile, L1_shared_shift_warp, L1_global_shift_warp); 
         static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}>(warp_tile, L2_shared_shift_warp, L2_global_shift_warp);
         static_contiguous_copy<float, Warp_Tile, {{L3.rep_len}}>(warp_tile, L3_grad_shared_shift_warp, L3_grad_global_shift_warp); 
-        // COPY FROM GLOBAL
-        // cuda::memcpy_async(group, L1_smem, L1_shift, sizeof(float) * {{L1.rep_len}}, barrier);
-        // cuda::memcpy_async(group, L2_smem, L2_shift, sizeof(float) * {{L2.rep_len}}, barrier);           
-        // cuda::memcpy_async(group, L3_grad_smem, L3_grad_shift, sizeof(float) * {{L3.rep_len}}, barrier);    
 
-        // barrier.arrive_and_wait();
-        
+        warp_tile.sync(); 
+
         // PERFORM TP 
         backward_kernel_shared_memory<Warp_Tile>(
             warp_tile, 
@@ -472,12 +454,8 @@ __global__ void backward(
         warp_tile.sync();
         
         // WRITE TO GLOBAL
-        // cuda::memcpy_async(group, L1_grad_shift, L1_grad_smem, sizeof(float) * {{L1.rep_len}}, barrier); 
-        // cuda::memcpy_async(group, L2_grad_shift, L2_grad_smem, sizeof(float) * {{L2.rep_len}}, barrier);
-
-        static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}>(warp_tile, L1_grad_global_warp_shift, L1_grad_shared_shift_warp);
-        static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}>(warp_tile, L2_grad_global_warp_shift, L2_grad_shared_shift_warp);
-                
+        static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}>(warp_tile, L1_grad_global_shift_warp, L1_grad_shared_shift_warp);
+        static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}>(warp_tile, L2_grad_global_shift_warp, L2_grad_shared_shift_warp);
     } 
 }
 

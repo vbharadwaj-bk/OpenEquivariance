@@ -81,18 +81,22 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # =====================================================================
         # FORWARD MEMORY ANALYSIS 
-        forward_thread_blocks_per_SM = 24 
-        forward_threads_per_thread_block = 32
+        forward_thread_blocks_per_SM = 2  
+        
 
         # =====================================================================
         dp = DeviceProp(0)
 
         forward_launch_config = KernelLaunchConfig()
         forward_launch_config.num_blocks = dp.multiprocessorCount * forward_thread_blocks_per_SM
-        forward_launch_config.num_threads = forward_threads_per_thread_block
+
+        forward_smem_per_warp = {}
+        forward_smem_per_warp['in1'] = (irreps_in1.dim * sizeof('float'))
+        forward_smem_per_warp['in2'] = (irreps_in2.dim * sizeof('float'))
+        forward_smem_per_warp['out'] = (irreps_out.dim * sizeof('float'))
 
         # IMPORTANT! 
-        smem_gemm_max_n = forward_threads_per_thread_block
+        smem_gemm_max_n = dp.warpsize
         smem_gemm_L3_scratch = smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
         smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * smem_gemm_max_n
 
@@ -101,16 +105,26 @@ class MultiplicityOuterProductTP(TensorProduct):
             'L3_scratch_elems' : smem_gemm_L3_scratch,
             'weight_scratch_elems' : smem_gemm_weights_scratch,
         }
-        logger.debug(smem_gemm_info)
+
+        logger.debug(f"{smem_gemm_info=}")
         # END OF IMPORTANT
 
-        forward_launch_config.smem = (
-            (irreps_in1.dim + irreps_in2.dim + irreps_out.dim + smem_gemm_L3_scratch + smem_gemm_weights_scratch) 
-            * sizeof("float") 
-            * forward_launch_config.num_threads // forward_launch_config.warp_size
-            ) 
+        forward_smem_per_warp['gemm_L3'] = (smem_gemm_L3_scratch * sizeof('float'))
+        forward_smem_per_warp['gemm_weights'] = (smem_gemm_weights_scratch * sizeof('float'))
 
-        logger.info(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
+        logger.debug(f"{forward_smem_per_warp=}")
+
+        forward_smem_per_warp_total = sum(forward_smem_per_warp.values())
+
+        forward_num_warps_that_fit = dp.maxSharedMemPerBlock // forward_smem_per_warp_total
+        forward_num_warps_sane = 8 
+
+        forward_num_warps = min(forward_num_warps_that_fit, forward_num_warps_sane)
+
+        forward_launch_config.num_threads = dp.warpsize * forward_num_warps
+        forward_launch_config.smem = forward_smem_per_warp_total * forward_num_warps 
+
+        logger.debug(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
 
         if forward_launch_config.smem > dp.maxSharedMemPerBlock:
             raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
@@ -118,10 +132,32 @@ class MultiplicityOuterProductTP(TensorProduct):
         # =====================================================================
 
         backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = dp.multiprocessorCount * 1
-        backward_launch_config.num_threads = 32
-        backward_launch_config.smem = (2 * irreps_in1.dim + 2 * irreps_in2.dim + 2 * + irreps_out.dim)  * sizeof("float") * backward_launch_config.num_threads // backward_launch_config.warp_size 
-        logger.info(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
+        backward_launch_config.num_blocks = dp.multiprocessorCount * 2
+    
+
+        backward_smem_per_warp = {}
+        backward_smem_per_warp['in1']      = (irreps_in1.dim * sizeof('float'))
+        backward_smem_per_warp['in1_grad'] = (irreps_in1.dim * sizeof('float'))
+        backward_smem_per_warp['in2']      = (irreps_in2.dim * sizeof('float'))
+        backward_smem_per_warp['in2_grad'] = (irreps_in2.dim * sizeof('float'))
+        backward_smem_per_warp['out_grad'] = (irreps_out.dim * sizeof('float'))
+        
+        logger.debug(msg=f"{backward_smem_per_warp=}")
+
+        backward_smem_per_warp_total = sum(backward_smem_per_warp.values())
+
+        logger.debug(msg=f"{backward_smem_per_warp_total=}")
+
+        backward_num_warps_that_fit = dp.maxSharedMemPerBlock // backward_smem_per_warp_total
+        backward_num_warps_sane_limit = 8
+
+        backward_num_warps = min(backward_num_warps_that_fit, backward_num_warps_sane_limit)
+        logger.info(msg=f"{backward_num_warps=}")
+
+        backward_launch_config.num_threads = backward_launch_config.warp_size * backward_num_warps
+        backward_launch_config.smem = backward_smem_per_warp_total * backward_num_warps
+
+        logger.debug(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
 
         if backward_launch_config.smem > dp.maxSharedMemPerBlock:
             raise Exception(f"Error, requested shared memory {backward_launch_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
