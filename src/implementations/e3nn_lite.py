@@ -357,11 +357,15 @@ class TPProblem:
         internal_weights: Optional[bool] = None,
         shared_weights: Optional[bool] = None,
         label: Optional[str] = None, 
-        irrep_dtype : np.dtype = np.float32,
-        weight_dtype : np.dtype = np.float32) -> None:
+        irrep_dtype : np.generic = np.float32,
+        weight_dtype : np.generic = np.float32,
+        ) -> None:
 
         # === Setup ===
         super().__init__()
+        
+        assert issubclass(irrep_dtype, np.generic)
+        assert issubclass(weight_dtype, np.generic)
 
         assert irrep_normalization in ["component", "norm", "none"]
         assert path_normalization in ["element", "path", "none"]
