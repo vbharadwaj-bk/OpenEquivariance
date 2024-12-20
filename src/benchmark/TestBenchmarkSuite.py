@@ -108,7 +108,7 @@ class TestBenchmarkSuite:
 
             if test.direction == 'forward':
                 if test.correctness:
-                    logger.info("Starting correctness check...")
+                    logger.debug("Starting correctness check")
                     result['correctness results'] = correctness_forward(
                         problem=tpp,
                         test_implementation=impl,
@@ -117,8 +117,9 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed,
                     )
-                    logger.info("Finished correctness check...")
+                    logger.debug("Finished correctness check")
                 if test.benchmark:
+                    logger.debug("Starting benchmark")
                     result['benchmark results'] = benchmark_forward(
                         problem=tpp,
                         implementation=impl,
@@ -127,12 +128,13 @@ class TestBenchmarkSuite:
                         num_iter=self.num_iter,
                         prng_seed=self.prng_seed
                     )
+                    logger.debug("Finished benchmark")
 
 
             if test.direction == 'backward':
                 pass 
                 if test.correctness: 
-                    logger.info("Starting correctness check...")
+                    logger.debug("Starting correctness check")
                     result ['correctness results'] = correctness_backward(
                         problem=tpp,
                         test_implementation=impl,
@@ -141,8 +143,9 @@ class TestBenchmarkSuite:
                         correctness_threshold=self.correctness_threshold,
                         prng_seed=self.prng_seed
                     )
-                    logger.info("Finished correctness check...")
+                    logger.debug("Finished correctness check")
                 if test.benchmark: 
+                    logger.debug("Starting benchmark")
                     result ['benchmark results'] = benchmark_backward(
                         problem=tpp,
                         implementation=impl,
@@ -151,6 +154,7 @@ class TestBenchmarkSuite:
                         num_iter=self.num_iter,
                         prng_seed=self.prng_seed
                     )
+                    logger.debug("Finished benchmark")
     
             fname = pathlib.Path(f"{output_folder}/{test_ID}.json")
 
