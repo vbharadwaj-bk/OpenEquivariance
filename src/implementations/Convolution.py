@@ -180,11 +180,11 @@ class Convolution:
         timer = GPUTimer()
 
         if self.torch_op:
-            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
-            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
-            torch_weights = torch.tensor(weights).to(device='cuda').detach()
-            torch_cols = torch.tensor(graph.cols).to(device='cuda').detach()
-            torch_rows = torch.tensor(graph.rows).to(device='cuda').detach()
+            torch_L1_in = torch.tensor(L1_in, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, device='cuda')
+            torch_weights = torch.tensor(weights, device='cuda')
+            torch_cols = torch.tensor(graph.cols, device='cuda')
+            torch_rows = torch.tensor(graph.rows, device='cuda')
 
             for i in range(num_warmup): 
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
@@ -230,13 +230,13 @@ class Convolution:
         timer = GPUTimer()
 
         if self.torch_op:
-            torch_L1_in = torch.tensor(in1).to(device='cuda').detach()
-            torch_L2_in = torch.tensor(in2).to(device='cuda').detach()
-            torch_weights = torch.tensor(weights).to(device='cuda').detach()
-            torch_cols = torch.tensor(graph.cols).to(device='cuda').detach()
-            torch_rows = torch.tensor(graph.rows).to(device='cuda').detach()
+            torch_L1_in = torch.tensor(in1, device='cuda', requires_grad=True)
+            torch_L2_in = torch.tensor(in2, device='cuda', requires_grad=True) 
+            torch_weights = torch.tensor(weights, device='cuda', requires_grad=True) 
+            torch_cols = torch.tensor(graph.cols, device='cuda').detach()
+            torch_rows = torch.tensor(graph.rows, device='cuda').detach()
             torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
-            torch_L3_grad = torch.tensor(out_grad).to(device='cuda').detach()
+            torch_L3_grad = torch.tensor(out_grad, device='cuda') 
 
             for i in range(num_warmup): 
                 torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
@@ -435,6 +435,6 @@ class Convolution:
         
         def backward(ctx, grad_output):
             result = backward_op(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
-            return result[0], result[1], result[2]
+            return result[0], result[1], result[2], None, None
 
         self.forward.register_autograd(backward, setup_context=setup_context)
