@@ -32,9 +32,9 @@ def load_graph(name):
         rows = np.array([0, 1, 1, 2, 2, 2], dtype=np.uint32)
         cols = np.array([0, 1, 2, 0, 1, 2], dtype=np.uint32)
 
-        coords = coords[:1]
-        rows = rows[:1]
-        cols = cols[:1] 
+        #coords = coords[:1]
+        #rows = rows[:1]
+        #cols = cols[:1] 
 
         name = "debug" 
 
@@ -87,6 +87,7 @@ class ConvBenchmarkSuite:
                 tc_name = f"{config}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
+                benchmark = None
 
                 if direction == "forward":
                     if correctness:
@@ -115,7 +116,7 @@ class ConvBenchmarkSuite:
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
-                    "benchmark": None # benchmark 
+                    "benchmark": benchmark 
                 }
          
                 fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
@@ -132,11 +133,11 @@ if __name__=='__main__':
 
     configs = [
         SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
-        SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
-        ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
+        #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
+        #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     for config in configs:
@@ -151,6 +152,6 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph,
         disable_tensor_op=False)
-    bench.run([LoopUnrollConv], direction="backward", correctness=True)
+    bench.run([LoopUnrollConv], direction="forward", correctness=True)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

@@ -5,8 +5,8 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, torch_op=False):
+        super().__init__(config, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         for (mul, ir) in L2:
@@ -33,11 +33,11 @@ class LoopUnrollConv(Convolution):
                 weight_dtype = config.weight_dtype)
 
         for segment in forward_schedule.segments:
-            for key in segment.L3Map:
+            for key in segment.L3Map.storeback_procedure:
                 segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
         for segment in backward_schedule.segments:
-            for key in segment.L1Map:
+            for key in segment.L1Map.storeback_procedure:
                 segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         self.jit_kernel = template.render(

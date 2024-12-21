@@ -65,9 +65,10 @@ class Convolution:
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
+        self.torch_op = torch_op
 
-        self.conv_id = TensorProduct.next_conv_id
-        TensorProduct.next_conv_id += 1
+        self.conv_id = Convolution.next_conv_id
+        Convolution.next_conv_id += 1
 
         if torch_op:
             global torch
@@ -169,59 +170,73 @@ class Convolution:
 
         return result
 
-    def benchmark_forward(self, 
-            num_warmup, 
-            num_iter, 
-            graph, 
-            disable_tensor_op, 
-            prng_seed=12345):
-        '''
-        This function only works for scalar L-values right now, need to change
-        to handle any multiplicity.
-        '''
+    def benchmark_forward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+        direction = "forward"
         L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
-
-        L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
-        L3_d = DeviceBuffer(L3_buffer)
-        rows_d = DeviceBuffer(graph.rows)
-        cols_d = DeviceBuffer(graph.cols)
 
         time_millis = np.zeros(num_iter, dtype=np.float32)
         timer = GPUTimer()
 
-        for i in range(num_warmup):
-            self.internal.exec_conv_rawptrs(
-                L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
-                rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
-                disable_tensor_op)
+        if self.torch_op:
+            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
+            torch_cols = torch.tensor(graph.cols).to(device='cuda').detach()
+            torch_rows = torch.tensor(graph.rows).to(device='cuda').detach()
 
-        for i in range(num_iter):
-            timer.start()
-            self.internal.exec_conv_rawptrs(
-                L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
-                rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
-                disable_tensor_op)
-            time_millis[i] = timer.stop_clock_get_elapsed() 
+            for i in range(num_warmup): 
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
 
-        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, "forward")
+            for i in range(num_iter):
+                timer.start()
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+                time_millis[i] = timer.stop_clock_get_elapsed()
+
+        elif not self.torch_op:
+            L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
+            L3_d = DeviceBuffer(L3_buffer)
+            rows_d = DeviceBuffer(graph.rows)
+            cols_d = DeviceBuffer(graph.cols)
+
+            for i in range(num_warmup):
+                self.internal.exec_conv_rawptrs(
+                    L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                    disable_tensor_op)
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.exec_conv_rawptrs(
+                    L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                    disable_tensor_op)
+                time_millis[i] = timer.stop_clock_get_elapsed() 
+
+        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, 4, direction)
         if disable_tensor_op:
             ops_per_tp = 2 * self.config.irreps_out.dim
         else:
             ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
 
-        throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
+        return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
+                time_millis, graph, num_warmup, num_iter, prng_seed)
 
-        # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
+
+    def calculate_bench_stats(self, direction, ops_per_tp, data_per_tp, time_millis,
+            graph, num_warmup, num_iter, prng_seed): 
+        throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
         bandwidth_gbps = [float(el) for el in graph.nnz * data_per_tp / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {
             "direction": "forward",
-            "total_cg_nnz": nnz,
             "flops_per_tp": ops_per_tp,
             "data_per_tp": data_per_tp,
 
-            "disable_tensor_op": disable_tensor_op,
+            "time_millis": list(time_millis),
+            "throughputs_gflops": list(throughputs_gflops),
+            "bandwidth_gbps": list(bandwidth_gbps),
+
             "L1": str(self.config.irreps_in1),
             "L2": str(self.config.irreps_in2), 
             "L3": str(self.config.irreps_out),
@@ -235,14 +250,9 @@ class Convolution:
             "bandwidth_gbps": bandwidth_gbps
         }
 
-        disable_op_str = ""
-        if disable_tensor_op:
-            disable_op_str = " (Tensor Op Disabled)"
-
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
-
 
     def test_correctness_backward(self, graph, thresh, prng_seed, reference_implementation=None):
         L1, L2, L3 = self.L1, self.L2, self.L3
@@ -299,7 +309,7 @@ class Convolution:
 
     def setup_torch_module(self):
         # ----------------- Forward pass -----------------
-        @torch.library.custom_op(f"fast_tp::conv_forward{self.tp_id}", mutates_args=(), device_types="cuda")
+        @torch.library.custom_op(f"fast_tp::conv_forward{self.conv_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
                 weights : torch.Tensor, src: torch.Tensor, dst: torch.Tensor) -> torch.Tensor:
             L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
@@ -327,7 +337,7 @@ class Convolution:
         self.forward = forward
         
         # ---------------- Backward pass -----------------
-        @torch.library.custom_op(f"fast_tp::conv_backward{self.tp_id}", mutates_args=(), device_types="cuda")
+        @torch.library.custom_op(f"fast_tp::conv_backward{self.conv_id}", mutates_args=(), device_types="cuda")
         def backward_op( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                     weights : torch.Tensor, L3_grad : torch.Tensor,
                     src: torch.Tensor, dst: torch.Tensor) -> typing.List[torch.Tensor]:
