@@ -36,8 +36,8 @@ class TensorProduct:
 
             self.setup_torch_module()
 
-    def __call__(self, L1_in, L2_in, weights): 
-        return self.forward(L1_in, L2_in, weights)
+    #def __call__(self, L1_in, L2_in, weights): 
+    #    return self.forward(L1_in, L2_in, weights)
 
     def forward_raw(
             self,
@@ -212,8 +212,6 @@ class TensorProduct:
 
 
     def setup_torch_module(self):
-
-
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:

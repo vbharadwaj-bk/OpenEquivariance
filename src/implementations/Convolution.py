@@ -59,15 +59,21 @@ class CoordGraph:
         self.cached_sp_graph = None # Cached scipy sparse matrix 
 
 class Convolution:
-    '''
-    Inputs: L1 for input node features
-            L2 for edge features
-            L3 for output node features 
-    '''
-    def __init__(self, config):
+    next_conv_id = 0 # Used to assign unique IDs to each conv instance 
+
+    def __init__(self, config, torch_op=False):
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
+
+        self.conv_id = TensorProduct.next_conv_id
+        TensorProduct.next_conv_id += 1
+
+        if torch_op:
+            global torch
+            import torch
+
+            self.setup_torch_module()
 
     @staticmethod
     def name():
@@ -288,4 +294,67 @@ class Convolution:
                 ("in2_grad", test_in2_grad, ref_in2_grad, thresh)]:
             result[name] = check_similiarity(name, to_check, ground_truth, threshold)
 
-        return result   
+        return result
+
+
+    def setup_torch_module(self):
+        # ----------------- Forward pass -----------------
+        @torch.library.custom_op(f"fast_tp::conv_forward{self.tp_id}", mutates_args=(), device_types="cuda")
+        def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                weights : torch.Tensor, src: torch.Tensor, dst: torch.Tensor) -> torch.Tensor:
+            L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
+            L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
+
+            torch._assert(src.shape[0] == dst.shape[0], "src and dst must have the same number of elements")
+
+            self.internal.exec_conv_rawptrs(
+                L1_in_c.data_ptr(),
+                L2_in_c.data_ptr(),
+                weights_c.data_ptr(),
+                L3_out.data_ptr(),
+                dst.data_ptr(),
+                src.data_ptr(),
+                src.shape[0],
+                L1_in.shape[0],
+                False)
+
+            return L3_out
+        
+        @forward.register_fake
+        def _(L1_in, L2_in, weights, src, dst):
+            return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
+        
+        self.forward = forward
+        
+        # ---------------- Backward pass -----------------
+        @torch.library.custom_op(f"fast_tp::conv_backward{self.tp_id}", mutates_args=(), device_types="cuda")
+        def backward_op( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                    weights : torch.Tensor, L3_grad : torch.Tensor,
+                    src: torch.Tensor, dst: torch.Tensor) -> typing.List[torch.Tensor]:
+            L1_grad = torch.zeros_like(L1_in)
+            L2_grad = torch.empty_like(L2_in)
+            weights_grad = torch.empty_like(weights)
+
+            self.internal.backward_rawptrs(
+                    L1_in.data_ptr(), L1_grad.data_ptr(),
+                    L2_in.data_ptr(), L2_grad.data_ptr(),
+                    weights.data_ptr(), weights_grad.data_ptr(),
+                    L3_grad.data_ptr(),
+                    dst.data_ptr(), src.data_ptr(),
+                    src.shape[0], L1_in.shape[0],
+                    False)
+            
+            return [L1_grad, L2_grad, weights_grad]
+        
+        @backward_op.register_fake
+        def _(L1_in, L2_in, weights, L3_grad, src, dst):
+            return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
+
+        def setup_context(ctx, inputs, output):
+            ctx.L1_in, ctx.L2_in, ctx.weights, ctx.src, ctx.dst = inputs
+        
+        def backward(ctx, grad_output):
+            result = backward_op(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
+            return result[0], result[1], result[2]
+
+        self.forward.register_autograd(backward, setup_context=setup_context)

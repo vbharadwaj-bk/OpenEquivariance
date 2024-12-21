@@ -32,11 +32,13 @@ class LoopUnrollConv(Convolution):
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype)
 
-        for sched in [forward_schedule, backward_schedule]:
-            for segment in sched.segments:
-                for map in segment.maps:
-                    for key in map.storeback_procedure:
-                        map.storeback_procedure[key] = "atomic_accumulate"
+        for segment in forward_schedule.segments:
+            for key in segment.L3Map:
+                segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
+
+        for segment in backward_schedule.segments:
+            for key in segment.L1Map:
+                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
