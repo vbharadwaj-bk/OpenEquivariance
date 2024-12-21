@@ -8,12 +8,14 @@ from src.benchmark.logging_utils import getLogger, bcolors
 from src.benchmark.correctness_utils import check_similiarity
 logger = getLogger()
 
-def flops_data_per_tp(config, bytes_per_word, direction):
+def flops_data_per_tp(config, direction):
     '''
     Assumes all interactions are "uvu" for now
 
     Returns (flops_per_tp, data_per_tp, nnz)
     '''
+    bytes_per_word = np.dtype(config.irrep_dtype).itemsize 
+
     assert(not config.shared_weights)
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
     ops_per_nz, words_per_tp = None, None
@@ -103,7 +105,6 @@ class Convolution:
 
         L3_d.copy_to_host()
 
-
     def backward_cpu(self, 
             L1_in, L1_grad, L2_in, L2_grad, weights, weights_grad, 
             L3_grad, graph, disable_tensor_op=False):
@@ -172,6 +173,7 @@ class Convolution:
 
     def benchmark_forward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
         direction = "forward"
+        disable_tensor_op = False
         L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
 
         time_millis = np.zeros(num_iter, dtype=np.float32)
@@ -212,14 +214,82 @@ class Convolution:
                     disable_tensor_op)
                 time_millis[i] = timer.stop_clock_get_elapsed() 
 
-        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, 4, direction)
-        if disable_tensor_op:
-            ops_per_tp = 2 * self.config.irreps_out.dim
-        else:
-            ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
+        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
+        ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
 
         return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
                 time_millis, graph, num_warmup, num_iter, prng_seed)
+
+
+    def benchmark_backward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+        direction = "backward"
+        disable_tensor_op = False
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
+
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
+
+        if self.torch_op:
+            torch_L1_in = torch.tensor(in1).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(in2).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
+            torch_cols = torch.tensor(graph.cols).to(device='cuda').detach()
+            torch_rows = torch.tensor(graph.rows).to(device='cuda').detach()
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+            torch_L3_grad = torch.tensor(out_grad).to(device='cuda').detach()
+
+            for i in range(num_warmup): 
+                torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+
+            for i in range(num_iter):
+                torch_L1_in.grad.zero_()
+                torch_L2_in.grad.zero_()
+                torch_weights.grad.zero_()
+
+                timer.start()
+                torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+                time_millis[i] = timer.stop_clock_get_elapsed()
+
+        elif not self.torch_op:
+            L1_d = DeviceBuffer(in1)
+            L2_d = DeviceBuffer(in2)
+            weights_d = DeviceBuffer(weights)
+            L3_d = DeviceBuffer(out_grad)
+            rows_d = DeviceBuffer(graph.rows)
+            cols_d = DeviceBuffer(graph.cols)
+            
+            L1_grad_d = DeviceBuffer(in1_grad)
+            L2_grad_d = DeviceBuffer(in2_grad)
+            weights_grad_d = DeviceBuffer(weights_grad)
+
+            for i in range(num_warmup):
+                self.internal.backward_rawptrs(
+                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                    weights_d.data_ptr(), weights_grad_d.data_ptr(),
+                    L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(),
+                    graph.nnz, graph.node_count,
+                    disable_tensor_op)
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.backward_rawptrs(
+                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                    weights_d.data_ptr(), weights_grad_d.data_ptr(),
+                    L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(),
+                    graph.nnz, graph.node_count,
+                    disable_tensor_op)
+                time_millis[i] = timer.stop_clock_get_elapsed() 
+
+        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
+        ops_per_tp += self.config.irreps_out.dim
+
+        return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
+                time_millis, graph, num_warmup, num_iter, prng_seed)
+
 
 
     def calculate_bench_stats(self, direction, ops_per_tp, data_per_tp, time_millis,

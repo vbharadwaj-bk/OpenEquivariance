@@ -107,8 +107,8 @@ class ConvBenchmarkSuite:
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
 
-                    #benchmark = conv.benchmark_backward(self.num_warmup,
-                    #            self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                    benchmark = conv.benchmark_backward(self.num_warmup,
+                                self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
 
                 result = {
                     "config": str(config),

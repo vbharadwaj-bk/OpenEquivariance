@@ -106,7 +106,10 @@ class TensorProduct:
             L3_buffer : np.ndarray, 
             weights : np.ndarray) -> np.ndarray:
         time_millis = np.zeros(num_iter, dtype=np.float32)
+
+        # GPUTimer introduces significantly less overhead when kernel runtime < 1ms
         timer = GPUTimer()
+
         if self.torch_op:
             torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
             torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
@@ -115,7 +118,6 @@ class TensorProduct:
             for i in range(num_warmup): 
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
 
-            # GPU introduces significantly less overhead when kernel runtime < 1ms
             for i in range(num_iter):
                 timer.start()
                 torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 

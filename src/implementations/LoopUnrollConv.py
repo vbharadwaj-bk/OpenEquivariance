@@ -1,5 +1,4 @@
 from src.implementations.Convolution import *
-from src.implementations.TensorProduct import TensorProduct
 from src.implementations.ComputationSchedule import ComputationSchedule 
 from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
