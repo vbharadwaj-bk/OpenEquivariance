@@ -4,8 +4,8 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, torch_op=False):
-        super().__init__(config, torch_op)
+    def __init__(self, config, torch_op=False, idx_dtype=np.int32):
+        super().__init__(config, torch_op, idx_dtype)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         for (mul, ir) in L2:
@@ -39,16 +39,18 @@ class LoopUnrollConv(Convolution):
             for key in segment.L1Map.storeback_procedure:
                 segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
+        idx_type_map = {np.int32: "int", np.int64: "long"}
+
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
-            backward_schedule=backward_schedule)
+            backward_schedule=backward_schedule,
+            idx_type=idx_type_map[idx_dtype])
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
                 forward_schedule.launch_config, 
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
-
 
     @staticmethod
     def name():

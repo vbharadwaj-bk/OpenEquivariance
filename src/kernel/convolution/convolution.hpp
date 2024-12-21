@@ -22,10 +22,10 @@ public:
         void* L2_in,
         void* weights, 
         void* L3_out,
-        uint32_t* rows,
-        uint32_t* cols,
+        void* rows,
+        void* cols,
         uint64_t nnz,
-        uint32_t node_count,
+        uint64_t node_count,
         bool disable_tensor_op) = 0;
 
     void exec_conv_rawptrs(
@@ -36,7 +36,7 @@ public:
         uint64_t rows,
         uint64_t cols,
         uint64_t nnz,
-        uint32_t node_count,
+        uint64_t node_count,
         bool disable_tensor_op) {
 
         exec_conv(
@@ -44,8 +44,8 @@ public:
             reinterpret_cast<void*>(L2_in),
             reinterpret_cast<void*>(weights),
             reinterpret_cast<void*>(L3_out),
-            reinterpret_cast<uint32_t*>(rows),
-            reinterpret_cast<uint32_t*>(cols),
+            reinterpret_cast<void*>(rows),
+            reinterpret_cast<void*>(cols),
             nnz,
             node_count,
             disable_tensor_op);
@@ -56,8 +56,8 @@ public:
         void* L2_in, void* L2_grad,
         void* weight, void* weight_grad,
         void* L3_grad,
-        uint32_t* rows, uint32_t* cols,
-        uint64_t nnz, uint32_t node_count,
+        void* rows, void* cols,
+        uint64_t nnz, uint64_t node_count,
         bool disable_tensor_op) = 0;
 
     void backward_rawptrs(
@@ -66,7 +66,7 @@ public:
         uint64_t weight, uint64_t weight_grad,
         uint64_t L3_grad,
         uint64_t rows, uint64_t cols,
-        uint64_t nnz, uint32_t node_count,
+        uint64_t nnz, uint64_t node_count,
         bool disable_tensor_op) {
 
         backward(
@@ -77,8 +77,8 @@ public:
             reinterpret_cast<void*>(weight),
             reinterpret_cast<void*>(weight_grad),
             reinterpret_cast<void*>(L3_grad),
-            reinterpret_cast<uint32_t*>(rows),
-            reinterpret_cast<uint32_t*>(cols),
+            reinterpret_cast<void*>(rows),
+            reinterpret_cast<void*>(cols),
             nnz,
             node_count,
             disable_tensor_op);
@@ -104,10 +104,10 @@ public:
         void* L2_in,
         void* weights, 
         void* L3_out,
-        uint32_t* rows,
-        uint32_t* cols,
+        void* rows,
+        void* cols,
         uint64_t nnz,
-        uint32_t node_count,
+        uint64_t node_count,
         bool disable_tensor_op); 
 
     void backward(
@@ -115,8 +115,8 @@ public:
         void* L2_in, void* L2_grad,
         void* weight, void* weight_grad,
         void* L3_grad,
-        uint32_t* rows, uint32_t* cols,
-        uint64_t nnz, uint32_t node_count,
+        void* rows, void* cols,
+        uint64_t nnz, uint64_t node_count,
         bool disable_tensor_op);
 
     ~JITConvImpl() = default; 

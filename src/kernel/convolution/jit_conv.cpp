@@ -30,10 +30,10 @@ JITConvImpl::JITConvImpl
 }
 
 struct ConvData {
-    unsigned int* rows;
-    unsigned int* cols;
+    void* rows;
+    void* cols;
     unsigned long nnz;
-    unsigned int node_count;
+    unsigned long node_count;
 };
 
 void JITConvImpl::exec_conv(
@@ -41,10 +41,10 @@ void JITConvImpl::exec_conv(
         void* L2_in,
         void* weights, 
         void* L3_out,
-        uint32_t* rows,
-        uint32_t* cols,
+        void* rows,
+        void* cols,
         uint64_t nnz,
-        uint32_t node_count,
+        uint64_t node_count,
         bool disable_tensor_op) {
 
     ConvData conv_data = {rows, cols, nnz, node_count};
@@ -58,8 +58,8 @@ void JITConvImpl::backward(
         void* L2_in, void* L2_grad,
         void* weight, void* weight_grad,
         void* L3_grad,
-        uint32_t* rows, uint32_t* cols,
-        uint64_t nnz, uint32_t node_count,
+        void* rows, void* cols,
+        uint64_t nnz, uint64_t node_count,
         bool disable_tensor_op) {
 
     ConvData conv_data = {rows, cols, nnz, node_count};

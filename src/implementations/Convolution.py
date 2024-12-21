@@ -63,11 +63,12 @@ class CoordGraph:
 class Convolution:
     next_conv_id = 0 # Used to assign unique IDs to each conv instance 
 
-    def __init__(self, config, torch_op=False):
+    def __init__(self, config, torch_op=False, idx_dtype=np.int32):
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
         self.torch_op = torch_op
+        self.idx_dtype = idx_dtype
 
         self.conv_id = Convolution.next_conv_id
         Convolution.next_conv_id += 1
@@ -289,8 +290,6 @@ class Convolution:
 
         return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
                 time_millis, graph, num_warmup, num_iter, prng_seed)
-
-
 
     def calculate_bench_stats(self, direction, ops_per_tp, data_per_tp, time_millis,
             graph, num_warmup, num_iter, prng_seed): 
