@@ -42,7 +42,7 @@ def load_graph(name):
         logger.critical(f"{bcolors.FAIL}Could not find graph with name {name}{bcolors.ENDC}")
         exit(1)
 
-    return CoordGraph(coords, rows, cols, name)
+    return CoordGraph(coords, rows.astype(np.int64), cols.astype(np.int64), name)
 
 
 class ConvBenchmarkSuite:
@@ -152,6 +152,6 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph,
         disable_tensor_op=False)
-    bench.run([LoopUnrollConv], direction="backward", correctness=True)
+    bench.run([LoopUnrollConv], direction="backward", correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

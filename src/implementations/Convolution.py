@@ -58,12 +58,10 @@ class CoordGraph:
         self.coords = coords
         self.name = name
 
-        self.cached_sp_graph = None # Cached scipy sparse matrix 
-
 class Convolution:
     next_conv_id = 0 # Used to assign unique IDs to each conv instance 
 
-    def __init__(self, config, torch_op=False, idx_dtype=np.int32):
+    def __init__(self, config, idx_dtype, torch_op=False):
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
@@ -87,6 +85,9 @@ class Convolution:
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
 
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
         L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
         L3_d = DeviceBuffer(L3_out)
 
@@ -109,6 +110,10 @@ class Convolution:
     def backward_cpu(self, 
             L1_in, L1_grad, L2_in, L2_grad, weights, weights_grad, 
             L3_grad, graph, disable_tensor_op=False):
+
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
         L1_d = DeviceBuffer(L1_in)
         L2_d = DeviceBuffer(L2_in)
         weights_d = DeviceBuffer(weights)
@@ -177,6 +182,9 @@ class Convolution:
         disable_tensor_op = False
         L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
 
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
         time_millis = np.zeros(num_iter, dtype=np.float32)
         timer = GPUTimer()
 
@@ -226,6 +234,9 @@ class Convolution:
         direction = "backward"
         disable_tensor_op = False
         in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
+
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
 
         time_millis = np.zeros(num_iter, dtype=np.float32)
         timer = GPUTimer()

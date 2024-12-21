@@ -4,8 +4,8 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, torch_op=False, idx_dtype=np.int32):
-        super().__init__(config, torch_op, idx_dtype)
+    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
+        super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         for (mul, ir) in L2:
