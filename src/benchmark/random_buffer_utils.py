@@ -7,6 +7,7 @@ def get_random_buffers_forward(tpp : TPProblem, batch_size : int,  prng_seed : i
     Return properly sized numpy arrays needed to execute a tensor product in the forward direction
     Supports shared vs non-shared weights
     """
+    assert isinstance(tpp, TPProblem)
     rng = np.random.default_rng(prng_seed)
 
     in1 = np.array(rng.uniform(size=(batch_size, tpp.irreps_in1.dim)), dtype=tpp.irrep_dtype) 
@@ -24,6 +25,7 @@ def get_random_buffers_backward(tpp : TPProblem, batch_size : int, prng_seed : i
     Return properly sized numpy arrays needed to execute a tensor product in the backward direction
     Supports shared vs non-shared weights
     """
+    assert isinstance(tpp, TPProblem)
     rng = np.random.default_rng(prng_seed)
     
     in1 = np.array(rng.uniform(size=(batch_size, tpp.irreps_in1.dim)), dtype=tpp.irrep_dtype) 
