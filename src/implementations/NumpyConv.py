@@ -14,7 +14,7 @@ class NumpyConv(Convolution):
     def name():
         return "NumpyConvolution" 
 
-    def exec_conv_cpu(self, 
+    def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
         '''

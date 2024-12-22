@@ -30,23 +30,22 @@ JITConvImpl::JITConvImpl
 }
 
 struct ConvData {
-    unsigned int* rows;
-    unsigned int* cols;
+    void* rows;
+    void* cols;
     unsigned long nnz;
-    unsigned int node_count;
+    unsigned long node_count;
 };
 
 void JITConvImpl::exec_conv(
-        float* L1_in,
-        float* L2_in,
-        float* weights,
-        float* L3_out,
-        uint32_t* rows,
-        uint32_t* cols,
+        void* L1_in,
+        void* L2_in,
+        void* weights, 
+        void* L3_out,
+        void* rows,
+        void* cols,
         uint64_t nnz,
-        uint32_t node_count,
-        bool disable_tensor_op
-        ) {
+        uint64_t node_count,
+        bool disable_tensor_op) {
 
     ConvData conv_data = {rows, cols, nnz, node_count};
 
@@ -55,12 +54,12 @@ void JITConvImpl::exec_conv(
 } 
 
 void JITConvImpl::backward(
-        float* L1_in, float* L1_grad,
-        float* L2_in, float* L2_grad,
-        float* weight, float* weight_grad,
-        float* L3_grad,
-        uint32_t* rows, uint32_t* cols,
-        uint64_t nnz, uint32_t node_count,
+        void* L1_in, void* L1_grad,
+        void* L2_in, void* L2_grad,
+        void* weight, void* weight_grad,
+        void* L3_grad,
+        void* rows, void* cols,
+        uint64_t nnz, uint64_t node_count,
         bool disable_tensor_op) {
 
     ConvData conv_data = {rows, cols, nnz, node_count};

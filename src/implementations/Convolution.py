@@ -1,17 +1,21 @@
 import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
+from src.benchmark.random_buffer_utils import * 
 from src.implementations.TensorProduct import *
 
 from src.benchmark.logging_utils import getLogger, bcolors 
+from src.benchmark.correctness_utils import check_similiarity
 logger = getLogger()
 
-def flops_data_per_tp(config, bytes_per_word, direction):
+def flops_data_per_tp(config, direction):
     '''
     Assumes all interactions are "uvu" for now
 
     Returns (flops_per_tp, data_per_tp, nnz)
     '''
+    bytes_per_word = np.dtype(config.irrep_dtype).itemsize 
+
     assert(not config.shared_weights)
     L1, L2, L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
     ops_per_nz, words_per_tp = None, None
@@ -54,169 +58,271 @@ class CoordGraph:
         self.coords = coords
         self.name = name
 
-        self.cached_sp_graph = None # Cached scipy sparse matrix 
-
 class Convolution:
-    '''
-    Inputs: L1 for input node features
-            L2 for edge features
-            L3 for output node features 
-    '''
-    def __init__(self, config):
+    next_conv_id = 0 # Used to assign unique IDs to each conv instance 
+
+    def __init__(self, config, idx_dtype, torch_op=False):
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
+        self.torch_op = torch_op
+        self.idx_dtype = idx_dtype
+
+        self.conv_id = Convolution.next_conv_id
+        Convolution.next_conv_id += 1
+
+        if torch_op:
+            global torch
+            import torch
+
+            self.setup_torch_module()
 
     @staticmethod
     def name():
         raise NotImplementedError()
 
-    def exec_conv_cpu(self, 
+    def __call__(self, L1_in, L2_in, weights, src, dst): 
+        return self.forward(L1_in, L2_in, weights, src, dst)
+
+    def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):
-        self.internal.exec_conv_cpu(L1_in, L2_in, weights, L3_out, 
-                graph.rows, graph.cols, disable_tensor_op)
 
-            #py::array_t<float> &L1_in_py,
-            #py::array_t<float> &L2_in_py,
-            #py::array_t<float> &weights_py,
-            #py::array_t<float> &L3_out_py,
-            #py::array_t<uint32_t> &rows_py,
-            #py::array_t<uint32_t> &cols_py,
-            #bool disable_tensor_op)
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
+        L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
+        L3_d = DeviceBuffer(L3_out)
+
+        rows_d = DeviceBuffer(graph.rows)
+        cols_d = DeviceBuffer(graph.cols)
+
+        self.internal.exec_conv_rawptrs(
+            L1_d.data_ptr(),
+            L2_d.data_ptr(),
+            weights_d.data_ptr(),
+            L3_d.data_ptr(),
+            rows_d.data_ptr(),
+            cols_d.data_ptr(),
+            graph.nnz,
+            graph.node_count,
+            disable_tensor_op)
+
+        L3_d.copy_to_host()
 
     def backward_cpu(self, 
-            L1_in, L2_in, weights, L3_grad,
-            graph, disable_tensor_op=False):
-        '''
-        We break from convention here by allocating and returning
-        the appropriate buffers. 
-        '''
-        L1_grad = np.zeros_like(L1_in)
-        L2_grad = np.zeros_like(L2_in)
-        weights_grad = np.zeros_like(weights)
+            L1_in, L1_grad, L2_in, L2_grad, weights, weights_grad, 
+            L3_grad, graph, disable_tensor_op=False):
 
-        self.internal.backward_cpu(
-            L1_in, L1_grad,
-            L2_in, L2_grad,
-            weights, weights_grad,
-            L3_grad,
-            graph.rows, graph.cols,
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
+        L1_d = DeviceBuffer(L1_in)
+        L2_d = DeviceBuffer(L2_in)
+        weights_d = DeviceBuffer(weights)
+        L3_d = DeviceBuffer(L3_grad)
+        rows_d = DeviceBuffer(graph.rows)
+        cols_d = DeviceBuffer(graph.cols)
+        
+        L1_grad_d = DeviceBuffer(L1_grad)
+        L2_grad_d = DeviceBuffer(L2_grad)
+        weights_grad_d = DeviceBuffer(weights_grad)
+
+        self.internal.backward_rawptrs(
+            L1_d.data_ptr(), L1_grad_d.data_ptr(),
+            L2_d.data_ptr(), L2_grad_d.data_ptr(),
+            weights_d.data_ptr(), weights_grad_d.data_ptr(),
+            L3_d.data_ptr(),
+            rows_d.data_ptr(), cols_d.data_ptr(),
+            graph.nnz, graph.node_count,
             disable_tensor_op)
+
+        L1_grad_d.copy_to_host()
+        L2_grad_d.copy_to_host()
+        weights_grad_d.copy_to_host()
 
         return L1_grad, L2_grad, weights_grad
 
-    def test_correctness(self, L1_in, L2_in, weights, L3_out_comp, graph, conv_reference_impl, disable_tensor_op):
+    def test_correctness_forward(self, graph, thresh, prng_seed, reference_implementation=None):
         L1, L2, L3 = self.L1, self.L2, self.L3
 
-        ground_truth = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
-        conv_reference = conv_reference_impl(self.config)
+        if reference_implementation is None:
+            from src.implementations.E3NNConv import E3NNConv
+            reference_implementation = E3NNConv
 
-        if disable_tensor_op:
-            logger.warning(f"{bcolors.WARNING}Tensor product disabled within convolution, performing SpMM.{bcolors.ENDC}")
-
-        logger.info(f"Starting reference convolution {bcolors.OKCYAN}{conv_reference.name()}{bcolors.ENDC}.")
-        conv_reference.exec_conv_cpu(L1_in, L2_in, weights, ground_truth, graph, disable_tensor_op) 
-        logger.info("Finished reference convolution.")
-
-        thresh = 5e-6 # AtomicAdd nondeterminism may require higher threshold 
         result = {
-            "disable_tensor_op": disable_tensor_op,
-            "shape_match": False,
-            "diff_Linf_norm": np.inf,
-            "thresh": thresh, # Above floating point interval machine epsilon 
-            "pass": False
+            "thresh": thresh 
         }
 
-        if L3_out_comp.shape != ground_truth.shape:
-            result["shape_match"] = False
-            logger.error(f"{bcolors.FAIL}Ground truth shape does not match input! {L3_out_comp.shape=}, {ground_truth.shape=} {bcolors.ENDC}")
-        else:
-            result["shape_match"] = True 
-            diff_Linf_norm = float(la.norm((ground_truth - L3_out_comp).flatten(), ord=np.inf))
-            result["diff_Linf_norm"] = diff_Linf_norm 
-            result["pass"] = bool(diff_Linf_norm < thresh) 
+        in1, in2, weights, out = get_random_buffers_forward_conv(self.config, 
+                graph.node_count, graph.nnz, prng_seed)
 
-            if result["pass"]:
-                logger.info(f"{bcolors.OKGREEN}Convolution correctness check pass, {diff_Linf_norm=:.2g}, {thresh=:.2g}. {bcolors.ENDC}")
-            else:
-                logger.error(f"{bcolors.FAIL}Convolution correctness check fail! {diff_Linf_norm=:.2g}, {thresh=:.2g} {bcolors.ENDC}")
+        ref_tp = reference_implementation(self.config)
+        ref_out = out.copy()
+        ref_tp.forward_cpu(
+            L1_in=in1.copy(), 
+            L2_in=in2.copy(), 
+            weights=weights.copy(),
+            L3_out=ref_out,
+            graph=graph)
 
-        return result, ground_truth
+        test_out = out.copy()
+        self.forward_cpu(
+            L1_in=in1.copy(), 
+            L2_in=in2.copy(),
+            weights=weights.copy(),
+            L3_out=test_out,
+            graph=graph)
 
-    def benchmark_internal(self, num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
-            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op):
+        for name, to_check, ground_truth in [
+            ("output", ref_out, test_out)]:
+            result[name] = check_similiarity(name, to_check, ground_truth, thresh)
+
+        return result
+
+    def benchmark_forward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+        direction = "forward"
+        disable_tensor_op = False
+        L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
+
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
 
         time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
 
-        if direction == "forward":
-            self.internal.benchmark_forward_cpu(L1_in, L2_in, weights, L3_buffer, 
-                    graph.coords, graph.rows, graph.cols, 
-                    disable_tensor_op,
-                    num_warmup,
-                    time_millis)
-        
-        elif direction == "backward":
-            self.internal.benchmark_backward_cpu(
-                L1_in, L1_grad,
-                L2_in, L2_grad,
-                weights, weights_grad,
-                L3_buffer,
-                graph.rows, graph.cols,
-                disable_tensor_op,
-                num_warmup,
-                time_millis)
+        if self.torch_op:
+            torch_L1_in = torch.tensor(L1_in, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, device='cuda')
+            torch_weights = torch.tensor(weights, device='cuda')
+            torch_cols = torch.tensor(graph.cols, device='cuda')
+            torch_rows = torch.tensor(graph.rows, device='cuda')
 
-        return time_millis
+            for i in range(num_warmup): 
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
 
-    def benchmark(self, num_warmup, num_iter, graph, disable_tensor_op, direction, prng_seed=12345):
-        '''
-        This function only works for scalar L-values right now, need to change
-        to handle any multiplicity.
-        '''
-        L1, L2, L3, config = self.L1, self.L2, self.L3, self.config
-        rng = np.random.default_rng(prng_seed)
+            for i in range(num_iter):
+                timer.start()
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+                time_millis[i] = timer.stop_clock_get_elapsed()
 
-        L1_in  = np.array(rng.uniform(size=(graph.node_count, L1.dim)), dtype=np.float32)
-        L2_in  = np.array(rng.uniform(size=(graph.nnz, L2.dim)), dtype=np.float32)
-        weights = np.array(rng.uniform(size=(graph.nnz, config.weight_numel)), dtype=np.float32)
-        L3_buffer = np.zeros((graph.node_count, L3.dim), dtype=np.float32)
+        elif not self.torch_op:
+            L1_d, L2_d, weights_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(weights)
+            L3_d = DeviceBuffer(L3_buffer)
+            rows_d = DeviceBuffer(graph.rows)
+            cols_d = DeviceBuffer(graph.cols)
 
-        L1_grad, L2_grad, weights_grad = [None] * 3
-        if direction == "backward":
-            L3_buffer[:] = rng.uniform(size=(graph.node_count, L3.dim)) 
-            L1_grad = np.zeros_like(L1_in)
-            L2_grad = np.zeros_like(L2_in)
-            weights_grad = np.zeros_like(weights)
+            for i in range(num_warmup):
+                self.internal.exec_conv_rawptrs(
+                    L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                    disable_tensor_op)
 
-        # =========== Benchmarking ===========
-        time_millis = self.benchmark_internal(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights, 
-            L1_grad, L2_grad, weights_grad, direction, graph, disable_tensor_op)
-        # ==================================== 
+            for i in range(num_iter):
+                timer.start()
+                self.internal.exec_conv_rawptrs(
+                    L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
+                    disable_tensor_op)
+                time_millis[i] = timer.stop_clock_get_elapsed() 
 
-        ops_per_tp, data_per_tp, nnz = flops_data_per_tp(self.config, 4, direction)
-        if disable_tensor_op:
-            ops_per_tp = 2 * L3.dim
-        else:
-            ops_per_tp += L3.dim # Output accumulation... should check this 
+        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
+        ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
 
+        return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
+                time_millis, graph, num_warmup, num_iter, prng_seed)
+
+
+    def benchmark_backward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+        direction = "backward"
+        disable_tensor_op = False
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
+
+        assert(graph.rows.dtype == self.idx_dtype)
+        assert(graph.cols.dtype == self.idx_dtype)
+
+        time_millis = np.zeros(num_iter, dtype=np.float32)
+        timer = GPUTimer()
+
+        if self.torch_op:
+            torch_L1_in = torch.tensor(in1, device='cuda', requires_grad=True)
+            torch_L2_in = torch.tensor(in2, device='cuda', requires_grad=True) 
+            torch_weights = torch.tensor(weights, device='cuda', requires_grad=True) 
+            torch_cols = torch.tensor(graph.cols, device='cuda').detach()
+            torch_rows = torch.tensor(graph.rows, device='cuda').detach()
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+            torch_L3_grad = torch.tensor(out_grad, device='cuda') 
+
+            for i in range(num_warmup): 
+                torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+
+            for i in range(num_iter):
+                torch_L1_in.grad.zero_()
+                torch_L2_in.grad.zero_()
+                torch_weights.grad.zero_()
+
+                timer.start()
+                torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+                time_millis[i] = timer.stop_clock_get_elapsed()
+
+        elif not self.torch_op:
+            L1_d = DeviceBuffer(in1)
+            L2_d = DeviceBuffer(in2)
+            weights_d = DeviceBuffer(weights)
+            L3_d = DeviceBuffer(out_grad)
+            rows_d = DeviceBuffer(graph.rows)
+            cols_d = DeviceBuffer(graph.cols)
+            
+            L1_grad_d = DeviceBuffer(in1_grad)
+            L2_grad_d = DeviceBuffer(in2_grad)
+            weights_grad_d = DeviceBuffer(weights_grad)
+
+            for i in range(num_warmup):
+                self.internal.backward_rawptrs(
+                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                    weights_d.data_ptr(), weights_grad_d.data_ptr(),
+                    L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(),
+                    graph.nnz, graph.node_count,
+                    disable_tensor_op)
+
+            for i in range(num_iter):
+                timer.start()
+                self.internal.backward_rawptrs(
+                    L1_d.data_ptr(), L1_grad_d.data_ptr(),
+                    L2_d.data_ptr(), L2_grad_d.data_ptr(),
+                    weights_d.data_ptr(), weights_grad_d.data_ptr(),
+                    L3_d.data_ptr(),
+                    rows_d.data_ptr(), cols_d.data_ptr(),
+                    graph.nnz, graph.node_count,
+                    disable_tensor_op)
+                time_millis[i] = timer.stop_clock_get_elapsed() 
+
+        ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
+        ops_per_tp += self.config.irreps_out.dim
+
+        return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
+                time_millis, graph, num_warmup, num_iter, prng_seed)
+
+    def calculate_bench_stats(self, direction, ops_per_tp, data_per_tp, time_millis,
+            graph, num_warmup, num_iter, prng_seed): 
         throughputs_gflops = [float(el) for el in graph.nnz * ops_per_tp / (time_millis * 1e6)]
-
-        # Rough calculation of bandwidth assumes output is touched only once, but input rows are read as many times as nnz 
         bandwidth_gbps = [float(el) for el in graph.nnz * data_per_tp / (time_millis * 1e6)]
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "tp_direction": direction,
-            "total_cg_nnz": nnz,
+            "direction": "forward",
             "flops_per_tp": ops_per_tp,
             "data_per_tp": data_per_tp,
 
-            "disable_tensor_op": disable_tensor_op,
-            "direction": direction,
-            "L1": str(L1),
-            "L2": str(L2), 
-            "L3": str(L3),
+            "time_millis": list(time_millis),
+            "throughputs_gflops": list(throughputs_gflops),
+            "bandwidth_gbps": list(bandwidth_gbps),
+
+            "L1": str(self.config.irreps_in1),
+            "L2": str(self.config.irreps_in2), 
+            "L3": str(self.config.irreps_out),
             "graph_node_count": graph.node_count,
             "graph_adj_nnz": graph.nnz,
             "num_warmup": num_warmup,
@@ -227,10 +333,121 @@ class Convolution:
             "bandwidth_gbps": bandwidth_gbps
         }
 
-        disable_op_str = ""
-        if disable_tensor_op:
-            disable_op_str = " (Tensor Op Disabled)"
-
-        logger.info(f"{bcolors.OKCYAN}Avg. Throughput{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
-        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth{disable_op_str}: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Throughput: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(throughputs_gflops):.2f} ± {np.std(throughputs_gflops):.2f} GFLOPs{bcolors.ENDC}")
+        logger.info(f"{bcolors.OKCYAN}Avg. Bandwidth: {bcolors.ENDC} {bcolors.OKGREEN}{np.mean(bandwidth_gbps):.2f} ± {np.std(bandwidth_gbps):.2f} GBPs{bcolors.ENDC}")
         return result
+
+    def test_correctness_backward(self, graph, thresh, prng_seed, reference_implementation=None):
+        L1, L2, L3 = self.L1, self.L2, self.L3
+
+        if reference_implementation is None:
+            from src.implementations.E3NNConv import E3NNConv
+            reference_implementation = E3NNConv
+
+        result = {
+            "thresh": thresh 
+        }
+
+        in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
+
+        ref_tp = reference_implementation(self.config)
+
+        ref_weights_grad = weights_grad.copy()
+        ref_in1_grad = in1_grad.copy()
+        ref_in2_grad = in2_grad.copy()
+
+        ref_tp.backward_cpu(
+            L1_in=in1.copy(),
+            L1_grad=ref_in1_grad,
+            L2_in=in2.copy(), 
+            L2_grad=ref_in2_grad, 
+            L3_grad=out_grad.copy(), 
+            weights=weights.copy(), 
+            weights_grad=ref_weights_grad,
+            graph=graph) 
+
+        # run test version
+        test_weights_grad = weights_grad.copy()
+        test_in1_grad = in1_grad.copy()
+        test_in2_grad = in2_grad.copy()
+
+        self.backward_cpu(
+            L1_in=in1.copy(),
+            L1_grad=test_in1_grad,
+            L2_in=in2.copy(), 
+            L2_grad=test_in2_grad, 
+            L3_grad=out_grad.copy(), 
+            weights=weights.copy(), 
+            weights_grad=test_weights_grad,
+            graph=graph)
+
+        for name, to_check, ground_truth, threshold in [
+                ("weight_grad", test_weights_grad, ref_weights_grad, thresh),
+                ("in1_grad", test_in1_grad, ref_in1_grad, thresh),
+                ("in2_grad", test_in2_grad, ref_in2_grad, thresh)]:
+            result[name] = check_similiarity(name, to_check, ground_truth, threshold)
+
+        return result
+
+
+    def setup_torch_module(self):
+        # ----------------- Forward pass -----------------
+        @torch.library.custom_op(f"fast_tp::conv_forward{self.conv_id}", mutates_args=(), device_types="cuda")
+        def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                weights : torch.Tensor, src: torch.Tensor, dst: torch.Tensor) -> torch.Tensor:
+            L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
+            L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
+
+            torch._assert(src.shape[0] == dst.shape[0], "src and dst must have the same number of elements")
+
+            self.internal.exec_conv_rawptrs(
+                L1_in_c.data_ptr(),
+                L2_in_c.data_ptr(),
+                weights_c.data_ptr(),
+                L3_out.data_ptr(),
+                dst.data_ptr(),
+                src.data_ptr(),
+                src.shape[0],
+                L1_in.shape[0],
+                False)
+
+            return L3_out
+        
+        @forward.register_fake
+        def _(L1_in, L2_in, weights, src, dst):
+            return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
+        
+        self.forward = forward
+        
+        # ---------------- Backward pass -----------------
+        @torch.library.custom_op(f"fast_tp::conv_backward{self.conv_id}", mutates_args=(), device_types="cuda")
+        def backward_op( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+                    weights : torch.Tensor, L3_grad : torch.Tensor,
+                    src: torch.Tensor, dst: torch.Tensor) -> typing.List[torch.Tensor]:
+            L1_grad = torch.zeros_like(L1_in)
+            L2_grad = torch.empty_like(L2_in)
+            weights_grad = torch.empty_like(weights)
+
+            self.internal.backward_rawptrs(
+                    L1_in.data_ptr(), L1_grad.data_ptr(),
+                    L2_in.data_ptr(), L2_grad.data_ptr(),
+                    weights.data_ptr(), weights_grad.data_ptr(),
+                    L3_grad.data_ptr(),
+                    dst.data_ptr(), src.data_ptr(),
+                    src.shape[0], L1_in.shape[0],
+                    False)
+            
+            return [L1_grad, L2_grad, weights_grad]
+        
+        @backward_op.register_fake
+        def _(L1_in, L2_in, weights, L3_grad, src, dst):
+            return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
+
+        def setup_context(ctx, inputs, output):
+            ctx.L1_in, ctx.L2_in, ctx.weights, ctx.src, ctx.dst = inputs
+        
+        def backward(ctx, grad_output):
+            result = backward_op(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
+            return result[0], result[1], result[2], None, None
+
+        self.forward.register_autograd(backward, setup_context=setup_context)

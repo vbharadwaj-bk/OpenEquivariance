@@ -1,12 +1,11 @@
 from src.implementations.Convolution import *
-from src.implementations.TensorProduct import TensorProduct
 from src.implementations.ComputationSchedule import ComputationSchedule 
 from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
+        super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         for (mul, ir) in L2:
@@ -22,32 +21,36 @@ class LoopUnrollConv(Convolution):
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
-                irrep_dtype = self.irrep_dtype,
-                weight_dtype = self.weight_dtype)
+                irrep_dtype = config.irrep_dtype,
+                weight_dtype = config.weight_dtype)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
-                irrep_dtype = self.irrep_dtype,
-                weight_dtype = self.weight_dtype)
+                irrep_dtype = config.irrep_dtype,
+                weight_dtype = config.weight_dtype)
 
-        for sched in [forward_schedule, backward_schedule]:
-            for segment in sched.segments:
-                for map in segment.maps:
-                    for key in map.storeback_procedure:
-                        map.storeback_procedure[key] = "atomic_accumulate"
+        for segment in forward_schedule.segments:
+            for key in segment.L3Map.storeback_procedure:
+                segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
+
+        for segment in backward_schedule.segments:
+            for key in segment.L1Map.storeback_procedure:
+                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+
+        idx_type_map = {np.int32: "int", np.int64: "long"}
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
-            backward_schedule=backward_schedule)
+            backward_schedule=backward_schedule,
+            idx_type=idx_type_map[idx_dtype])
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
                 forward_schedule.launch_config, 
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
-
 
     @staticmethod
     def name():

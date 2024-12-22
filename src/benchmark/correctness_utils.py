@@ -57,9 +57,7 @@ def correctness_forward(
         L1_in=in1.copy(), 
         L2_in=in2.copy(), 
         L3_out=ref_out, 
-        weights=weights.copy()
-        )
-    
+        weights=weights.copy()) 
 
     # run test
     test_tp = test_implementation(problem)
@@ -68,9 +66,7 @@ def correctness_forward(
         L1_in=in1.copy(), 
         L2_in=in2.copy(), 
         L3_out=test_out, 
-        weights=weights.copy()
-        )
-    
+        weights=weights.copy())
     
     # check similarity 
     for name, to_check, ground_truth in [
@@ -121,7 +117,7 @@ def correctness_backward(
         ) 
 
     # run test version
-    test_weights_grad = weights.copy()
+    test_weights_grad = weights_grad.copy()
     test_in1_grad = in1_grad.copy()
     test_in2_grad = in2_grad.copy()
 

@@ -36,10 +36,8 @@ PYBIND11_MODULE(kernel_wrapper, m) {
 
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
-        .def("exec_conv_cpu", &ConvolutionImpl::exec_conv_cpu)
-        .def("backward_cpu", &ConvolutionImpl::backward_cpu)
-        .def("benchmark_forward_cpu", &ConvolutionImpl::benchmark_forward_cpu)
-        .def("benchmark_backward_cpu", &ConvolutionImpl::benchmark_backward_cpu);
+        .def("exec_conv_rawptrs", &ConvolutionImpl::exec_conv_rawptrs)
+        .def("backward_rawptrs", &ConvolutionImpl::backward_rawptrs);
     py::class_<JITConvImpl, ConvolutionImpl>(m, "JITConvImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
     py::class_<DeviceProp>(m, "DeviceProp")
