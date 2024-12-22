@@ -81,6 +81,9 @@ class Convolution:
     def name():
         raise NotImplementedError()
 
+    def __call__(self, L1_in, L2_in, weights, src, dst): 
+        return self.forward(L1_in, L2_in, weights, src, dst)
+
     def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph, disable_tensor_op=False):

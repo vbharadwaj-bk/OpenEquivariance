@@ -36,8 +36,8 @@ class TensorProduct:
 
             self.setup_torch_module()
 
-    #def __call__(self, L1_in, L2_in, weights): 
-    #    return self.forward(L1_in, L2_in, weights)
+    def __call__(self, L1_in, L2_in, weights): 
+        return self.forward(L1_in, L2_in, weights)
 
     def forward_raw(
             self,
