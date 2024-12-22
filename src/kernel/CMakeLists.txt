@@ -49,6 +49,6 @@ set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 
 # To-do: should make path to standard CUDA math libraries a parameter 
 target_link_directories(espmm PUBLIC /opt/nvidia/hpc_sdk/Linux_x86_64/2024/math_libs/12.4/lib64/)
-target_link_libraries(espmm PUBLIC CUDA::cudart -lcublasLt -lcuda CUDA::nvrtc OpenMP::OpenMP_CXX)
+target_link_libraries(espmm PUBLIC CUDA::cudart -lcublasLt CUDA::nvrtc)
 
 install(TARGETS espmm )
