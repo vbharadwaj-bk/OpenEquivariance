@@ -17,7 +17,7 @@ add_library(espmm SHARED
   util/device_prop.cpp
 
   tensorproducts/tensorproducts.hpp
-  tensorproducts/jit_tp.cu
+  tensorproducts/jit_tp.cpp
 
   convolution/convolution.hpp
   convolution/jit_conv.cpp
