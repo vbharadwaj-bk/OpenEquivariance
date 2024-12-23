@@ -48,6 +48,10 @@ class LoopUnrollTP(TensorProduct):
 
         logger.info(f"CUDA Kernel File Size: {len(self.jit_kernel) // 1000} KB")
 
+        # Write JIT kernel to a file
+        with open("scratch.txt", "w") as f:
+            f.write(self.jit_kernel)
+
     @staticmethod
     def name():
         return "LoopUnrollTP"

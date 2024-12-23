@@ -149,12 +149,12 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
     ]
 
     #for problem in conv_problems:
@@ -172,15 +172,15 @@ if __name__=='__main__':
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
-        #LoopUnrollTP,
-        MultiplicityOuterProductTP
+        LoopUnrollTP,
+        #MultiplicityOuterProductTP
         ]
     
-    directions = ['forward', 'backward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
-             in itertools.product(problems, directions, implementations)]
+             in itertools.product(conv_problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
