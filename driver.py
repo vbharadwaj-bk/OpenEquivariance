@@ -176,7 +176,7 @@ if __name__=='__main__':
         #MultiplicityOuterProductTP
         ]
     
-    directions = ['backward'] 
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation

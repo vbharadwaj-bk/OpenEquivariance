@@ -329,11 +329,13 @@ class ComputationSchedule:
             # Allow L1 and L2 irreps to persist in shared memory 
             for i, seg in enumerate(self.segments):
                 for ir_map in [seg.L1Map, seg.L2Map]:
-                    for k in ir_map.idxs:
-                        if i > 0:
-                            ir_map.persist_load = True
-                        if i < len(self.segments) - 1:
-                            ir_map.persist_store = True
+                    if i > 0:
+                        ir_map.persist_load = True
+                    if i < len(self.segments) - 1:
+                        ir_map.persist_store = True
+                    else:
+                        for k in ir_map.idxs:
+                            ir_map.storeback_procedure[k] = "write"
 
         true_max_smem = max([seg.smem["total"] for seg in self.segments])
         self.memory_per_warp = true_max_smem
