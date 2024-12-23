@@ -33,11 +33,13 @@ class LoopUnrollConv(Convolution):
 
         for segment in forward_schedule.segments:
             for key in segment.L3Map.storeback_procedure:
-                segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
+                if segment.L3Map.storeback_procedure[key] == "write":
+                    segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
         for segment in backward_schedule.segments:
             for key in segment.L1Map.storeback_procedure:
-                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+                if segment.L1Map.storeback_procedure[key] == "write":
+                    segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 

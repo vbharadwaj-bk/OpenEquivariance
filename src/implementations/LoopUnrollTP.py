@@ -30,7 +30,7 @@ class LoopUnrollTP(TensorProduct):
                 weight_dtype = config.weight_dtype)
 
         backward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
+                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
