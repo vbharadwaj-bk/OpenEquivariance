@@ -154,7 +154,8 @@ if __name__=='__main__':
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
+        ChannelTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
     ]
 
     #for problem in conv_problems:
@@ -163,10 +164,10 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
+        # increasing_multiplicty_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        #conv_problems,
+        conv_problems,
     ))
  
     implementations = [
@@ -176,11 +177,11 @@ if __name__=='__main__':
         #MultiplicityOuterProductTP
         ]
     
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
-             in itertools.product(conv_problems, directions, implementations)]
+             in itertools.product(problems, directions, implementations)]
  
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,

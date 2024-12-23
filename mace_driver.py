@@ -100,7 +100,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--hidden_irreps", type=str, default="128x0e + 128x1o + 128x2e")
     args = parser.parse_args()
-    torch.set_default_dtype(torch.float32)
+    torch.set_default_dtype(torch.float64)
     device = torch.device(args.device)
     hidden_irreps = o3.Irreps(args.hidden_irreps)
 
