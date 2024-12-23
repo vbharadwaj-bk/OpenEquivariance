@@ -114,6 +114,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         "-arch=sm_80",
         "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/", // Add path to CUDA include directory
         "--include-path=/global/homes/a/aglover/equivariant_spmm/nvidia-mathdx-24.08.0/nvidia/mathdx/24.08",
+        "--include-path=/global/homes/a/aglover/equivariant_spmm/third_party/cutlass/include",
         "--ptxas-options=-v",
         "--maxrregcount=64" 
     };    

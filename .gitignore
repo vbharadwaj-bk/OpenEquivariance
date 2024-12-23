@@ -14,30 +14,7 @@ figures/*
 data/*
 experimental/*
 MACE_models/*
-
-# CUTLASS 
-# Ignore build directories and generated files
-third_party/cutlass/build/
-third_party/cutlass/CMakeFiles/
-third_party/cutlass/CMakeCache.txt
-third_party/cutlass/*.cmake
-third_party/cutlass/*.log
-third_party/cutlass/*.vcxproj*
-third_party/cutlass/*.sln
-
-# Ignore temporary files
-third_party/cutlass/*~
-third_party/cutlass/.idea/
-third_party/cutlass/.vscode/
-third_party/cutlass/.DS_Store
-third_party/cutlass/.vs/
-third_party/cutlass/*.swp
-
-# Ignore output binaries
-third_party/cutlass/bin/
-third_party/cutlass/lib/
-
-
+third_party/*
 
 # bash scripts
 get_gpu_node.sh

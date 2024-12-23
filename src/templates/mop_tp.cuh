@@ -5,6 +5,8 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 #include <cooperative_groups/memcpy_async.h>
 #include <cuda/barrier>
 
+#include "cutlass/cutlass.h"
+
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
 namespace cg = cooperative_groups;
