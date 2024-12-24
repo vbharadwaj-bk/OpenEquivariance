@@ -30,8 +30,8 @@ class LoopUnrollTP(TensorProduct):
                 weight_dtype = config.weight_dtype)
 
         backward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
-                block_count=dp.multiprocessorCount * 4,
+                smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
+                block_count=dp.multiprocessorCount * 3,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype)
@@ -47,10 +47,6 @@ class LoopUnrollTP(TensorProduct):
         logger.info("Kernel compiled!")
 
         logger.info(f"CUDA Kernel File Size: {len(self.jit_kernel) // 1000} KB")
-
-        # Write JIT kernel to a file
-        with open("scratch.txt", "w") as f:
-            f.write(self.jit_kernel)
 
     @staticmethod
     def name():
