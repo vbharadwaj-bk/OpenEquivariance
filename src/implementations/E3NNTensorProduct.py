@@ -9,6 +9,7 @@ logger = getLogger()
 class E3NNTensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=True):
         super().__init__(config, torch_op=torch_op)
+        assert(self.torch_op)
 
         global torch
         import torch
@@ -32,15 +33,8 @@ class E3NNTensorProduct(TensorProduct):
 
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float32)  # Reset to default
-        
-    def forward(self,
-            batch : np.uint64,
-            L1_in: np.uint64,
-            L2_in: np.uint64,
-            L3_out: np.uint64,
-            weights: np.uint64,
-            ) -> None:
-        raise NotImplementedError("E3NNTensorProduct does not support forward")
+
+        self.forward = self.e3nn_tp.__call__ 
 
     def forward_cpu(
             self, 
@@ -90,14 +84,6 @@ class E3NNTensorProduct(TensorProduct):
             time_millis[i] = start.elapsed_time(end)
             
         return time_millis
-
-    def backward(self, batch_size: np.uint64,
-                L1_in: np.uint64, L1_grad: np.uint64, 
-                L2_in: np.uint64, L2_grad: np.uint64,
-                weights: np.uint64, weights_grad: np.uint64,
-                L3_grad: np.uint64
-                ) -> None:
-        raise NotImplementedError("E3NNTensorProduct does not support backward")
 
     def backward_cpu(
             self,

@@ -230,7 +230,7 @@ class TensorProduct:
         
         # ---------------- Backward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_grad_helper{self.tp_id}", mutates_args=(), device_types="cuda")
-        def grad_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+        def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                      weights : torch.Tensor, L3_grad : torch.Tensor ) -> typing.List[torch.Tensor]:
             L1_grad = torch.empty_like(L1_in)
             L2_grad = torch.empty_like(L2_in)
@@ -243,7 +243,7 @@ class TensorProduct:
             
             return [L1_grad, L2_grad, weights_grad] 
         
-        @grad_helper.register_fake
+        @backward_helper.register_fake
         def _(L1_in, L2_in, weights, L3_grad):
             return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
@@ -251,27 +251,27 @@ class TensorProduct:
             ctx.L1_in, ctx.L2_in, ctx.weights = inputs
         
         def backward(ctx, grad_output):
-            result = grad_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
+            result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output)
             return result[0], result[1], result[2]
 
         self.forward.register_autograd(backward, setup_context=setup_context)
 
         # Setup for higher derivatives
-        def setup_context_grad_helper(ctx, inputs, output):
+        def setup_context_double_backward(ctx, inputs, output):
             ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad = inputs 
 
-        def grad_helper_backward(ctx, grad_output):
+        def double_backward(ctx, grad_output):
             A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
             E, F, G = grad_output[0], grad_output[1], grad_output[2]
 
-            op1 = grad_helper(A, B, D, C)
-            op2 = grad_helper(A, B, G, C)
+            op1 = backward_helper(A, B, D, C)
+            op2 = backward_helper(A, B, G, C)
             op3 = forward(E, B, D)
-            op4 = grad_helper(E, B, D, C) # op4 and op5 could be combined with op3 and op6 
-            op5 = grad_helper(A, F, D, C) 
+            op4 = backward_helper(E, B, D, C) # op4 and op5 could be combined with op3 and op6 
+            op5 = backward_helper(A, F, D, C) 
             op6 = forward(A, F, D)
             op7 = forward(A, B, G)
 
             return op1[0] + op2[0], op1[1] + op2[1], op4[2] + op5[2], op3 + op6 + op7
 
-        grad_helper.register_autograd(grad_helper_backward, setup_context=setup_context_grad_helper)
+        backward_helper.register_autograd(grad_helper_backward, setup_context=setup_context_grad_helper)

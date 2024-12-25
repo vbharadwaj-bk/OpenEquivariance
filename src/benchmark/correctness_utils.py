@@ -68,7 +68,7 @@ def correctness_forward(
         L3_out=test_out, 
         weights=weights.copy())
     
-    # check similarity 
+
     for name, to_check, ground_truth in [
         ("output", ref_out, test_out)
         ]:
@@ -133,7 +133,7 @@ def correctness_backward(
         )
 
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
-    ## CHECK OUTPUT SIMILARITY 
+
     for name, to_check, ground_truth, threshold in [
         ("weight_grad", test_weights_grad, ref_weights_grad, weight_threshold),
         ("in1_grad", test_in1_grad, ref_in1_grad, correctness_threshold),
@@ -141,4 +141,57 @@ def correctness_backward(
         ]:
         result[name] = check_similiarity(name, to_check, ground_truth, threshold)
 
-    return result   
+    return result
+
+def correctness_double_backward(
+        problem : TPProblem,  
+        test_implementation : type[TensorProduct], 
+        reference_implementation : Optional[type[TensorProduct]], 
+        batch_size : int, 
+        correctness_threshold : float,
+        prng_seed : int):
+
+    in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
+ 
+    if reference_implementation is None:
+        from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+        reference_implementation = E3NNTensorProduct
+
+    results = []
+    result_grad = torch.randn(1)
+    out_grad = torch.randn_like(out)
+    for impl in [test_implementation, reference_implementation]:
+        tp = impl(problem, torch_op=True)
+
+        in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
+        in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
+        weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
+
+        out_torch = tp.forward(in1_torch, in2_torch, weights_torch)
+
+        out_torch.backward(out_grad, 
+            create_graph=True,
+            retain_graph=True,
+            inputs=[in1_torch, in2_torch, weights_torch])
+
+        result = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
+        result.backward(result_grad,
+            retain_graph=True, 
+            inputs=[out_grad, in1_torch, in2_torch, weights_torch])
+
+        results.append((
+            out_grad.grad.cpu().numpy(),
+            in1_torch.grad.cpu().numpy(),
+            in2_torch.grad.cpu().numpy(),
+            weights_torch.grad.cpu().numpy()
+        ))
+
+    for name, to_check, ground_truth in [
+        ("output_grad", results[0][0], results[1][0]),
+        ("in1_grad", results[0][1], results[1][1]),
+        ("in2_grad", results[0][2], results[1][2]),
+        ("weights_grad", results[0][3], results[1][3])
+        ]:
+        result[name] = check_similiarity(name, to_check, ground_truth, correctness_threshold)
+
+    return result
