@@ -33,7 +33,6 @@ class TensorProduct:
         if torch_op:
             global torch
             import torch
-            torch.cuda.init()
 
     def __call__(self, L1_in, L2_in, weights): 
         return self.forward(L1_in, L2_in, weights)
@@ -263,7 +262,7 @@ class TensorProduct:
             A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
             E, F, G = grad_output[0], grad_output[1], grad_output[2]
 
-            op1 = backward_helper(A, B, D, C)
+            op1 = backward_helper(E, F, D, C)
             op2 = backward_helper(A, B, G, C)
             op3 = forward(E, B, D)
             op4 = backward_helper(E, B, D, C) # op4 and op5 could be combined with op3 and op6 
@@ -271,6 +270,6 @@ class TensorProduct:
             op6 = forward(A, F, D)
             op7 = forward(A, B, G)
 
-            return op1[0] + op2[0], op1[1] + op2[1], op4[2] + op5[2], op3 + op6 + op7
+            return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7)
 
         backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
