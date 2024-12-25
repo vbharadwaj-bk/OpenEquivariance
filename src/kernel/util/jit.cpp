@@ -182,12 +182,20 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
     if(kernel_id >= kernels.size())
         throw std::logic_error("Kernel index out of range!");
 
+    CUcontext pctx = NULL; 
+    CUDA_SAFE_CALL(cuCtxGetCurrent(&pctx));
+
+    if(pctx == NULL) {
+        CUDA_SAFE_CALL(cuDevicePrimaryCtxRetain(&pctx, dev));
+        CUDA_SAFE_CALL(cuCtxSetCurrent(pctx));
+    }
+
     CUDA_SAFE_CALL(
         cuLaunchKernel( (CUfunction) (kernels[kernel_id]),
                         num_blocks, 1, 1,    // grid dim
                         num_threads, 1, 1,   // block dim
                         smem, hStream,       // shared mem and stream
-                        args, NULL)            // arguments
+                        args, NULL)          // arguments
     );            
 }
 
