@@ -5,12 +5,9 @@ find_package(Python COMPONENTS Interpreter Development)
 add_library(espmm SHARED 
   espmm.hpp
   
-  util/util.hpp
   util/gpu_util.hpp
   util/buffer.hpp
   util/buffer.cpp
-  util/representation.hpp
-  util/representation.cpp
   util/jit.hpp
   util/jit.cpp
   util/device_prop.hpp

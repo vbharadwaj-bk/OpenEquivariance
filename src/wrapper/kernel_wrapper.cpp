@@ -7,19 +7,6 @@ using namespace std;
 namespace py = pybind11;
 
 PYBIND11_MODULE(kernel_wrapper, m) {
-    //========== Generic Utilities ============
-    py::class_<Representation>(m, "Representation")
-        .def(py::init<string>())
-        .def(py::init<int, int>())
-        .def(py::init<int>())
-        .def("to_string", &Representation::to_string)
-        .def("get_rep_length", &Representation::get_rep_length)
-        .def("num_irreps", &Representation::num_irreps)
-        .def("mult", &Representation::mult)
-        .def("type", &Representation::type)
-        .def("even", &Representation::even) 
-        .def("get_irrep_offsets", &Representation::get_irrep_offsets) 
-        .def("transpose_irreps_cpu", &Representation::transpose_irreps_cpu);
     py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
         .def(py::init<>())
         .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
