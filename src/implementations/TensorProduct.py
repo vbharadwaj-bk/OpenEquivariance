@@ -254,7 +254,6 @@ class TensorProduct:
 
         self.forward.register_autograd(backward, setup_context=setup_context)
 
-        # Setup for higher derivatives
         def setup_context_double_backward(ctx, inputs, output):
             ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad = inputs 
 

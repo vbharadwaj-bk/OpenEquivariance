@@ -184,8 +184,8 @@ def correctness_double_backward(
             inputs=[in1_torch, in2_torch, weights_torch])
 
         dummy = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
-        dummy_grad = torch.tensor(dummy_grad, device='cuda', requires_grad=True)
-        dummy.backward(dummy_grad[0],
+        dummy_grad = torch.tensor(float(dummy_grad), device='cuda', requires_grad=True)
+        dummy.backward(dummy_grad,
             retain_graph=True, 
             inputs=[out_grad, in1_torch, in2_torch, weights_torch])
 
