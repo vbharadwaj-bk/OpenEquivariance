@@ -33,6 +33,7 @@ class TensorProduct:
         if torch_op:
             global torch
             import torch
+            torch.cuda.init()
 
     def __call__(self, L1_in, L2_in, weights): 
         return self.forward(L1_in, L2_in, weights)

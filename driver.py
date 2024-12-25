@@ -180,15 +180,13 @@ if __name__=='__main__':
     from src.benchmark.correctness_utils import correctness_double_backward
     result = correctness_double_backward(
         problem = conv_problems[0],
-        test_implementation = E3NNTensorProduct,
+        test_implementation = LoopUnrollTP,
         reference_implementation = E3NNTensorProduct,
         batch_size = 100, 
         correctness_threshold = 1e-5, 
         prng_seed = 12345  
     )
-    print(result)
     exit(1)
-
 
     directions = ['backward'] 
 

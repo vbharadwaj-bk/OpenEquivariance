@@ -168,7 +168,7 @@ def correctness_double_backward(
 
     result = {}
     tensors = []
-    for impl in [test_implementation, reference_implementation]:
+    for impl in [reference_implementation, test_implementation]:
         tp = impl(problem, torch_op=True)
 
         in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
