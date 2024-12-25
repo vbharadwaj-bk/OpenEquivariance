@@ -151,15 +151,23 @@ def correctness_double_backward(
         correctness_threshold : float,
         prng_seed : int):
 
-    in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
+    global torch
+    import torch
+    
+    in1, in2, out_grad, weights, _, _, _ = get_random_buffers_backward(
+        problem, 
+        batch_size, 
+        prng_seed
+    )
+    rng = np.random.default_rng(seed=prng_seed * 2)
+    dummy_grad = rng.standard_normal(1) 
  
     if reference_implementation is None:
         from src.implementations.E3NNTensorProduct import E3NNTensorProduct
         reference_implementation = E3NNTensorProduct
 
-    results = []
-    result_grad = torch.randn(1)
-    out_grad = torch.randn_like(out)
+    result = {}
+    tensors = []
     for impl in [test_implementation, reference_implementation]:
         tp = impl(problem, torch_op=True)
 
@@ -168,29 +176,31 @@ def correctness_double_backward(
         weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
 
         out_torch = tp.forward(in1_torch, in2_torch, weights_torch)
+        out_grad = torch.tensor(out_grad, device='cuda', requires_grad=True)
 
         out_torch.backward(out_grad, 
             create_graph=True,
             retain_graph=True,
             inputs=[in1_torch, in2_torch, weights_torch])
 
-        result = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
-        result.backward(result_grad,
+        dummy = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
+        dummy_grad = torch.tensor(dummy_grad, device='cuda', requires_grad=True)
+        dummy.backward(dummy_grad[0],
             retain_graph=True, 
             inputs=[out_grad, in1_torch, in2_torch, weights_torch])
 
-        results.append((
-            out_grad.grad.cpu().numpy(),
-            in1_torch.grad.cpu().numpy(),
-            in2_torch.grad.cpu().numpy(),
-            weights_torch.grad.cpu().numpy()
+        tensors.append((
+            out_grad.grad.detach().cpu().numpy(),
+            in1_torch.grad.detach().cpu().numpy(),
+            in2_torch.grad.detach().cpu().numpy(),
+            weights_torch.grad.detach().cpu().numpy()
         ))
 
     for name, to_check, ground_truth in [
-        ("output_grad", results[0][0], results[1][0]),
-        ("in1_grad", results[0][1], results[1][1]),
-        ("in2_grad", results[0][2], results[1][2]),
-        ("weights_grad", results[0][3], results[1][3])
+        ("output_grad", tensors[0][0], tensors[1][0]),
+        ("in1_grad", tensors[0][1], tensors[1][1]),
+        ("in2_grad", tensors[0][2], tensors[1][2]),
+        ("weights_grad", tensors[0][3], tensors[1][3])
         ]:
         result[name] = check_similiarity(name, to_check, ground_truth, correctness_threshold)
 

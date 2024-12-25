@@ -34,8 +34,6 @@ class TensorProduct:
             global torch
             import torch
 
-            self.setup_torch_module()
-
     def __call__(self, L1_in, L2_in, weights): 
         return self.forward(L1_in, L2_in, weights)
 
@@ -213,7 +211,7 @@ class TensorProduct:
         raise NotImplementedError("This needs to be implemented in your class")
 
 
-    def setup_torch_module(self):
+    def setup_torch_custom_op(self):
         # ----------------- Forward pass -----------------
         @torch.library.custom_op(f"fast_tp::tp_forward{self.tp_id}", mutates_args=(), device_types="cuda")
         def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, weights : torch.Tensor) -> torch.Tensor:
@@ -274,4 +272,4 @@ class TensorProduct:
 
             return op1[0] + op2[0], op1[1] + op2[1], op4[2] + op5[2], op3 + op6 + op7
 
-        backward_helper.register_autograd(grad_helper_backward, setup_context=setup_context_grad_helper)
+        backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)

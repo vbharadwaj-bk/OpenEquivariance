@@ -48,6 +48,10 @@ class LoopUnrollTP(TensorProduct):
 
         logger.info(f"CUDA Kernel File Size: {len(self.jit_kernel) // 1000} KB")
 
+        if self.torch_op:
+            self.setup_torch_custom_op()
+
+
     @staticmethod
     def name():
         return "LoopUnrollTP"

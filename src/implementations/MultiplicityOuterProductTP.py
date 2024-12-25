@@ -176,6 +176,8 @@ class MultiplicityOuterProductTP(TensorProduct):
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
+        if self.torch_op:
+            self.setup_torch_custom_op()
 
     @staticmethod
     def name():
