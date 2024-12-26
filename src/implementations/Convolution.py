@@ -75,8 +75,6 @@ class Convolution:
             global torch
             import torch
 
-            self.setup_torch_module()
-
     @staticmethod
     def name():
         raise NotImplementedError()
@@ -386,6 +384,61 @@ class Convolution:
                 ("in1_grad", test_in1_grad, ref_in1_grad, thresh),
                 ("in2_grad", test_in2_grad, ref_in2_grad, thresh)]:
             result[name] = check_similiarity(name, to_check, ground_truth, threshold)
+
+        return result
+
+    def test_correctness_double_backward(self, graph, thresh, prng_seed, reference_implementation=None):
+        global torch
+        import torch
+         
+        in1, in2, out_grad, weights, _, _, _ = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed)  
+        rng = np.random.default_rng(seed=prng_seed * 2)
+        dummy_grad = rng.standard_normal(1) 
+    
+        if reference_implementation is None:
+            from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+            reference_implementation = E3NNTensorProduct
+
+        reference_tp = reference_implementation(self.config, torch_op=True)
+
+        result = {}
+        tensors = []
+        for tp in [self, reference_tp]:
+            in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
+            in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
+            weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
+
+            torch_cols = torch.tensor(graph.cols, device='cuda')
+            torch_rows = torch.tensor(graph.rows, device='cuda')
+
+            out_torch = tp.forward(in1_torch, in2_torch, weights_torch, torch_cols, torch_rows)
+            out_grad = torch.tensor(out_grad, device='cuda', requires_grad=True)
+
+            out_torch.backward(out_grad, 
+                create_graph=True,
+                retain_graph=True,
+                inputs=[in1_torch, in2_torch, weights_torch])
+
+            dummy = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
+            dummy_grad = torch.tensor(float(dummy_grad), device='cuda', requires_grad=True)
+            dummy.backward(dummy_grad,
+                retain_graph=True, 
+                inputs=[out_grad, in1_torch, in2_torch, weights_torch])
+
+            tensors.append((
+                out_grad.grad.detach().cpu().numpy(),
+                in1_torch.grad.detach().cpu().numpy(),
+                in2_torch.grad.detach().cpu().numpy(),
+                weights_torch.grad.detach().cpu().numpy()
+            ))
+
+        for name, to_check, ground_truth in [
+            ("output_grad", tensors[0][0], tensors[1][0]),
+            ("in1_grad", tensors[0][1], tensors[1][1]),
+            ("in2_grad", tensors[0][2], tensors[1][2]),
+            ("weights_grad", tensors[0][3], tensors[1][3])
+            ]:
+            result[name] = check_similiarity(name, to_check, ground_truth, thresh)
 
         return result
 

@@ -4,7 +4,7 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
+    def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -53,6 +53,8 @@ class LoopUnrollConv(Convolution):
                 forward_schedule.launch_config, 
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
+
+        self.setup_torch_module()
 
     @staticmethod
     def name():

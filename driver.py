@@ -124,7 +124,7 @@ if __name__=='__main__':
         FCTPP("2x1e", "2x1e", "4x1e") 
     ]
 
-    increasing_multiplicty_fully_connected_problems = [
+    increasing_multiplicity_fully_connected_problems = [
         FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
         FCTPP("8x1e", "8x1e", "8x1e"),
@@ -164,31 +164,31 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        # increasing_multiplicty_fully_connected_problems,
+        increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        conv_problems,
+        #conv_problems,
     ))
  
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
-        LoopUnrollTP,
-        #MultiplicityOuterProductTP
+        #LoopUnrollTP,
+        MultiplicityOuterProductTP
         ]
 
-    from src.benchmark.correctness_utils import correctness_double_backward
-    result = correctness_double_backward(
-        problem = conv_problems[0],
-        test_implementation = LoopUnrollTP,
-        reference_implementation = E3NNTensorProduct,
-        batch_size = 100, 
-        correctness_threshold = 1e-5, 
-        prng_seed = 12345  
-    )
-    exit(1)
+    #from src.benchmark.correctness_utils import correctness_double_backward
+    #result = correctness_double_backward(
+    #    problem = conv_problems[0],
+    #    test_implementation = LoopUnrollTP,
+    #    reference_implementation = E3NNTensorProduct,
+    #    batch_size = 100, 
+    #    correctness_threshold = 1e-5, 
+    #    prng_seed = 12345  
+    #)
+    #exit(1)
 
-    directions = ['backward'] 
+    directions = ['forward', 'backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for problem, direction, implementation
