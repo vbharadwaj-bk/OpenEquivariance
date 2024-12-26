@@ -62,7 +62,7 @@ class ConvBenchmarkSuite:
         self.prng_seed = 12345
         self.correctness_threshold = 1e-5
 
-    def run(self, tp_implementations, direction, correctness=True):        
+    def run(self, tp_implementations, direction, correctness=True, double_backward_correctness=False):        
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -88,6 +88,12 @@ class ConvBenchmarkSuite:
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
                 benchmark = None
+
+                if double_backward_correctness:
+                    double_backward_correctness = conv.test_correctness_double_backward(self.graph, 
+                            thresh=self.correctness_threshold, 
+                            prng_seed=self.prng_seed, 
+                            reference_implementation=self.reference_impl)
 
                 if direction == "forward":
                     if correctness:
@@ -116,7 +122,8 @@ class ConvBenchmarkSuite:
                     "graph": graph.name,
                     "name": impl.name(),
                     "correctness": correctness,
-                    "benchmark": benchmark 
+                    "benchmark": benchmark,
+                    "double_backward_correctness": double_backward_correctness
                 }
          
                 fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
@@ -128,16 +135,16 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
-        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     for config in configs:
@@ -152,6 +159,9 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph,
         disable_tensor_op=False)
-    bench.run([LoopUnrollConv], direction="backward", correctness=False)
+    bench.run([LoopUnrollConv], 
+            direction="forward", 
+            correctness=True,
+            double_backward_correctness=True)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)

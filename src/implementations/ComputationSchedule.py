@@ -44,6 +44,9 @@ class IrrepMapping:
         self.dst_ranges.append(slice(dst_start, dst_end))
         self.copy_ranges = list(zip(self.src_ranges, self.dst_ranges))
 
+        self.persist_load = False
+        self.persist_store = False
+
         self.storeback_procedure = {idx: "write" for idx in self.idxs}
 
 class CGTensor:
@@ -82,6 +85,64 @@ class ComputationSegment:
                 for (u, v, w, _, _, path_weight, _) in problem.instructions]
 
         #self.interactions.sort(key=lambda x: (x[2], x[0], x[1]))
+
+
+def create_schedule_case2(instructions, memory_per_warp, calculate_smem):
+    segments = []
+    cL1 = set([inst[0] for inst in instructions])  
+    cL2 = set([inst[1] for inst in instructions])  
+    cL3, cinst = set(), []
+
+    inst_idx = 0
+    while inst_idx <= len(instructions):
+        smem_required = None
+        if inst_idx < len(instructions):
+            u, v, w, *others = instructions[inst_idx]
+            smem_required = calculate_smem(cL1, cL2, cL3 | {w}, cinst + [inst_idx]) 
+        else:
+            inst_idx += 1
+
+        if inst_idx >= len(instructions) or smem_required["total"] > memory_per_warp:
+            if len(cinst) > 0:
+                segments.append((cL1, cL2, cL3, cinst))
+                cL3, cinst = set(), []
+            else:
+                raise Exception(f"{direction.title()} scheduling failed, memory allocation too small to accomodate segment!")
+        else:
+            cL3.add(w)
+            cinst.append(inst_idx)
+            inst_idx += 1
+
+    return segments
+
+def create_schedule_case3(instructions, memory_per_warp, calculate_smem):
+    segments = []
+    cL1, cL2, cL3, cinst = set(), set(), set(), []
+
+    inst_idx = 0
+    while inst_idx <= len(instructions):
+        smem_required = None
+        if inst_idx < len(instructions):
+            u, v, w, *others = instructions[inst_idx]
+            smem_required = calculate_smem(cL1 | {u}, cL2 | {v}, cL3 | {w}, cinst + [inst_idx]) 
+        else:
+            inst_idx += 1
+
+        if inst_idx >= len(instructions) or smem_required["total"] > memory_per_warp:
+            if len(cinst) > 0:
+                segments.append((cL1, cL2, cL3, cinst))
+                cL1, cL2, cL3, cinst = set(), set(), set(), []
+            else:
+                raise Exception(f"{direction.title()} scheduling failed, memory allocation too small to accomodate segment!")
+        else:
+            cL1.add(u)
+            cL2.add(v)
+            cL3.add(w)
+            cinst.append(inst_idx)
+            inst_idx += 1
+
+    return segments
+
 
 class ComputationSchedule:
     def __init__(self, 
@@ -218,32 +279,15 @@ class ComputationSchedule:
         elif direction == "backward":
             calculate_smem = calculate_backward_smem
 
-        self.segments = []
-        cL1, cL2, cL3, cinst = set(), set(), set(), []
-
-        inst_idx = 0
-        while inst_idx <= len(self.new_instructions):
-            smem_required = None
-            if inst_idx < len(self.new_instructions):
-                u, v, w, *others = self.new_instructions[inst_idx]
-                smem_required = calculate_smem(cL1 | {u}, cL2 | {v}, cL3 | {w}, cinst + [inst_idx]) 
-            else:
-                inst_idx += 1
-
-            if inst_idx >= len(self.new_instructions) or smem_required["total"] > self.memory_per_warp:
-                if len(cinst) > 0:
-                    self.segments.append((cL1, cL2, cL3, cinst))
-                    cL1, cL2, cL3, cinst = set(), set(), set(), []
-                else:
-                    raise Exception(f"{direction.title()} scheduling failed, memory allocation too small to accomodate segment!")
-            else:
-                cL1.add(u)
-                cL2.add(v)
-                cL3.add(w)
-                cinst.append(inst_idx)
-                inst_idx += 1
-
-        logger.info(f"{direction.title()} scheduling succeeded with {len(self.segments)} segments.")
+        schedule2_succeeded = False
+        try:
+            self.segments = create_schedule_case2(self.new_instructions, self.memory_per_warp, calculate_smem)
+            logger.info(f"{direction.title()} case 2 scheduling succeeded with {len(self.segments)} segments.") 
+            schedule2_succeeded = True
+        except Exception as e:
+            logger.info(f"{direction.title()} case 2 scheduling failed, trying case 3.") 
+            self.segments = create_schedule_case3(self.new_instructions, self.memory_per_warp, calculate_smem) 
+            logger.info(f"{direction.title()} case 3 scheduling succeeded with {len(self.segments)} segments.")
 
         for i in range(len(self.segments)):
             L1_idxs, L2_idxs, L3_idxs, inst_idxs = self.segments[i]
@@ -272,7 +316,6 @@ class ComputationSchedule:
             self.segments[i] = ComputationSegment(L1Map, L2Map, L3Map, problem, 
                     calculate_smem(L1_idxs, L2_idxs, L3_idxs, inst_idxs), weight_offset, irrep_dtype)
 
-        # Calculate storeback procedures
         for ir_idx, ir in enumerate([self.L1, self.L2, self.L3]):
             for i in range(len(ir)):
                 irrep_used = False
@@ -281,6 +324,18 @@ class ComputationSchedule:
                         if irrep_used:
                             seg.maps[ir_idx].storeback_procedure[i] = "accumulate"
                         irrep_used = True
+
+        if schedule2_succeeded:
+            # Allow L1 and L2 irreps to persist in shared memory 
+            for i, seg in enumerate(self.segments):
+                for ir_map in [seg.L1Map, seg.L2Map]:
+                    if i > 0:
+                        ir_map.persist_load = True
+                    if i < len(self.segments) - 1:
+                        ir_map.persist_store = True
+                    else:
+                        for k in ir_map.idxs:
+                            ir_map.storeback_procedure[k] = "write"
 
         true_max_smem = max([seg.smem["total"] for seg in self.segments])
         self.memory_per_warp = true_max_smem

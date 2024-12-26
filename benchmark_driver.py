@@ -42,7 +42,10 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    implementations = [E3NNTensorProduct, CUETensorProduct, LoopUnrollTP]
+    implementations = [ E3NNTensorProduct, 
+                        CUETensorProduct, 
+                        LoopUnrollTP
+                        ]
     directions = ['forward', 'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 

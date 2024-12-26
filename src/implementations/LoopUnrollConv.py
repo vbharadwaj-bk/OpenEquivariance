@@ -4,7 +4,7 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
+    def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -33,11 +33,13 @@ class LoopUnrollConv(Convolution):
 
         for segment in forward_schedule.segments:
             for key in segment.L3Map.storeback_procedure:
-                segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
+                if segment.L3Map.storeback_procedure[key] == "write":
+                    segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
         for segment in backward_schedule.segments:
             for key in segment.L1Map.storeback_procedure:
-                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+                if segment.L1Map.storeback_procedure[key] == "write":
+                    segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 
@@ -51,6 +53,8 @@ class LoopUnrollConv(Convolution):
                 forward_schedule.launch_config, 
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
+
+        self.setup_torch_module()
 
     @staticmethod
     def name():

@@ -124,7 +124,7 @@ if __name__=='__main__':
         FCTPP("2x1e", "2x1e", "4x1e") 
     ]
 
-    increasing_multiplicty_fully_connected_problems = [
+    increasing_multiplicity_fully_connected_problems = [
         FCTPP("2x1e", "2x1e", "2x1e"),
         FCTPP("4x1e", "4x1e", "4x1e"),
         FCTPP("8x1e", "8x1e", "8x1e"),
@@ -149,12 +149,13 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
-        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
         #mace_conf("64x2e", "1x0e", 2), 
         #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
         #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2)
+        #ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
+        ChannelTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
     ]
 
     #for problem in conv_problems:
@@ -163,7 +164,7 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
+        increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
         #conv_problems,
@@ -175,7 +176,18 @@ if __name__=='__main__':
         #LoopUnrollTP,
         MultiplicityOuterProductTP
         ]
-    
+
+    #from src.benchmark.correctness_utils import correctness_double_backward
+    #result = correctness_double_backward(
+    #    problem = conv_problems[0],
+    #    test_implementation = LoopUnrollTP,
+    #    reference_implementation = E3NNTensorProduct,
+    #    batch_size = 100, 
+    #    correctness_threshold = 1e-5, 
+    #    prng_seed = 12345  
+    #)
+    #exit(1)
+
     directions = ['forward', 'backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 

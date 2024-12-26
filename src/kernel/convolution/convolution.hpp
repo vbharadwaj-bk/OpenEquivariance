@@ -7,7 +7,6 @@
 #include <cstdint>
 
 #include "buffer.hpp"
-#include "representation.hpp"
 #include "jit.hpp"
 
 class __attribute__ ((visibility ("default"))) ConvolutionImpl {

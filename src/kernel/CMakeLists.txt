@@ -5,19 +5,16 @@ find_package(Python COMPONENTS Interpreter Development)
 add_library(espmm SHARED 
   espmm.hpp
   
-  util/util.hpp
   util/gpu_util.hpp
   util/buffer.hpp
   util/buffer.cpp
-  util/representation.hpp
-  util/representation.cpp
   util/jit.hpp
   util/jit.cpp
   util/device_prop.hpp
   util/device_prop.cpp
 
   tensorproducts/tensorproducts.hpp
-  tensorproducts/jit_tp.cu
+  tensorproducts/jit_tp.cpp
 
   convolution/convolution.hpp
   convolution/jit_conv.cpp
@@ -49,6 +46,6 @@ set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 
 # To-do: should make path to standard CUDA math libraries a parameter 
 target_link_directories(espmm PUBLIC /opt/nvidia/hpc_sdk/Linux_x86_64/2024/math_libs/12.4/lib64/)
-target_link_libraries(espmm PUBLIC CUDA::cudart -lcublasLt -lcuda CUDA::nvrtc OpenMP::OpenMP_CXX)
+target_link_libraries(espmm PUBLIC CUDA::cudart -lcublasLt CUDA::nvrtc)
 
 install(TARGETS espmm )

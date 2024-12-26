@@ -75,8 +75,6 @@ class Convolution:
             global torch
             import torch
 
-            self.setup_torch_module()
-
     @staticmethod
     def name():
         raise NotImplementedError()
@@ -389,6 +387,61 @@ class Convolution:
 
         return result
 
+    def test_correctness_double_backward(self, graph, thresh, prng_seed, reference_implementation=None):
+        global torch
+        import torch
+         
+        in1, in2, out_grad, weights, _, _, _ = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed)  
+        rng = np.random.default_rng(seed=prng_seed * 2)
+        dummy_grad = rng.standard_normal(1) 
+    
+        if reference_implementation is None:
+            from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+            reference_implementation = E3NNTensorProduct
+
+        reference_tp = reference_implementation(self.config, torch_op=True)
+
+        result = {}
+        tensors = []
+        for tp in [self, reference_tp]:
+            in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
+            in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
+            weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
+
+            torch_cols = torch.tensor(graph.cols, device='cuda')
+            torch_rows = torch.tensor(graph.rows, device='cuda')
+
+            out_torch = tp.forward(in1_torch, in2_torch, weights_torch, torch_cols, torch_rows)
+            out_grad = torch.tensor(out_grad, device='cuda', requires_grad=True)
+
+            out_torch.backward(out_grad, 
+                create_graph=True,
+                retain_graph=True,
+                inputs=[in1_torch, in2_torch, weights_torch])
+
+            dummy = torch.norm(in1_torch.grad) + torch.norm(in2_torch.grad) + torch.norm(weights_torch.grad)
+            dummy_grad = torch.tensor(float(dummy_grad), device='cuda', requires_grad=True)
+            dummy.backward(dummy_grad,
+                retain_graph=True, 
+                inputs=[out_grad, in1_torch, in2_torch, weights_torch])
+
+            tensors.append((
+                out_grad.grad.detach().cpu().numpy(),
+                in1_torch.grad.detach().cpu().numpy(),
+                in2_torch.grad.detach().cpu().numpy(),
+                weights_torch.grad.detach().cpu().numpy()
+            ))
+
+        for name, to_check, ground_truth in [
+            ("output_grad", tensors[0][0], tensors[1][0]),
+            ("in1_grad", tensors[0][1], tensors[1][1]),
+            ("in2_grad", tensors[0][2], tensors[1][2]),
+            ("weights_grad", tensors[0][3], tensors[1][3])
+            ]:
+            result[name] = check_similiarity(name, to_check, ground_truth, thresh)
+
+        return result
+
 
     def setup_torch_module(self):
         # ----------------- Forward pass -----------------
@@ -421,7 +474,7 @@ class Convolution:
         
         # ---------------- Backward pass -----------------
         @torch.library.custom_op(f"fast_tp::conv_backward{self.conv_id}", mutates_args=(), device_types="cuda")
-        def backward_op( L1_in : torch.Tensor, L2_in : torch.Tensor, 
+        def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                     weights : torch.Tensor, L3_grad : torch.Tensor,
                     src: torch.Tensor, dst: torch.Tensor) -> typing.List[torch.Tensor]:
             L1_grad = torch.zeros_like(L1_in)
@@ -439,7 +492,7 @@ class Convolution:
             
             return [L1_grad, L2_grad, weights_grad]
         
-        @backward_op.register_fake
+        @backward_helper.register_fake
         def _(L1_in, L2_in, weights, L3_grad, src, dst):
             return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
@@ -447,7 +500,27 @@ class Convolution:
             ctx.L1_in, ctx.L2_in, ctx.weights, ctx.src, ctx.dst = inputs
         
         def backward(ctx, grad_output):
-            result = backward_op(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
+            result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
             return result[0], result[1], result[2], None, None
 
         self.forward.register_autograd(backward, setup_context=setup_context)
+
+        def setup_context_double_backward(ctx, inputs, output):
+            ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad, ctx.src, ctx.dst = inputs 
+
+        def double_backward(ctx, grad_output):
+            A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
+            E, F, G = grad_output[0], grad_output[1], grad_output[2]
+            src, dst = ctx.src, ctx.dst 
+
+            op1 = backward_helper(E, F, D, C, src, dst)
+            op2 = backward_helper(A, B, G, C, src, dst)
+            op3 = forward(E, B, D, src, dst)
+            op4 = backward_helper(E, B, D, C, src, dst) # op4 and op5 could be combined with op3 and op6 
+            op5 = backward_helper(A, F, D, C, src, dst) 
+            op6 = forward(A, F, D, src, dst)
+            op7 = forward(A, B, G, src, dst)
+
+            return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None
+
+        backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)

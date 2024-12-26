@@ -17,125 +17,14 @@
 #include <pybind11/stl.h>
 #include <chrono>
 
-
 #define BIG_CONSTANT(x) (x##LLU)
 
 using namespace std;
 namespace py = pybind11;
 
-//using json = nlohmann::json;
-
-
-#pragma GCC visibility push(hidden)
-template<typename T>
-class NumpyArray {
-public:
-    py::buffer_info info;
-    T* ptr;
-
-    NumpyArray(py::array_t<T> arr_py) {
-        info = arr_py.request();
-        ptr = static_cast<T*>(info.ptr);
-    }
-
-    NumpyArray(py::object obj, string attr_name) {
-        py::array_t<T> arr_py = obj.attr(attr_name.c_str()).cast<py::array_t<T>>();
-        info = arr_py.request();
-        ptr = static_cast<T*>(info.ptr);
-    }
-
-    NumpyArray(T* input_ptr) {
-        ptr = input_ptr;
-    }
-};
 
 template<typename T>
-class NumpyList {
-public:
-    vector<py::buffer_info> infos;
-    vector<T*> ptrs;
-    int length;
-
-    NumpyList(py::list input_list) {
-        length = py::len(input_list);
-        for(int i = 0; i < length; i++) {
-            py::array_t<T> casted = input_list[i].cast<py::array_t<T>>();
-            infos.push_back(casted.request());
-            ptrs.push_back(static_cast<T*>(infos[i].ptr));
-        }
-    }
-
-    // Should refactor class name to something 
-    // other than NumpyList, since this
-    // constructor exists. This constructor 
-    // does not perform any data copy 
-    NumpyList(vector<T*> input_list) {
-        length = input_list.size();
-        ptrs = input_list;
-    }
-};
-
-template<typename IDX_T, typename VAL_T>
-class COOSparse {
-public:
-    vector<IDX_T> rows;
-    vector<IDX_T> cols;
-    vector<VAL_T> values;
-
-    void print_contents() {
-      double normsq = 0.0;
-      for(uint64_t i = 0; i < rows.size(); i++) {
-        /*cout 
-          << rows[i] 
-          << " " 
-          << cols[i] 
-          << " "
-          << values[i]
-          << endl;*/
-        normsq += values[i]; 
-      }
-      cout << "Norm Squared: " << normsq << endl;
-    }
-
-	/*
-	 * Computes Y := S^T . X, where S is this
-	 * sparse matrix.
-	 * 
-	 * This is currently a very inefficient single-threaded
-	 * version of the code. 
-	 */
-	void cpu_spmm(double* X, double* Y, int r) {
-		IDX_T* row_ptr = rows.data();
-		IDX_T* col_ptr = cols.data();
-		VAL_T* val_ptr = values.data();
-
-		for(uint64_t i = 0; i < rows.size(); i++) {
-			// We perform a transpose here
-		    IDX_T row = col_ptr[i];
-			IDX_T col = row_ptr[i];
-			VAL_T value = val_ptr[i];
-			for(int j = 0; j < r; j++) {
-				Y[row * r + j] += X[col * r + j] * value;
-			}
-		}
-	}
-};
-
-typedef chrono::time_point<std::chrono::steady_clock> my_timer_t; 
-
-inline my_timer_t start_clock() {
-    return std::chrono::steady_clock::now();
-}
-
-inline double stop_clock_get_elapsed(my_timer_t &start) {
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> diff = end - start;
-    return diff.count();
-}
-
-//#pragma GCC visibility push(hidden)
-template<typename T>
-class Buffer {
+class __attribute__((visibility("default"))) Buffer {
 public:
     py::buffer_info info;
     unique_ptr<T[]> managed_ptr;

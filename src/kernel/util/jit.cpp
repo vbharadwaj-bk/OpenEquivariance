@@ -114,8 +114,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         "-arch=sm_80",
         "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/", // Add path to CUDA include directory
         "--include-path=/global/homes/a/aglover/equivariant_spmm/nvidia-mathdx-24.08.0/nvidia/mathdx/24.08",
-        "--ptxas-options=-v",
-        "--maxrregcount=64" 
+        "--ptxas-options=-v"
     };    
 
     // =========================================================
@@ -183,12 +182,20 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
     if(kernel_id >= kernels.size())
         throw std::logic_error("Kernel index out of range!");
 
+    CUcontext pctx = NULL; 
+    CUDA_SAFE_CALL(cuCtxGetCurrent(&pctx));
+
+    if(pctx == NULL) {
+        CUDA_SAFE_CALL(cuDevicePrimaryCtxRetain(&pctx, dev));
+        CUDA_SAFE_CALL(cuCtxSetCurrent(pctx));
+    }
+
     CUDA_SAFE_CALL(
         cuLaunchKernel( (CUfunction) (kernels[kernel_id]),
                         num_blocks, 1, 1,    // grid dim
                         num_threads, 1, 1,   // block dim
                         smem, hStream,       // shared mem and stream
-                        args, NULL)            // arguments
+                        args, NULL)          // arguments
     );            
 }
 
