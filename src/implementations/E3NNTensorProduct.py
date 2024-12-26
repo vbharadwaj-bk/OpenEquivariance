@@ -51,40 +51,6 @@ class E3NNTensorProduct(TensorProduct):
 
         L3_out[:] = torch_L3_out.numpy(force=True)
 
-    def benchmark_forward(
-        self, 
-        num_warmup : int, 
-        num_iter : int, 
-        L1_in : np.ndarray, 
-        L2_in : np.ndarray, 
-        L3_buffer : np.ndarray, 
-        weights : np.ndarray
-        ) -> np.ndarray:
-        '''
-        Returns the total time for num_iter iterations of the core inner loop forwards
-        after num_warmup warmup iterations. 
-        Returns a np array of execution times in milliseconds
-        '''
-        time_millis = np.zeros(num_iter, dtype=np.float32)
-
-        torch_L1_in = torch.tensor(L1_in, device='cuda')
-        torch_L2_in = torch.tensor(L2_in, device='cuda')
-        torch_weights = torch.tensor(weights, device='cuda')
-
-        for i in range(num_warmup): 
-            torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
-
-        for i in range(num_iter):
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record()
-            torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
-            end.record()
-            torch.cuda.synchronize()
-            time_millis[i] = start.elapsed_time(end)
-            
-        return time_millis
-
     def backward_cpu(
             self,
             L1_in : np.ndarray,
@@ -109,45 +75,6 @@ class E3NNTensorProduct(TensorProduct):
         L1_grad[:] = torch_L1_in.grad.numpy(force=True)
         L2_grad[:] = torch_L2_in.grad.numpy(force=True)
         weights_grad[:] = torch_weights.grad.numpy(force=True)
-
-
-
-    def benchmark_backward(self, num_warmup: int, num_iter: int, L1_in: np.ndarray, L2_in: np.ndarray, L3_buffer: np.ndarray, weights: np.ndarray, L1_grad: np.ndarray, L2_grad: np.ndarray, weights_grad: np.ndarray) -> np.ndarray:
-        time_millis = np.zeros(num_iter, dtype=np.float32)
-
-        torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
-        torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
-        torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
-
-        torch_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
-
-        torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
-
-        for i in range(num_warmup): 
-            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
-
-        for i in range(num_iter):
-            torch_L1_in.grad.zero_()
-            torch_L2_in.grad.zero_()
-            torch_weights.grad.zero_()
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record()
-
-            torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
-
-            end.record()
-            torch.cuda.synchronize()
-            time_millis[i] = start.elapsed_time(end)
-
-        L1_grad[:] = 0.0
-        L1_grad[:] = 0.0
-
-        L1_grad[:] = torch_L1_in.grad.numpy(force=True)
-        L2_grad[:] = torch_L2_in.grad.numpy(force=True)
-        weights_grad[:] = torch_weights.grad.numpy(force=True)
-
-        return time_millis
 
     @staticmethod
     def name():
