@@ -4,15 +4,16 @@ import numpy as np
 import numpy.linalg as la
 from build.kernel_wrapper import *
 
-from src.implementations.e3nn_lite import TPProblem
+from src.implementations.e3nn_lite import TPProblem, wigner_3j
 from src.benchmark.logging_utils import getLogger, bcolors
 logger = getLogger()
 
 class TensorProduct:
     next_tp_id = 0 # Used to assign unique IDs to each TP instance 
-    tensors = None
-    with open(pathlib.Path("data/CG_tensors.pickle"), 'rb') as f:
-        tensors = pickle.load(f) 
+
+    @staticmethod
+    def load_cg_tensor(l1, l2, l3):
+        return wigner_3j(l1, l2, l3) 
 
     '''
     Each class implementation of a TensorProduct uses
@@ -90,10 +91,6 @@ class TensorProduct:
         L1_grad_d.copy_to_host()
         L2_grad_d.copy_to_host()
         weights_grad_d.copy_to_host()
-
-    @staticmethod
-    def load_cg_tensor(l1, l2, l3):
-        return TensorProduct.tensors[(l1, l2, l3)]
 
     def benchmark_forward(
             self, 
