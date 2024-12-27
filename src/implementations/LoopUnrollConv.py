@@ -18,32 +18,29 @@ class LoopUnrollConv(Convolution):
         dp = DeviceProp(0)
 
         forward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock, warps_per_block=4,
+                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type = 3 
-                )
+                schedule_type=3)
 
         backward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
+                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type = 3 
+                schedule_type=2
                 )
 
         for segment in forward_schedule.segments:
             for key in segment.L3Map.storeback_procedure:
-                if segment.L3Map.storeback_procedure[key] == "write":
-                    segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
+                segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
         for segment in backward_schedule.segments:
             for key in segment.L1Map.storeback_procedure:
-                if segment.L1Map.storeback_procedure[key] == "write":
-                    segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 
