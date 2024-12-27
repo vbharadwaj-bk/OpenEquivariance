@@ -4,7 +4,7 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, idx_dtype=np.int64, torch_op=True):
+    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
         super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -26,13 +26,12 @@ class LoopUnrollConv(Convolution):
                 schedule_type=3)
 
         backward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=8,
+                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=2
-                )
+                schedule_type=2)
 
         for segment in forward_schedule.segments:
             for key in segment.L3Map.storeback_procedure:
@@ -55,7 +54,8 @@ class LoopUnrollConv(Convolution):
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
-        self.setup_torch_module()
+        if self.torch_op:
+            self.setup_torch_module()
 
     @staticmethod
     def name():

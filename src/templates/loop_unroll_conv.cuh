@@ -52,6 +52,9 @@ __global__ void forward(
     {%- for i, segment in enumerate(forward_schedule.segments) %} {
         {{ declare_smem_variables(segment, "smem") }}
 
+        bool firstSegment = true;
+        ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
+
         for(size_t i = start; i < end; i++) {
             unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
 
@@ -62,14 +65,21 @@ __global__ void forward(
 
             {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
-            ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
 
             __syncwarp();
             forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
             __syncwarp();
 
-            {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
+            bool changeRow = (i < end - 1) && (row != rows[i+1]);
+
+            if((changeRow && ! firstSegment)
+                || (i == end - 1 || (firstSegment && changeRow))
+            ) {
+                {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
+                ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
+            }
+            firstSegment = ! (i == end - 1 || (firstSegment && changeRow));
         } 
     } {%- endfor %}
 }

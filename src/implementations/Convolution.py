@@ -390,20 +390,23 @@ class Convolution:
     def test_correctness_double_backward(self, graph, thresh, prng_seed, reference_implementation=None):
         global torch
         import torch
-         
+
+        assert(self.torch_op)
+
         in1, in2, out_grad, weights, _, _, _ = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed)  
         rng = np.random.default_rng(seed=prng_seed * 2)
         dummy_grad = rng.standard_normal(1) 
     
         if reference_implementation is None:
-            from src.implementations.E3NNTensorProduct import E3NNTensorProduct
-            reference_implementation = E3NNTensorProduct
+            from src.implementations.E3NNConv import E3NNConv 
+            reference_implementation = E3NNConv 
 
         reference_tp = reference_implementation(self.config, torch_op=True)
 
         result = {}
         tensors = []
-        for tp in [self, reference_tp]:
+        for i, tp in enumerate([self, reference_tp]):
+            print(f"Running {i}th iteration")
             in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
             in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
             weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
