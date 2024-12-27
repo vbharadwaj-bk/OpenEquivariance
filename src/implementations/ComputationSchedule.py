@@ -152,7 +152,8 @@ class ComputationSchedule:
             block_count, 
             direction,
             irrep_dtype,
-            weight_dtype):
+            weight_dtype,
+            schedule_type=2):
         '''
         smem_limit: size of available shared memory in bytes 
         '''
@@ -281,11 +282,12 @@ class ComputationSchedule:
 
         schedule2_succeeded = False
         try:
+            if schedule_type != 2:
+                raise Exception("Asked for schedule case 3.")
             self.segments = create_schedule_case2(self.new_instructions, self.memory_per_warp, calculate_smem)
             logger.info(f"{direction.title()} case 2 scheduling succeeded with {len(self.segments)} segments.") 
             schedule2_succeeded = True
         except Exception as e:
-            logger.info(f"{direction.title()} case 2 scheduling failed, trying case 3.") 
             self.segments = create_schedule_case3(self.new_instructions, self.memory_per_warp, calculate_smem) 
             logger.info(f"{direction.title()} case 3 scheduling succeeded with {len(self.segments)} segments.")
 

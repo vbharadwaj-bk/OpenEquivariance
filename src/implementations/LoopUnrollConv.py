@@ -18,18 +18,22 @@ class LoopUnrollConv(Convolution):
         dp = DeviceProp(0)
 
         forward_schedule = ComputationSchedule(self.config, 
-                smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
+                smem_limit=dp.maxSharedMemPerBlock, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                schedule_type = 3 
+                )
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                schedule_type = 3 
+                )
 
         for segment in forward_schedule.segments:
             for key in segment.L3Map.storeback_procedure:

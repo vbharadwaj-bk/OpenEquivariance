@@ -7,7 +7,7 @@ from build.kernel_wrapper import *
 from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollConv import *
 from src.implementations.NumpyConv import *
-from src.implementations.E3NNConv import *
+#from src.implementations.E3NNConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -50,7 +50,7 @@ class ConvBenchmarkSuite:
         num_warmup = 10,
         num_iter = 30,
         disable_tensor_op=False,
-        reference_impl=E3NNConv,
+        reference_impl=None,
         prng_seed = 12345
     ):
         self.configs = configs
@@ -135,16 +135,16 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius2.0")
+    graph = load_graph("covid_spike_radius3.5")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
-        ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
+        #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
     for config in configs:
@@ -162,6 +162,6 @@ if __name__=='__main__':
     bench.run([LoopUnrollConv], 
             direction="forward", 
             correctness=True,
-            double_backward_correctness=True)
+            double_backward_correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
