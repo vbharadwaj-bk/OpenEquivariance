@@ -38,7 +38,7 @@ __global__ void forward(
         WEIGHT_T* weights,
         IRREP_T* L3_out,
         ConvData c,
-        bool disable_tensor_op) {
+        void* workspace) {
  
     extern __shared__ char s[];
     size_t num_products = c.nnz;
@@ -92,7 +92,7 @@ __global__ void backward(
         IRREP_T* L1_in, IRREP_T* L1_grad,
         IRREP_T* L2_in, IRREP_T* L2_grad,
         WEIGHT_T* weights, WEIGHT_T* weights_grad,
-        IRREP_T* L3_grad, ConvData c, bool disable_tensor_op) {
+        IRREP_T* L3_grad, ConvData c, void* workspace) {
 
     extern __shared__ char s[];
     size_t num_products = c.nnz;

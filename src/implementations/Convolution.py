@@ -75,6 +75,8 @@ class Convolution:
             global torch
             import torch
 
+        self.workspace_ptr = 0
+
     @staticmethod
     def name():
         raise NotImplementedError()
@@ -84,7 +86,7 @@ class Convolution:
 
     def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
-            graph, disable_tensor_op=False):
+            graph):
 
         assert(graph.rows.dtype == self.idx_dtype)
         assert(graph.cols.dtype == self.idx_dtype)
@@ -104,13 +106,13 @@ class Convolution:
             cols_d.data_ptr(),
             graph.nnz,
             graph.node_count,
-            disable_tensor_op)
+            self.workspace_ptr)
 
         L3_d.copy_to_host()
 
     def backward_cpu(self, 
             L1_in, L1_grad, L2_in, L2_grad, weights, weights_grad, 
-            L3_grad, graph, disable_tensor_op=False):
+            L3_grad, graph):
 
         assert(graph.rows.dtype == self.idx_dtype)
         assert(graph.cols.dtype == self.idx_dtype)
@@ -133,7 +135,7 @@ class Convolution:
             L3_d.data_ptr(),
             rows_d.data_ptr(), cols_d.data_ptr(),
             graph.nnz, graph.node_count,
-            disable_tensor_op)
+            self.workspace_ptr)
 
         L1_grad_d.copy_to_host()
         L2_grad_d.copy_to_host()
@@ -178,9 +180,8 @@ class Convolution:
 
         return result
 
-    def benchmark_forward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+    def benchmark_forward(self, num_warmup, num_iter, graph, prng_seed=12345):
         direction = "forward"
-        disable_tensor_op = False
         L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward_conv(self.config, graph.node_count, graph.nnz, prng_seed)
 
         assert(graph.rows.dtype == self.idx_dtype)
@@ -214,14 +215,14 @@ class Convolution:
                 self.internal.exec_conv_rawptrs(
                     L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
-                    disable_tensor_op)
+                    self.workspace_ptr) 
 
             for i in range(num_iter):
                 timer.start()
                 self.internal.exec_conv_rawptrs(
                     L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(), graph.nnz, graph.node_count,
-                    disable_tensor_op)
+                    self.workspace_ptr)
                 time_millis[i] = timer.stop_clock_get_elapsed() 
 
         ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
@@ -231,9 +232,8 @@ class Convolution:
                 time_millis, graph, num_warmup, num_iter, prng_seed)
 
 
-    def benchmark_backward(self, num_warmup, num_iter, graph, disable_tensor_op, prng_seed=12345):
+    def benchmark_backward(self, num_warmup, num_iter, graph, prng_seed=12345):
         direction = "backward"
-        disable_tensor_op = False
         in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward_conv(self.config, graph.node_count, graph.nnz, prng_seed) 
 
         assert(graph.rows.dtype == self.idx_dtype)
@@ -283,7 +283,7 @@ class Convolution:
                     L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(),
                     graph.nnz, graph.node_count,
-                    disable_tensor_op)
+                    self.workspace_ptr)
 
             for i in range(num_iter):
                 timer.start()
@@ -294,7 +294,7 @@ class Convolution:
                     L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(),
                     graph.nnz, graph.node_count,
-                    disable_tensor_op)
+                    self.workspace_ptr)
                 time_millis[i] = timer.stop_clock_get_elapsed() 
 
         ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)

@@ -49,7 +49,6 @@ class ConvBenchmarkSuite:
     def __init__(self, configs, graph,
         num_warmup = 10,
         num_iter = 30,
-        disable_tensor_op=False,
         reference_impl=None,
         prng_seed = 12345
     ):
@@ -57,7 +56,6 @@ class ConvBenchmarkSuite:
         self.graph = graph
         self.num_warmup = num_warmup
         self.num_iter = num_iter
-        self.disable_tensor_op = disable_tensor_op
         self.reference_impl = reference_impl
         self.prng_seed = 12345
         self.correctness_threshold = 1e-5
@@ -103,7 +101,7 @@ class ConvBenchmarkSuite:
                                 reference_implementation=self.reference_impl)
 
                     benchmark = conv.benchmark_forward(self.num_warmup,
-                                self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                                self.num_iter, self.graph, prng_seed=12345)
 
 
                 if direction == "backward":
@@ -114,7 +112,7 @@ class ConvBenchmarkSuite:
                                 reference_implementation=self.reference_impl)
 
                     benchmark = conv.benchmark_backward(self.num_warmup,
-                                self.num_iter, self.graph, self.disable_tensor_op, prng_seed=12345)
+                                self.num_iter, self.graph, prng_seed=12345)
 
                 result = {
                     "config": str(config),
@@ -135,7 +133,7 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("covid_spike_radius3.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -157,11 +155,10 @@ if __name__=='__main__':
     graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        configs, graph,
-        disable_tensor_op=True)
+        configs, graph)
     bench.run([LoopUnrollConv], 
-            direction="backward", 
-            correctness=True,
+            direction="forward", 
+            correctness=False,
             double_backward_correctness=False)
 
-    #debug(LoopUnrollConv, configs[0], graph, direction="backward", disable_tensor_op=True)
+    #debug(LoopUnrollConv, configs[0], graph, direction="backward")
