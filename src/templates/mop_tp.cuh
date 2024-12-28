@@ -5,7 +5,20 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 #include <cooperative_groups/memcpy_async.h>
 #include <cuda/barrier>
 
-#include "cutlass/cutlass.h"
+#include <cutlass/cutlass.h>
+#include <cutlass/gemm/warp/mma_simt.h>
+#include <cutlass/gemm/warp/mma_simt_policy.h>
+#include "cutlass/epilogue/warp/fragment_iterator_simt.h"
+#include "cutlass/epilogue/warp/tile_iterator_simt.h"
+
+// #include <cutlass/gemm/warp/mma_tensor_op.h>
+// #include <cutlass/array.h>
+#include <cutlass/layout/matrix.h> 
+#include <cutlass/matrix_shape.h>
+#include <cutlass/tensor_view.h>
+#include <cutlass/arch/arch.h>
+#include <cutlass/numeric_types.h>
+
 
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
@@ -49,14 +62,8 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     {%- for interaction_index in range(num_interact) %}
         {%- set u, v, w, tensor = interactions[interaction_index] %}
         {%- set weight_offset = weight_offsets[interaction_index] %}
-    {    
-        // Calcualate all shifts
-
-        float* L1_smem_interaction_shift = L1_smem_warp + {{L1.offsets[u]}}; 
-        float* L2_smem_interaction_shift = L2_smem_warp + {{L2.offsets[v]}};
-        float* L3_smem_interaction_shift = L3_smem_warp + {{L3.offsets[w]}};  
-        float* weights_interaction_shift = weights + {{weight_offset}}; 
-        
+    {   
+        // Get templated values out of jinja into C++  
         constexpr int L1_mults = {{L1.mults[u]}};
         constexpr int L2_mults = {{L2.mults[v]}};
         constexpr int L3_mults = {{L3.mults[w]}};
@@ -64,6 +71,83 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         constexpr int L1_irrep_length = {{L1.irrep_lengths[u]}}; 
         constexpr int L2_irrep_length = {{L2.irrep_lengths[v]}};
         constexpr int L3_irrep_length = {{L3.irrep_lengths[w]}}; 
+        
+        // Calcualate all shifts
+        float* L1_smem_interaction_shift = L1_smem_warp + {{L1.offsets[u]}}; 
+        float* L2_smem_interaction_shift = L2_smem_warp + {{L2.offsets[v]}};
+        float* L3_smem_interaction_shift = L3_smem_warp + {{L3.offsets[w]}};  
+        float* weights_interaction_shift = weights + {{weight_offset}}; 
+
+        // Setup CUTLASS things
+        constexpr int gemm_M = L3_irrep_length;
+        constexpr int gemm_N = L3_mults; 
+        constexpr int gemm_K = 32; // BAD HARDCODING 
+    
+        using ElementTypeA           = float; // BAD HARDCODING 
+        using ElementTypeB           = float; // BAD HARDCODING 
+        using ElementTypeC           = float; // BAD HARDCODING 
+        using ElementTypeAccumulator = float; // BAD HARDCODING 
+
+        using LayoutA = cutlass::layout::ColumnMajor; 
+        using LayoutB = cutlass::layout::RowMajor;
+        using LayoutC = cutlass::layout::ColumnMajor; 
+
+        // using MMAOp = cutlass::arch::OpClassTensorOp; // SAYING I WILL USE TENSOR OPS 
+        // using SmArch = cutlass::arch::Sm80; // SPECIALIZING FOR ARCH Sm80 
+
+        using WarpGemmShape = cutlass::gemm::GemmShape<gemm_M, gemm_N, gemm_K>; //Warp size: M, N, K 
+        // using InstructionShape = cutlass::gemm::GemmShape<16, 16, 8>;    
+        // using ShapeMMAOp = cutlass::gemm::gemmShape<16, 8, 8>;
+
+        using MmaPolicy = cutlass::gemm::warp::MmaSimtPolicy<
+            cutlass::MatrixShape<1,1>, 
+            cutlass::layout::ColumnMajor, 
+            cutlass::gemm::GemmShape<1,1,1>
+        >;
+
+        using Mma = cutlass::gemm::warp::MmaSimt<
+            WarpGemmShape,
+            ElementTypeA, LayoutA, 
+            ElementTypeB, LayoutB, 
+            ElementTypeAccumulator, LayoutC,
+            MmaPolicy
+        >; 
+
+        //number of 'K groups'
+        int const kKgroups = WarpGemmShape::kK; 
+
+        using FragmentIterator = cutlass::epilogue::warp::FragmentIteratorSimt<
+            typename Mma::Shape,
+            typename Mma::ThreadMma,
+            cutlass::layout::ColumnMajor,                // SMEM layout
+            typename Mma::Policy
+        >;
+
+        using AccumulatorTileIterator = cutlass::epilogue::warp::TileIteratorSimtCanonical<
+            typename Mma::Shape,
+            typename Mma::ThreadMma,
+            ElementTypeAccumulator,               // ElementAccumulator
+            cutlass::layout::ColumnMajor,                  // SMEM layout
+            typename Mma::Policy
+        >;
+                
+        using TensorRefA = cutlass::TensorRef<ElementTypeA, LayoutA>; 
+        using TensorRefB = cutlass::TensorRef<ElementTypeB, LayoutB>; 
+        using TensorRefC = cutlass::TensorRef<ElementTypeC, LayoutC>; 
+
+        LayoutA layout_A(gemm_M);
+        LayoutB layout_B(gemm_N);
+        LayoutC layout_C(gemm_M); 
+
+        TensorRefA tensor_A(gemm_L3_smem_warp, layout_A); 
+        TensorRefB tensor_B(gemm_weights_smem_warp, layout_B);
+        TensorRefC tensor_C(L3_smem_interaction_shift, layout_C); 
+
+        Mma::FragmentA fragment_A; 
+        Mma::FragmentB fragment_B; 
+        Mma::FragmentC fragment_C; 
+
+        Mma mma; 
  
         constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
 
@@ -88,8 +172,9 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_block_start_index * {{L3.mults[w]}});           
             dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
 
+            bool active_for_tensor_product = (tile.thread_rank() < n);
             // N threads perform a tensor product 
-            if (tile.thread_rank() < n) {
+            if (active_for_tensor_product){
                 
                 // CLEAR L3 REGISTERS
                 #pragma unroll
@@ -113,41 +198,58 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 {%- for i in range(tensor.nnz) %}
                     {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
                     L3_local_vec[{{coord3}}] += {{value}} * {{instructions[interaction_index].path_weight}} * L1_local_vec[{{coord1}}] * L2_local_vec[{{coord2}}];
-                {%- endfor %}
+                {%- endfor %}   
+            }
 
-                // WRITE TO SMEM_GEMM_L3 
-                #pragma unroll 
-                for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
-                    gemm_L3_smem_warp[(tile.thread_rank() * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = L3_local_vec[L3_irrep_index]; 
-                }
+            // WRITE TO SMEM_GEMM_L3 
+            #pragma unroll 
+            for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
+                gemm_L3_smem_warp[(tile.thread_rank() * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = (active_for_tensor_product ? L3_local_vec[L3_irrep_index] : 0.0f); 
             }
 
             tile.sync();
+            Mma::IteratorA iter_A(tensor_A, {Mma::Shape::kM, Mma::Shape::kK}, tile.thread_rank()); 
+            Mma::IteratorB iter_B(tensor_B, {Mma::Shape::kK, Mma::Shape::kN}, tile.thread_rank()); 
+            Mma::IteratorC iter_C(tensor_C, {Mma::Shape::kM, Mma::Shape::kN}, tile.thread_rank());
 
-            // PERFORM MATMUL 
-            int i = tile.thread_rank();
-            if(i < L3_mults){
-                float accumulators[{{L3.irrep_lengths[w]}}]; 
-                
-                #pragma unroll 
-                for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
-                    accumulators[j]=0; 
-                }
+            fragment_C.clear(); 
 
-                for(int k = 0; k < n; k++){
-                    float local_weight = gemm_weights_smem_warp[(k  * L3_mults) + i];
-                    #pragma unroll 
-                    for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
-                    //    C[i j]    +=    A[i k]    *     B[kj]
-                    accumulators[j] += local_weight * gemm_L3_smem_warp[(k * {{L3.irrep_lengths[w]}}) + j];
-                    }
-                } 
+            for(int k = 0; k < kKgroups; ++k){
+                iter_A.load(fragment_A);
+                iter_B.load(fragment_B); 
 
-                #pragma unroll
-                for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
-                    L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += accumulators[j];
-                }   
+                ++iter_A; 
+                ++iter_B; 
+
+                mma(fragment_C, fragment_A, fragment_B, fragment_C); 
             }
+            
+            iter_C.store(fragment_C); 
+
+            // // PERFORM MATMUL 
+            // int i = tile.thread_rank();
+            // if(i < L3_mults){
+            //     float accumulators[{{L3.irrep_lengths[w]}}]; 
+                
+            //     #pragma unroll 
+            //     for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
+            //         accumulators[j]=0; 
+            //     }
+
+            //     for(int k = 0; k < n; k++){
+            //         float local_weight = gemm_weights_smem_warp[(k  * L3_mults) + i];
+            //         #pragma unroll 
+            //         for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
+            //         //    C[i j]    +=    A[i k]    *     B[kj]
+            //         accumulators[j] += local_weight * gemm_L3_smem_warp[(k * {{L3.irrep_lengths[w]}}) + j];
+            //         }
+            //     } 
+
+            //     #pragma unroll
+            //     for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
+            //         L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += accumulators[j];
+            //     }   
+            // }
 
             tile.sync();  
         }

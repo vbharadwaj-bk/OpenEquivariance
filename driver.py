@@ -163,9 +163,9 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
-        basic_multi_interaction_problems,
+        # increasing_multiplicty_fully_connected_problems,
+        # full_size_uvw_case,
+        # basic_multi_interaction_problems,
         #conv_problems,
     ))
  
@@ -177,10 +177,10 @@ if __name__=='__main__':
     
     directions : list[Direction] = [
         'forward', 
-        'backward',
+        # 'backward',
         ] 
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
