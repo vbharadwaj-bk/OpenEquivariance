@@ -76,6 +76,16 @@ class Convolution:
             import torch
 
         self.workspace_ptr = 0
+        self.workspace_size = 0
+
+    def allocate_workspace(self, size_bytes):
+        self.workspace_size = size_bytes
+        if self.torch_op:
+            self.workspace_buffer = torch.empty(size_bytes, dtype=np.uint8, device='cuda')
+        else:
+            self.workspace_buffer = DeviceBuffer(size_bytes)
+        self.workspace_ptr = self.workspace_buffer.data_ptr()
+        logger.info(f"Deterministic Convolution requires {size_bytes // 1000000}MB of workspace.")
 
     @staticmethod
     def name():

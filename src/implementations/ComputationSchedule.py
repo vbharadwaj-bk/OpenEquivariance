@@ -162,6 +162,7 @@ class ComputationSchedule:
         # Step 1: Break the irreps and the instructions into chunks of at most 32 x 32 x 32. 
 
         self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
+        self.total_warps = warps_per_block * block_count
 
         dtype_to_str_map = {
             np.float32: "float",

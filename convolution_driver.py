@@ -158,7 +158,7 @@ if __name__=='__main__':
         configs, graph)
     bench.run([LoopUnrollConv], 
             direction="forward", 
-            correctness=False,
+            correctness=True,
             double_backward_correctness=False)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward")

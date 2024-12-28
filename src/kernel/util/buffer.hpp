@@ -244,6 +244,12 @@ public:
     char* device_ptr;
     size_t size;
 
+    PyDeviceBuffer(uint64_t size) {
+        this->size = size;
+        device_ptr = static_cast<char*>(gpu_alloc(size));
+        host_ptr = nullptr;
+    }
+
     PyDeviceBuffer(py::buffer host_data) {
         const py::buffer_info &info = host_data.request();
         host_ptr = static_cast<char*>(info.ptr);

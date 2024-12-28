@@ -17,8 +17,8 @@ JITConvImpl::JITConvImpl
         forward_config(forward_config_i),  
         backward_config(backward_config_i) {
 
-    vector<string> kernels = {"forward", "backward"};
-    jit.compile(kernels, {{}, {}}); 
+    vector<string> kernels = {"forward", "backward", "fixup_forward"};
+    jit.compile(kernels, {{}, {}, {}}); 
 
     if(forward_config.smem > 0) {
         jit.set_max_smem(0, forward_config.smem);
@@ -51,6 +51,11 @@ void JITConvImpl::exec_conv(
 
     void *args[] = {&L1_in, &L2_in, &weights, &L3_out, &conv_data, &workspace}; 
     jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
+
+    if(reinterpret_cast<uint64_t>(workspace) != 0) {
+        void *fixup_args[] = {&workspace, &L3_out};
+        jit.execute(2, forward_config.num_blocks, forward_config.num_threads, fixup_args, 0);
+    }
 } 
 
 void JITConvImpl::backward(

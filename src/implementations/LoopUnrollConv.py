@@ -4,7 +4,10 @@ from src.templates.jinja_utils import *
 from build.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
-    def __init__(self, config, idx_dtype=np.int64, torch_op=False):
+    def __init__(self, config, 
+            idx_dtype=np.int64, 
+            torch_op=False,
+            deterministic=True):
         super().__init__(config, idx_dtype, torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -48,6 +51,10 @@ class LoopUnrollConv(Convolution):
             backward_schedule=backward_schedule,
             idx_type=idx_type_map[idx_dtype])
 
+        # Print kernel to file
+        #with open("scratch.txt", "w") as f:
+        #    f.write(self.jit_kernel)        
+
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
                 forward_schedule.launch_config, 
@@ -56,6 +63,13 @@ class LoopUnrollConv(Convolution):
 
         if self.torch_op:
             self.setup_torch_module()
+
+        if deterministic:
+            workspace_size = max(
+                (forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize + 4) * forward_schedule.total_warps,
+                (backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + 4) * backward_schedule.total_warps)
+            self.allocate_workspace(workspace_size)
+
 
     @staticmethod
     def name():
