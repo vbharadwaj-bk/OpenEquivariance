@@ -41,23 +41,23 @@ __global__ void fixup_forward(void* workspace, IRREP_T* dst_ptr) {
     size_t warps_launched = blockDim.x * gridDim.x / {{ forward_schedule.launch_config.warp_size }};
 
     IRREP_T* data = (IRREP_T*) workspace;
-    unsigned {{idx_type}}* dst_idxs = (unsigned {{idx_type}}*) (data + ({{forward_schedule.L3.dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) (data + ({{forward_schedule.L3.dim}} * warps_launched)); 
 
-    if(warp_id == 0 || dst_idxs[warp_id - 1] != dst_idxs[warp_id]) {
+    if((warp_id == 0) || (dst_idxs[warp_id] != -1 && dst_idxs[warp_id - 1] != dst_idxs[warp_id])) {
         size_t current = warp_id;
-        unsigned {{idx_type}} dst_row_idx = dst_idxs[warp_id];
-        while(current < warps_launched && dst_idxs[current] == dst_row_idx) {
-            IRREP_T* src = data + {{forward_schedule.L3.dim}} * current;
-            IRREP_T* dst = dst_ptr + {{forward_schedule.L3.dim}} * dst_row_idx;
-            ROW_OPERATION({{forward_schedule.L3.dim}}, i, dst[i] += src[i];)
-            current++;
+        {{idx_type}} dst_row_idx = dst_idxs[warp_id];
+ 
+        if(dst_row_idx != -1) {
+            while(current < warps_launched && dst_idxs[current] == dst_row_idx) {
+                IRREP_T* src = data + {{forward_schedule.L3.dim}} * current + lane_id;
+                IRREP_T* dst = dst_ptr + {{forward_schedule.L3.dim}} * dst_row_idx + lane_id;
+                ROW_OPERATION({{forward_schedule.L3.dim}}, i, dst[i] += src[i];)
+                current++;
+            }
         }
     }
 }
 
-/*
-* Forward kernel assumes that rows, cols in ConvData sorted in row-major order.
-*/
 __global__ void forward(
         IRREP_T* L1_in,
         IRREP_T* L2_in,
@@ -74,7 +74,16 @@ __global__ void forward(
     {{ set_launch_bound_variables(forward_schedule.launch_config) }}
 
     IRREP_T* workspace = (IRREP_T*) workspace_raw;
-    unsigned {{idx_type}}* dst_idxs = (unsigned {{idx_type}}*) (workspace + ({{forward_schedule.L3.dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) (workspace + ({{forward_schedule.L3.dim}} * warps_launched)); 
+
+    if(lane_id == 0) {
+        if(start < end) {
+            dst_idxs[warp_id] = rows[start];
+        }
+        else {
+            dst_idxs[warp_id] = -1; 
+        }
+    }
 
     {%- set tpp = forward_schedule.updated_config %}
     char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
@@ -84,10 +93,6 @@ __global__ void forward(
 
         bool firstSegment = true;
         ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
-
-        if(lane_id == 0) {
-            dst_idxs[warp_id] = rows[start]; 
-        }
 
         for(size_t i = start; i < end; i++) {
             unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
@@ -110,10 +115,12 @@ __global__ void forward(
             if(changeRow || i == end - 1) {
                 IRREP_T* dst = l3;
                 if(firstSegment) {
-                    dst = workspace + {{forward_schedule.L3.dim}} * warp_id; 
+                    dst = workspace + {{forward_schedule.L3.dim}} * warp_id + lane_id;
                     firstSegment = false;
                 }
                 {{ store_ir_segments(segment.L3Map, "dst", "L3_smem", "j") }}
+                __syncwarp();
+
                 ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
             }
         } 

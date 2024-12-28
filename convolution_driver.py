@@ -29,10 +29,10 @@ def load_graph(name):
 
     if name == "debug":
         coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
-        rows = np.array([0, 1, 1, 2, 2, 2], dtype=np.uint32)
+        rows = np.array([1, 1, 1, 2, 2, 2], dtype=np.uint32)
         cols = np.array([0, 1, 2, 0, 1, 2], dtype=np.uint32)
 
-        #coords = coords[:1]
+        #coords = coords[:2]
         #rows = rows[:1]
         #cols = cols[:1] 
 
@@ -60,7 +60,7 @@ class ConvBenchmarkSuite:
         self.prng_seed = 12345
         self.correctness_threshold = 1e-5
 
-    def run(self, tp_implementations, direction, correctness=True, double_backward_correctness=False):        
+    def run(self, tp_implementations, direction, correctness=True, double_backward_correctness=False, benchmark=True):        
         millis_since_epoch = round(time.time() * 1000)
         output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
@@ -85,7 +85,6 @@ class ConvBenchmarkSuite:
                 tc_name = f"{config}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config)
-                benchmark = None
 
                 if double_backward_correctness:
                     double_backward_correctness = conv.test_correctness_double_backward(self.graph, 
@@ -100,8 +99,9 @@ class ConvBenchmarkSuite:
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
 
-                    benchmark = conv.benchmark_forward(self.num_warmup,
-                                self.num_iter, self.graph, prng_seed=12345)
+                    if benchmark:
+                        benchmark = conv.benchmark_forward(self.num_warmup,
+                                    self.num_iter, self.graph, prng_seed=12345)
 
 
                 if direction == "backward":
@@ -111,8 +111,9 @@ class ConvBenchmarkSuite:
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
 
-                    benchmark = conv.benchmark_backward(self.num_warmup,
-                                self.num_iter, self.graph, prng_seed=12345)
+                    if benchmark:
+                        benchmark = conv.benchmark_backward(self.num_warmup,
+                                    self.num_iter, self.graph, prng_seed=12345)
 
                 result = {
                     "config": str(config),
@@ -133,7 +134,7 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.0")
+    graph = load_graph("covid_spike_radius3.5")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -159,6 +160,7 @@ if __name__=='__main__':
     bench.run([LoopUnrollConv], 
             direction="forward", 
             correctness=True,
-            double_backward_correctness=False)
+            double_backward_correctness=False,
+            benchmark=True)
 
     #debug(LoopUnrollConv, configs[0], graph, direction="backward")
