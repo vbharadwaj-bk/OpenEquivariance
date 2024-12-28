@@ -153,7 +153,9 @@ class Convolution:
 
         return L1_grad, L2_grad, weights_grad
 
-    def test_correctness_forward(self, graph, thresh, prng_seed, reference_implementation=None):
+    def test_correctness_forward(self, 
+            graph, thresh, prng_seed, reference_implementation=None,
+            check_reproducible=True):
         L1, L2, L3 = self.L1, self.L2, self.L3
 
         if reference_implementation is None:
@@ -187,6 +189,26 @@ class Convolution:
         for name, to_check, ground_truth in [
             ("output", ref_out, test_out)]:
             result[name] = check_similiarity(name, to_check, ground_truth, thresh)
+
+        if check_reproducible:
+            num_trials = 5
+            for name in ["output"]:
+                result[name]["num_reproducibility_trials"] = num_trials
+                result[name]["bitwise_reproducible"] = True
+
+            for i in range(num_trials):
+                repeated_run = out.copy()
+                self.forward_cpu(
+                    L1_in=in1.copy(), 
+                    L2_in=in2.copy(),
+                    weights=weights.copy(),
+                    L3_out=repeated_run,
+                    graph=graph)
+
+                for name, to_check, ground_truth in [
+                    ("output", repeated_run, test_out)]:
+                    result[name]["bitwise_reproducible"] = bool(result[name]["bitwise_reproducible"] 
+                            and np.all(repeated_run == test_out))
 
         return result
 
