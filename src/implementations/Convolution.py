@@ -58,15 +58,21 @@ class CoordGraph:
         self.coords = coords
         self.name = name
 
+        triples = [(cols[i], rows[i], i) for i in range(self.nnz)]
+        triples.sort(key=lambda x: (x[0], x[1]))
+        self.transpose_perm = np.array([x[2] for x in triples], dtype=self.rows.dtype)
+
+
 class Convolution:
     next_conv_id = 0 # Used to assign unique IDs to each conv instance 
 
-    def __init__(self, config, idx_dtype, torch_op=False):
+    def __init__(self, config, idx_dtype, torch_op=False, deterministic=False):
         self.config = config 
         self.L1, self.L2, self.L3 = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.internal = None
         self.torch_op = torch_op
         self.idx_dtype = idx_dtype
+        self.deterministic = deterministic
 
         self.conv_id = Convolution.next_conv_id
         Convolution.next_conv_id += 1
@@ -138,6 +144,10 @@ class Convolution:
         L2_grad_d = DeviceBuffer(L2_grad)
         weights_grad_d = DeviceBuffer(weights_grad)
 
+        transpose_perm_ptr = 0 
+        if self.deterministic:
+            transpose_perm_d = DeviceBuffer(graph.transpose_perm)
+
         self.internal.backward_rawptrs(
             L1_d.data_ptr(), L1_grad_d.data_ptr(),
             L2_d.data_ptr(), L2_grad_d.data_ptr(),
@@ -145,7 +155,8 @@ class Convolution:
             L3_d.data_ptr(),
             rows_d.data_ptr(), cols_d.data_ptr(),
             graph.nnz, graph.node_count,
-            self.workspace_ptr)
+            self.workspace_ptr,
+            transpose_perm_ptr)
 
         L1_grad_d.copy_to_host()
         L2_grad_d.copy_to_host()
@@ -307,6 +318,10 @@ class Convolution:
             L2_grad_d = DeviceBuffer(in2_grad)
             weights_grad_d = DeviceBuffer(weights_grad)
 
+            transpose_perm_ptr = 0 
+            if self.deterministic:
+                transpose_perm_d = DeviceBuffer(graph.transpose_perm)
+
             for i in range(num_warmup):
                 self.internal.backward_rawptrs(
                     L1_d.data_ptr(), L1_grad_d.data_ptr(),
@@ -315,7 +330,8 @@ class Convolution:
                     L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(),
                     graph.nnz, graph.node_count,
-                    self.workspace_ptr)
+                    self.workspace_ptr,
+                    transpose_perm_ptr)
 
             for i in range(num_iter):
                 timer.start()
@@ -326,7 +342,8 @@ class Convolution:
                     L3_d.data_ptr(),
                     rows_d.data_ptr(), cols_d.data_ptr(),
                     graph.nnz, graph.node_count,
-                    self.workspace_ptr)
+                    self.workspace_ptr,
+                    transpose_perm_ptr)
                 time_millis[i] = timer.stop_clock_get_elapsed() 
 
         ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
@@ -497,7 +514,7 @@ class Convolution:
                 src.data_ptr(),
                 src.shape[0],
                 L1_in.shape[0],
-                False)
+                self.workspace_ptr)
 
             return L3_out
         
@@ -523,7 +540,7 @@ class Convolution:
                     L3_grad.data_ptr(),
                     dst.data_ptr(), src.data_ptr(),
                     src.shape[0], L1_in.shape[0],
-                    False)
+                    self.workspace_ptr)
             
             return [L1_grad, L2_grad, weights_grad]
         

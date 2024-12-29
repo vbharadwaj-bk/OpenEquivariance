@@ -135,7 +135,8 @@ __global__ void backward(
         IRREP_T* L1_in, IRREP_T* L1_grad,
         IRREP_T* L2_in, IRREP_T* L2_grad,
         WEIGHT_T* weights, WEIGHT_T* weights_grad,
-        IRREP_T* L3_grad, ConvData c, void* workspace) {
+        IRREP_T* L3_grad, ConvData c, void* workspace, 
+        unsigned {{idx_type}}* transpose_perm) {
 
     extern __shared__ char s[];
     size_t num_products = c.nnz;

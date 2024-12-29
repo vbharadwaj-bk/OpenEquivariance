@@ -8,7 +8,7 @@ class LoopUnrollConv(Convolution):
             idx_dtype=np.int64, 
             torch_op=False,
             deterministic=True):
-        super().__init__(config, idx_dtype, torch_op)
+        super().__init__(config, idx_dtype, torch_op, deterministic)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
         for (mul, ir) in L2:
@@ -41,9 +41,9 @@ class LoopUnrollConv(Convolution):
                 for key in segment.L3Map.storeback_procedure:
                     segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
-            for segment in backward_schedule.segments:
-                for key in segment.L1Map.storeback_procedure:
-                    segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+        for segment in backward_schedule.segments:
+            for key in segment.L1Map.storeback_procedure:
+                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 

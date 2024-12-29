@@ -65,9 +65,10 @@ void JITConvImpl::backward(
         void* L3_grad,
         void* rows, void* cols,
         uint64_t nnz, uint64_t node_count,
-        void* workspace) {
+        void* workspace,
+        void* transpose_perm) {
 
     ConvData conv_data = {rows, cols, nnz, node_count};
-    void *args[] = {&L1_in, &L1_grad, &L2_in, &L2_grad, &weight, &weight_grad, &L3_grad, &conv_data, &workspace};
+    void *args[] = {&L1_in, &L1_grad, &L2_in, &L2_grad, &weight, &weight_grad, &L3_grad, &conv_data, &workspace, &transpose_perm};
     jit.execute(1, backward_config.num_blocks, backward_config.num_threads, args, backward_config.smem);
 }

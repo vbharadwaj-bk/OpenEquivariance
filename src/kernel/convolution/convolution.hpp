@@ -57,7 +57,7 @@ public:
         void* L3_grad,
         void* rows, void* cols,
         uint64_t nnz, uint64_t node_count,
-        void* workspace) = 0;
+        void* workspace, void* inverse_perm) = 0;
 
     void backward_rawptrs(
         uint64_t L1_in, uint64_t L1_grad,
@@ -66,7 +66,7 @@ public:
         uint64_t L3_grad,
         uint64_t rows, uint64_t cols,
         uint64_t nnz, uint64_t node_count,
-        uint64_t workspace) {
+        uint64_t workspace, uint64_t inverse_perm) {
 
         backward(
             reinterpret_cast<void*>(L1_in),
@@ -80,7 +80,8 @@ public:
             reinterpret_cast<void*>(cols),
             nnz,
             node_count,
-            reinterpret_cast<void*>(workspace));
+            reinterpret_cast<void*>(workspace),
+            reinterpret_cast<void*>(inverse_perm));
     }
 
     virtual ~ConvolutionImpl() {};
@@ -116,7 +117,8 @@ public:
         void* L3_grad,
         void* rows, void* cols,
         uint64_t nnz, uint64_t node_count,
-        void* workspace);
+        void* workspace,
+        void* transpose_perm);
 
     ~JITConvImpl() = default; 
 };
