@@ -53,14 +53,22 @@ class CoordGraph:
         assert(len(rows) == len(cols))
         self.nnz = len(rows) # Counts every nonzero in the adjacency matrix 
         self.node_count = coords.shape[0]
-        self.rows = rows
-        self.cols = cols
         self.coords = coords
         self.name = name
+
+        # Sort the original rows / cols
+        triples = [(rows[i], cols[i], i) for i in range(self.nnz)]
+        triples.sort(key=lambda x: (x[0], x[1]))
+        rows = np.array([x[0] for x in triples], dtype=rows.dtype)
+        cols = np.array([x[1] for x in triples], dtype=cols.dtype)
+
+        self.rows = rows
+        self.cols = cols
 
         triples = [(cols[i], rows[i], i) for i in range(self.nnz)]
         triples.sort(key=lambda x: (x[0], x[1]))
         self.transpose_perm = np.array([x[2] for x in triples], dtype=self.rows.dtype)
+
 
 
 class Convolution:
@@ -144,9 +152,11 @@ class Convolution:
         L2_grad_d = DeviceBuffer(L2_grad)
         weights_grad_d = DeviceBuffer(weights_grad)
 
+        transpose_perm_d = None
         transpose_perm_ptr = 0 
         if self.deterministic:
             transpose_perm_d = DeviceBuffer(graph.transpose_perm)
+            transpose_perm_ptr = transpose_perm_d.data_ptr()
 
         self.internal.backward_rawptrs(
             L1_d.data_ptr(), L1_grad_d.data_ptr(),
@@ -318,9 +328,11 @@ class Convolution:
             L2_grad_d = DeviceBuffer(in2_grad)
             weights_grad_d = DeviceBuffer(weights_grad)
 
+            transpose_perm_d = None
             transpose_perm_ptr = 0 
             if self.deterministic:
                 transpose_perm_d = DeviceBuffer(graph.transpose_perm)
+                transpose_perm_ptr = transpose_perm_d.data_ptr()
 
             for i in range(num_warmup):
                 self.internal.backward_rawptrs(

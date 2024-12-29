@@ -34,16 +34,16 @@ class LoopUnrollConv(Convolution):
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=2)
+                schedule_type=3)
 
         if not deterministic:
             for segment in forward_schedule.segments:
                 for key in segment.L3Map.storeback_procedure:
                     segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
-        for segment in backward_schedule.segments:
-            for key in segment.L1Map.storeback_procedure:
-                segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
+            for segment in backward_schedule.segments:
+                for key in segment.L1Map.storeback_procedure:
+                    segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 

@@ -29,12 +29,12 @@ def load_graph(name):
 
     if name == "debug":
         coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
-        rows = np.array([1, 1, 1, 2, 2, 2], dtype=np.uint32)
-        cols = np.array([0, 1, 2, 0, 1, 2], dtype=np.uint32)
+        rows = np.array([0, 1, 1, 2, 2, 2], dtype=np.uint32)
+        cols = np.array([1, 0, 2, 0, 1, 2], dtype=np.uint32)
 
-        #coords = coords[:2]
-        #rows = rows[:1]
-        #cols = cols[:1] 
+        coords = coords[:2]
+        rows = rows[:2]
+        cols = cols[:2] 
 
         name = "debug" 
 
@@ -134,15 +134,15 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.0")
+    graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        #ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
-        #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
+        ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
         #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
@@ -158,7 +158,7 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph)
     bench.run([LoopUnrollConv], 
-            direction="backward", 
+            direction="forward", 
             correctness=True,
             double_backward_correctness=False,
             benchmark=True)

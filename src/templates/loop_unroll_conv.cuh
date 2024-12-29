@@ -29,19 +29,21 @@ struct ConvData {
     unsigned long node_count;
 };
 
-__global__ void fixup_forward(void* workspace, IRREP_T* dst_ptr) {
+
+{%- macro generate_fixup_kernel(name, warp_size, dim) %}
+__global__ void {{name}}(void* workspace, IRREP_T* dst_ptr) {
     /*
     *  Workspace consists of: 
-    *     forward_schedule.L3.dim * warps_launched * sizeof(IRREP_T): Data
+    *     fixup_dim * warps_launched * sizeof(IRREP_T): Data
     *     warps_launched * sizeof(long): Destinations to accumulate to 
     */
     int t_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int warp_id = t_idx / {{ forward_schedule.launch_config.warp_size }};
-    int lane_id = t_idx % {{ forward_schedule.launch_config.warp_size }};
-    size_t warps_launched = blockDim.x * gridDim.x / {{ forward_schedule.launch_config.warp_size }};
+    int warp_id = t_idx / {{ warp_size }};
+    int lane_id = t_idx % {{ warp_size }};
+    size_t warps_launched = blockDim.x * gridDim.x / {{ warp_size }};
 
     IRREP_T* data = (IRREP_T*) workspace;
-    {{idx_type}}* dst_idxs = ({{idx_type}}*) (data + ({{forward_schedule.L3.dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) (data + ({{dim}} * warps_launched)); 
 
     if((warp_id == 0) || (dst_idxs[warp_id] != -1 && dst_idxs[warp_id - 1] != dst_idxs[warp_id])) {
         size_t current = warp_id;
@@ -49,14 +51,17 @@ __global__ void fixup_forward(void* workspace, IRREP_T* dst_ptr) {
  
         if(dst_row_idx != -1) {
             while(current < warps_launched && dst_idxs[current] == dst_row_idx) {
-                IRREP_T* src = data + {{forward_schedule.L3.dim}} * current + lane_id;
-                IRREP_T* dst = dst_ptr + {{forward_schedule.L3.dim}} * dst_row_idx + lane_id;
-                ROW_OPERATION({{forward_schedule.L3.dim}}, i, dst[i] += src[i];)
+                IRREP_T* src = data + {{dim}} * current + lane_id;
+                IRREP_T* dst = dst_ptr + {{dim}} * dst_row_idx + lane_id;
+                ROW_OPERATION({{dim}}, i, dst[i] += src[i];)
                 current++;
             }
         }
     }
 }
+{%- endmacro %}
+
+{{ generate_fixup_kernel("fixup_forward", forward_schedule.launch_config.warp_size, forward_schedule.L3.dim) }}
 
 __global__ void forward(
         IRREP_T* L1_in,
@@ -131,44 +136,60 @@ __global__ void forward(
 {{ generate_segment_kernel_backward(i, segment) }}
 {%- endfor %}
 
+{{ generate_fixup_kernel("fixup_backward", backward_schedule.launch_config.warp_size, backward_schedule.L1.dim) }}
+
 __global__ void backward(
         IRREP_T* L1_in, IRREP_T* L1_grad,
         IRREP_T* L2_in, IRREP_T* L2_grad,
         WEIGHT_T* weights, WEIGHT_T* weights_grad,
-        IRREP_T* L3_grad, ConvData c, void* workspace, 
+        IRREP_T* L3_grad, ConvData c, void* workspace_raw, 
         unsigned {{idx_type}}* transpose_perm) {
 
     extern __shared__ char s[];
     size_t num_products = c.nnz;
-    unsigned {{idx_type}}* rows = (unsigned {{idx_type}}*) c.rows;
-    unsigned {{idx_type}}* cols = (unsigned {{idx_type}}*) c.cols;
+
+    // Note the transpose below (cols -> rows, rows -> cols)
+    unsigned {{idx_type}}* rows = (unsigned {{idx_type}}*) c.cols;
+    unsigned {{idx_type}}* cols = (unsigned {{idx_type}}*) c.rows;
+    unsigned {{idx_type}}* tperm = (unsigned {{idx_type}}*) transpose_perm;
 
     {{ set_launch_bound_variables(backward_schedule.launch_config) }}
+
+    {%- set tpp = backward_schedule.updated_config %}
     char* smem = s + {{backward_schedule.memory_per_warp}} * warp_loc; 
 
-    for(size_t i = start; i < end; i++) {
-        {%- set tpp = backward_schedule.updated_config %}
-        unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
+    IRREP_T* workspace = (IRREP_T*) workspace_raw;
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) (workspace + ({{backward_schedule.L1.dim}} * warps_launched)); 
 
-        IRREP_T* l1_shft = L1_in + col * {{backward_schedule.L1.dim}} + lane_id;
-        IRREP_T* l2_shft = L2_in + i * {{backward_schedule.L2.dim}} + lane_id; 
-        IRREP_T* l3_shft = L3_grad + row * {{backward_schedule.L3.dim}} + lane_id;
-        WEIGHT_T* weights_shft = weights + i * {{tpp.weight_numel}} + lane_id;
+    if(lane_id == 0) {
+        if(start < end) {
+            dst_idxs[warp_id] = cols[start];
+        }
+        else {
+            dst_idxs[warp_id] = -1; 
+        }
+    }
 
-        {%- for i, segment in enumerate(backward_schedule.segments) %} {
-            {{ declare_smem_variables(segment, "smem") }}
+    {%- for i, segment in enumerate(backward_schedule.segments) %} {
+        {{ declare_smem_variables(segment, "smem") }}
+        
+        bool firstSegment = true;
+        ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+
+        for(size_t i = start; i < end; i++) {
+            unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
+            unsigned {{idx_type}} tperm_idx = tperm[i];
+
+            IRREP_T* l1_shft = L1_in + col * {{backward_schedule.L1.dim}} + lane_id;
+            IRREP_T* l2_shft = L2_in + tperm_idx * {{backward_schedule.L2.dim}} + lane_id; 
+            IRREP_T* l3_shft = L3_grad + row * {{backward_schedule.L3.dim}} + lane_id;
+            WEIGHT_T* weights_shft = weights + tperm_idx * {{tpp.weight_numel}} + lane_id;
 
             {{ load_ir_segments(segment.L1Map, "l1_shft", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2_shft", "L2_smem", "j") }}
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[{{segment.weight_offset}} + j];)
-
-            {%- if not segment.L1Map.persist_load %}
-                ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
-            {%- endif %}
-            {%- if not segment.L2Map.persist_load %}
-                ROW_OPERATION({{segment.L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
-            {%- endif %}
+            ROW_OPERATION({{segment.L2.dim}}, j, L2_grad_smem[j + lane_id] = 0.0f;)
 
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
@@ -178,12 +199,24 @@ __global__ void backward(
             __syncwarp();
 
             IRREP_T* l1_grad_shft = L1_grad + col * {{backward_schedule.L1.dim}} + lane_id;
-            IRREP_T* l2_grad_shft = L2_grad + i * {{backward_schedule.L2.dim}} + lane_id;
-            WEIGHT_T* weights_grad_shft = weights_grad + i * {{backward_schedule.updated_config.weight_numel}} + lane_id;
+            IRREP_T* l2_grad_shft = L2_grad + tperm_idx * {{backward_schedule.L2.dim}} + lane_id;
+            WEIGHT_T* weights_grad_shft = weights_grad + tperm_idx * {{backward_schedule.updated_config.weight_numel}} + lane_id;
 
-            {{ store_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") }}
+            bool changeRow = (i < end - 1) && (col != cols[i+1]);
+
+            if(changeRow || i == end - 1) {
+                IRREP_T* dst = l1_grad_shft;
+                if(firstSegment) {
+                    dst = workspace + {{backward_schedule.L1.dim}} * warp_id + lane_id;
+                    firstSegment = false;
+                }
+                {{ store_ir_segments(segment.L1Map, "dst", "L1_grad_smem", "j") }}
+                __syncwarp();
+                ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
+            }
+
             {{ store_ir_segments(segment.L2Map, "l2_grad_shft", "L2_grad_smem", "j") }}
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_shft[{{segment.weight_offset}} + j] = weights_grad_smem[j + lane_id];)
-        } {%- endfor %}
-    }
+        }
+    } {%- endfor %}
 }
