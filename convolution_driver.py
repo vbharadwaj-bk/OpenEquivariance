@@ -6,8 +6,6 @@ import os
 from build.kernel_wrapper import *
 from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollConv import *
-from src.implementations.NumpyConv import *
-#from src.implementations.E3NNConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -50,6 +48,7 @@ class ConvBenchmarkSuite:
         num_warmup = 10,
         num_iter = 30,
         reference_impl=None,
+        torch_op=True,
         prng_seed = 12345
     ):
         self.configs = configs
@@ -59,6 +58,7 @@ class ConvBenchmarkSuite:
         self.reference_impl = reference_impl
         self.prng_seed = 12345
         self.correctness_threshold = 1e-5
+        self.torch_op = torch_op
 
     def run(self, tp_implementations, direction, correctness=True, double_backward_correctness=False, benchmark=True):        
         millis_since_epoch = round(time.time() * 1000)
@@ -84,7 +84,7 @@ class ConvBenchmarkSuite:
             for impl in tp_implementations:
                 tc_name = f"{config}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
-                conv = impl(config)
+                conv = impl(config, torch_op=self.torch_op)
 
                 if double_backward_correctness:
                     double_backward_correctness = conv.test_correctness_double_backward(self.graph, 
@@ -117,6 +117,7 @@ class ConvBenchmarkSuite:
 
                 result = {
                     "config": str(config),
+                    "torch_overhead_included": self.torch_op,
                     "direction": direction,
                     "graph": graph.name,
                     "name": impl.name(),
@@ -156,9 +157,9 @@ if __name__=='__main__':
     graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        configs, graph)
-    bench.run([LoopUnrollConv], 
-            direction="forward", 
+        configs, graph, torch_op=False)
+    bench.run([LoopUnrollConvDeterministic, LoopUnrollConvAtomic], 
+            direction="backward", 
             correctness=True,
             double_backward_correctness=False,
             benchmark=True)

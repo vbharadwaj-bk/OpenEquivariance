@@ -7,7 +7,7 @@ class LoopUnrollConv(Convolution):
     def __init__(self, config, 
             idx_dtype=np.int64, 
             torch_op=False,
-            deterministic=True):
+            deterministic=False):
         super().__init__(config, idx_dtype, torch_op, deterministic)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
@@ -15,10 +15,15 @@ class LoopUnrollConv(Convolution):
             assert(mul == 1)
 
         env = get_jinja_environment()
-        template = env.get_template("loop_unroll_conv.cuh")
+        template = env.get_template("loop_unroll_conv_atomic.cuh")
         env.globals['enumerate'] = enumerate 
 
         dp = DeviceProp(0)
+
+        schedule_type = 3
+        if deterministic:
+            schedule_type = 3
+            template = env.get_template("loop_unroll_conv_det.cuh")
 
         forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
@@ -26,7 +31,7 @@ class LoopUnrollConv(Convolution):
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=3)
+                schedule_type=schedule_type)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=4,
@@ -34,7 +39,7 @@ class LoopUnrollConv(Convolution):
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=3)
+                schedule_type=schedule_type)
 
         if not deterministic:
             for segment in forward_schedule.segments:
@@ -51,10 +56,6 @@ class LoopUnrollConv(Convolution):
             forward_schedule=forward_schedule,
             backward_schedule=backward_schedule,
             idx_type=idx_type_map[idx_dtype])
-
-        # Print kernel to file
-        #with open("scratch.txt", "w") as f:
-        #    f.write(self.jit_kernel)        
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
@@ -75,3 +76,23 @@ class LoopUnrollConv(Convolution):
     @staticmethod
     def name():
         return "LoopUnrollConv"
+
+class LoopUnrollConvDeterministic(LoopUnrollConv):
+    def __init__(self, config, 
+            idx_dtype=np.int64, 
+            torch_op=False):
+        super().__init__(config, idx_dtype, torch_op, deterministic=True)
+
+    @staticmethod
+    def name():
+        return "LoopUnrollConvDeterministic"
+
+class LoopUnrollConvAtomic(LoopUnrollConv):
+    def __init__(self, config, 
+            idx_dtype=np.int64, 
+            torch_op=False):
+        super().__init__(config, idx_dtype, torch_op, deterministic=False)
+
+    @staticmethod
+    def name():
+        return "LoopUnrollConvAtomic"

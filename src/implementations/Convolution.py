@@ -555,7 +555,7 @@ class Convolution:
                 self.internal.exec_conv_rawptrs(L1_in_c.data_ptr(), L2_in_c.data_ptr(),
                     weights_c.data_ptr(), L3_out.data_ptr(),
                     dst.data_ptr(), src.data_ptr(),
-                    src.shape[0], L1_in.shape[0], self.workspace_ptr, 0)
+                    src.shape[0], L1_in.shape[0], self.workspace_ptr)
 
                 return L3_out
             
