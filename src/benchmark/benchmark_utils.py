@@ -65,7 +65,8 @@ def benchmark_forward(
         batch_size : int, 
         num_warmup : int,
         num_iter : int, 
-        prng_seed : int, 
+        prng_seed : int,
+        torch_op: bool, 
         ) -> dict:
     '''
     This function sets up the necessary materials and calls the internal benchmarker
@@ -81,7 +82,7 @@ def benchmark_forward(
 
     logger.info("Initialized input / output data.")
 
-    tp = implementation(problem)
+    tp = implementation(problem, torch_op=torch_op)
 
     # BENCHMARK 
     try: 
@@ -128,7 +129,8 @@ def benchmark_backward(
         batch_size : int, 
         num_warmup : int,
         num_iter : int, 
-        prng_seed : int, 
+        prng_seed : int,
+        torch_op: bool, 
         ) -> dict:
         
         result = {
@@ -140,7 +142,7 @@ def benchmark_backward(
 
         in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(problem, batch_size, prng_seed) 
         logger.info("Initialized input / output data.")
-        tp = implementation(problem)
+        tp = implementation(problem, torch_op=torch_op)
 
         try:
             time_millis = tp.benchmark_backward(
