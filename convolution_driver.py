@@ -5,7 +5,8 @@ import os
 
 from build.kernel_wrapper import *
 from src.benchmark.tpp_creation_utils import *
-from src.implementations.LoopUnrollConv import *
+from src.implementations.convolution.LoopUnrollConv import *
+from src.implementations.convolution.CUEConv import *
 
 from src.benchmark.logging_utils import *
 logger = getLogger()
@@ -135,7 +136,7 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.0")
+    graph = load_graph("covid_spike_radius3.5")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -147,9 +148,9 @@ if __name__=='__main__':
         #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    for config in configs:
-        config.irrep_dtype = np.float64
-        config.weight_dtype = np.float64
+    #for config in configs:
+    #    config.irrep_dtype = np.float64
+    #    config.weight_dtype = np.float64
 
     cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
@@ -157,10 +158,13 @@ if __name__=='__main__':
     graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        configs, graph, torch_op=False)
-    bench.run([LoopUnrollConvDeterministic, LoopUnrollConvAtomic], 
-            direction="backward", 
-            correctness=True,
+        configs, graph, torch_op=True)
+    bench.run([ CUEConv,
+                LoopUnrollConvDeterministic, 
+                LoopUnrollConvAtomic
+                ], 
+            direction="forward", 
+            correctness=False,
             double_backward_correctness=False,
             benchmark=True)
 

@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.linalg as la
 
-from src.implementations.Convolution import *
+from src.implementations.convolution.Convolution import *
 from src.implementations.NumpyTensorProduct import *
 
 class NumpyConv(Convolution):

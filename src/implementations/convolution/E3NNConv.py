@@ -1,14 +1,16 @@
 import numpy as np
 import numpy.linalg as la
 
-from src.implementations.Convolution import *
+from src.implementations.convolution.Convolution import *
 from src.implementations.E3NNTensorProduct import *
-from src.implementations.scatter import scatter_sum
+from src.implementations.convolution.scatter import scatter_sum
 
 class E3NNConv(Convolution):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         assert(torch_op)
         super().__init__(config, idx_dtype, torch_op)
+
+        import e3nn
 
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float64)

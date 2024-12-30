@@ -1,4 +1,5 @@
 import torch
+from typing import Optional 
 
 '''
 Scatter sum operator from MACE.

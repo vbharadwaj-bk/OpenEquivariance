@@ -1,9 +1,10 @@
 import numpy as np
 import numpy.linalg as la
 
-from src.implementations.Convolution import *
+from src.implementations.convolution.Convolution import *
 from src.implementations.E3NNTensorProduct import *
-from src.implementations.scatter import scatter_sum
+from src.implementations.convolution.scatter import scatter_sum
+from src.benchmark.tpp_creation_utils import *
 
 class CUEConv(Convolution):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
