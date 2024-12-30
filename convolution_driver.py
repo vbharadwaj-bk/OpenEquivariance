@@ -147,9 +147,9 @@ if __name__=='__main__':
         #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    #for config in configs:
-    #    config.irrep_dtype = np.float64
-    #    config.weight_dtype = np.float64
+    for config in configs:
+        config.irrep_dtype = np.float64
+        config.weight_dtype = np.float64
 
     cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
@@ -159,7 +159,7 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph, torch_op=False)
     bench.run([LoopUnrollConvDeterministic, LoopUnrollConvAtomic], 
-            direction="forward", 
+            direction="backward", 
             correctness=True,
             double_backward_correctness=False,
             benchmark=True)

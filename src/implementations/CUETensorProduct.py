@@ -8,8 +8,9 @@ from src.benchmark.tpp_creation_utils import *
 logger = getLogger()
 
 class CUETensorProduct(TensorProduct):
-    def __init__(self, config : TPProblem):
-        super().__init__(config, torch_op=True)
+    def __init__(self, config : TPProblem, torch_op=True):
+        assert(torch_op)
+        super().__init__(config, torch_op=torch_op)
 
         global torch
         import torch
@@ -84,19 +85,16 @@ class CUETensorProduct(TensorProduct):
         torch_L1_in = torch.tensor(L1_in, device='cuda')
         torch_L2_in = torch.tensor(L2_in, device='cuda')
         torch_weights = torch.tensor(weights, device='cuda')
-
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
+ 
+        timer = GPUTimer()
 
         for i in range(num_warmup): 
             torch_L3_out = self.cue_tp(torch_weights, torch_L1_in, torch_L2_in, use_fallback=False) 
 
         for i in range(num_iter):
-            start.record()
+            timer.start() 
             torch_L3_out = self.cue_tp(torch_weights, torch_L1_in, torch_L2_in, use_fallback=False) 
-            end.record()
-            torch.cuda.synchronize()
-            time_millis[i] = start.elapsed_time(end)
+            time_millis[i] = timer.stop_clock_get_elapsed() 
             
         return time_millis
 
@@ -144,6 +142,8 @@ class CUETensorProduct(TensorProduct):
 
         torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
 
+        timer = GPUTimer()
+
         for i in range(num_warmup): 
             torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
 
@@ -151,15 +151,10 @@ class CUETensorProduct(TensorProduct):
             torch_L1_in.grad.zero_()
             torch_L2_in.grad.zero_()
             torch_weights.grad.zero_()
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record()
 
+            timer.start()
             torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
-
-            end.record()
-            torch.cuda.synchronize()
-            time_millis[i] = start.elapsed_time(end)
+            time_millis[i] = timer.stop_clock_get_elapsed() 
 
         L1_grad[:] = 0.0
         L1_grad[:] = 0.0
