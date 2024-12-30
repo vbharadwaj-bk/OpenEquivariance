@@ -70,7 +70,7 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100):
     warm_up_measurement = timer.timeit(num_iterations)
     measurement = timer.timeit(num_iterations)
 
-    #print(run_inference())
+    print(run_inference())
 
     return measurement
 

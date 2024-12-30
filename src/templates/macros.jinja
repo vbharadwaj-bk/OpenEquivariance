@@ -98,3 +98,57 @@ Keys map to lists of tuples with (name, dtype, num_elements) of each subarray.
     size_t start = nnz_per_warp * ((size_t) warp_id);
     size_t end = min(start + nnz_per_warp, num_products);
 {%- endmacro %}
+
+{%- macro transpose_smem_A(irreps, smem_ptr) %}
+    {%- set slices = irreps.slices() %}
+    {%- for i, mul_ir in enumerate(irreps) %} {
+        {%- set dim = mul_ir.ir.dim %}
+        {%- set mul = mul_ir.mul %}
+        IRREP_T t_regs[{{dim}}];
+        if(lane_id < {{mul}}) {
+            {%- set offset = slices[i].start %}
+            {%- for i in range(dim) %}
+                t_regs[{{i}}] = {{smem_ptr}}[{{offset}} + lane_id * {{dim}} + {{i}}];
+            {%- endfor %}
+            __syncwarp();
+            {%- for i in range(dim) %}
+                {{smem_ptr}}[{{offset}} + lane_id + {{i * mul}}] = t_regs[{{i}}];
+            {%- endfor %}
+        }
+    } {%- endfor %} 
+{%- endmacro %}
+
+{%- macro transpose_smem_B(irreps, smem_ptr) %}
+    {%- set slices = irreps.slices() %}
+    {%- for i, mul_ir in enumerate(irreps) %} {
+        {%- set dim = mul_ir.ir.dim %}
+        {%- set mul = mul_ir.mul %}
+        IRREP_T t_regs[{{dim}}];
+        if(lane_id < {{mul}}) {
+            {%- set offset = slices[i].start %}
+            {%- for i in range(dim) %}
+                t_regs[{{i}}] = {{smem_ptr}}[{{offset}} + lane_id + {{i * mul}}]; 
+            {%- endfor %}
+            __syncwarp();
+            {%- for i in range(dim) %}
+                {{smem_ptr}}[{{offset}} + lane_id * {{dim}} + {{i}}] = t_regs[{{i}}];
+            {%- endfor %}
+        }
+    } {%- endfor %} 
+{%- endmacro %}
+
+{%- macro reg_load(mul, dim, smem, offset, reg) %}
+    if(lane_id < {{mul}}) {
+        {%- for i in range(dim) %}
+            {{reg}}[{{i}}] = {{smem}}[{{offset}} + lane_id + {{i * mul}}];
+        {%- endfor %}
+    }
+{%- endmacro %}
+
+{%- macro reg_store(mul, dim, smem, offset, reg, op, coeff) %}
+    if(lane_id < {{mul}}) {
+        {%- for i in range(dim) %}
+            {{smem}}[{{offset}} + lane_id + {{i * mul}}] {{op}} {{reg}}[{{i}}] * {{coeff}};
+        {%- endfor %}
+    }
+{%- endmacro %}

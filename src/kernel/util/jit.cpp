@@ -109,12 +109,12 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     
     // Prepare compilation options
     std::vector<const char*> opts = {
-        "--std=c++17", // CublasDX had this one
-        "--device-as-default-execution-space", // CublasDX had this one
+        "--std=c++17", 
+        "--device-as-default-execution-space", 
         "-arch=sm_80",
-        "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/", // Add path to CUDA include directory
-        "--include-path=/global/homes/a/aglover/equivariant_spmm/nvidia-mathdx-24.08.0/nvidia/mathdx/24.08",
-        "--ptxas-options=-v"
+        "--ptxas-options=-v",
+        "--split-compile=0",
+        "--use_fast_math"
     };    
 
     // =========================================================

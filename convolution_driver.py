@@ -159,7 +159,7 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, graph, torch_op=False)
     bench.run([LoopUnrollConvDeterministic, LoopUnrollConvAtomic], 
-            direction="backward", 
+            direction="forward", 
             correctness=True,
             double_backward_correctness=False,
             benchmark=True)

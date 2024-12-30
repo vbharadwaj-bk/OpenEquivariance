@@ -2,6 +2,8 @@
 This file contains lightly modified code from E3NN. The code has been modified to remove
 all dependency on Pytorch.
 
+The TensorProductProblem class does not maintain any internal weights.
+
 https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_tensor_product/_tensor_product.py
 https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_tensor_product/_instruction.py
 https://github.com/e3nn/e3nn/blob/0.5.3/e3nn/o3/_irreps.py.
@@ -31,8 +33,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 SOFTWARE.
-
-The TensorProductProblem class does not maintain any internal weights.
 '''
 
 import itertools
