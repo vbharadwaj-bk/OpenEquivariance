@@ -42,5 +42,6 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GPUTimer>(m, "GPUTimer")
         .def(py::init<>())
         .def("start", &GPUTimer::start)
-        .def("stop_clock_get_elapsed", &GPUTimer::stop_clock_get_elapsed);
+        .def("stop_clock_get_elapsed", &GPUTimer::stop_clock_get_elapsed)
+        .def("clear_L2_cache", &GPUTimer::clear_L2_cache);
 }

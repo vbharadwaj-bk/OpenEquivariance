@@ -159,13 +159,13 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         configs, graph, torch_op=True)
-    bench.run([ LoopUnrollConvScatterSum, 
+    bench.run([ #LoopUnrollConvScatterSum, 
                 #CUEConv,
                 #LoopUnrollConvDeterministic, 
-                #LoopUnrollConvAtomic
+                LoopUnrollConvAtomic
                 ], 
             direction="forward", 
-            correctness=True,
+            correctness=False,
             double_backward_correctness=False,
             benchmark=True)
 

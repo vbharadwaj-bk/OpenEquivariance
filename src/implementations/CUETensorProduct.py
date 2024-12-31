@@ -92,6 +92,7 @@ class CUETensorProduct(TensorProduct):
             torch_L3_out = self.cue_tp(torch_weights, torch_L1_in, torch_L2_in, use_fallback=False) 
 
         for i in range(num_iter):
+            timer.clear_L2_cache()
             timer.start() 
             torch_L3_out = self.cue_tp(torch_weights, torch_L1_in, torch_L2_in, use_fallback=False) 
             time_millis[i] = timer.stop_clock_get_elapsed() 
@@ -152,6 +153,7 @@ class CUETensorProduct(TensorProduct):
             torch_L2_in.grad.zero_()
             torch_weights.grad.zero_()
 
+            timer.clear_L2_cache()
             timer.start()
             torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True)
             time_millis[i] = timer.stop_clock_get_elapsed() 

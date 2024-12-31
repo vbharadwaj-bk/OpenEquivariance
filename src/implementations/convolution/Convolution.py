@@ -257,6 +257,7 @@ class Convolution:
                     torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
 
                 for i in range(num_iter):
+                    timer.clear_L2_cache()
                     timer.start()
                     torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
                     time_millis[i] = timer.stop_clock_get_elapsed()
@@ -266,6 +267,7 @@ class Convolution:
                             , torch_rows, torch_transpose_perm)
                 
                 for i in range(num_iter):
+                    timer.clear_L2_cache()
                     timer.start()
                     torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols
                             , torch_rows, torch_transpose_perm)
@@ -290,6 +292,7 @@ class Convolution:
                     self.workspace_ptr) 
 
             for i in range(num_iter):
+                timer.clear_L2_cache()
                 timer.start()
                 self.internal.exec_conv_rawptrs(
                     L1_d.data_ptr(), L2_d.data_ptr(), weights_d.data_ptr(), L3_d.data_ptr(),
@@ -338,6 +341,7 @@ class Convolution:
                 torch_L2_in.grad.zero_()
                 torch_weights.grad.zero_()
 
+                timer.clear_L2_cache()
                 timer.start()
                 torch_out.backward(torch_L3_grad, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
                 time_millis[i] = timer.stop_clock_get_elapsed()
@@ -372,6 +376,7 @@ class Convolution:
                     transpose_perm_ptr)
 
             for i in range(num_iter):
+                timer.clear_L2_cache()
                 timer.start()
                 self.internal.backward_rawptrs(
                     L1_d.data_ptr(), L1_grad_d.data_ptr(),
