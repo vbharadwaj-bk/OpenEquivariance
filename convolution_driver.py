@@ -136,7 +136,7 @@ class ConvBenchmarkSuite:
 
 if __name__=='__main__':
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius3.5")
+    graph = load_graph("covid_spike_radius3.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -159,12 +159,13 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         configs, graph, torch_op=True)
-    bench.run([ CUEConv,
-                LoopUnrollConvDeterministic, 
-                LoopUnrollConvAtomic
+    bench.run([ LoopUnrollConvScatterSum, 
+                #CUEConv,
+                #LoopUnrollConvDeterministic, 
+                #LoopUnrollConvAtomic
                 ], 
             direction="forward", 
-            correctness=False,
+            correctness=True,
             double_backward_correctness=False,
             benchmark=True)
 

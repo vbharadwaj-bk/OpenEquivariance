@@ -2,8 +2,6 @@ import numpy as np
 import numpy.linalg as la
 
 from src.implementations.convolution.Convolution import *
-from src.implementations.E3NNTensorProduct import *
-from src.implementations.convolution.scatter import scatter_sum
 from src.benchmark.tpp_creation_utils import *
 
 class CUEConv(Convolution):
@@ -49,10 +47,13 @@ class CUEConv(Convolution):
         self.cue_tp = cuet.EquivariantTensorProduct(e, layout=cue.ir_mul, math_dtype=np_to_torch_dtype[config.irrep_dtype])        
         self.cue_tp.to('cuda')
 
+        from src.implementations.convolution.scatter import scatter_sum
+        self.scatter_sum = scatter_sum
+
     @staticmethod
     def name():
         return "CUEConvolution"
 
     def forward(self, L1_in, L2_in, weights, src, dst):
         tp_outputs = self.cue_tp(weights, L1_in[src], L2_in, use_fallback=False)
-        return scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
+        return self.scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])

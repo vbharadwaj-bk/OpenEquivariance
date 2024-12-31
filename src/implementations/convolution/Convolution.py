@@ -180,7 +180,7 @@ class Convolution:
         L1, L2, L3 = self.L1, self.L2, self.L3
 
         if reference_implementation is None:
-            from src.implementations.E3NNConv import E3NNConv
+            from src.implementations.convolution.E3NNConv import E3NNConv
             reference_implementation = E3NNConv
 
         result = {
@@ -426,7 +426,7 @@ class Convolution:
         L1, L2, L3 = self.L1, self.L2, self.L3
 
         if reference_implementation is None:
-            from src.implementations.E3NNConv import E3NNConv
+            from src.implementations.convolution.E3NNConv import E3NNConv
             reference_implementation = E3NNConv
 
         result = {
@@ -485,7 +485,7 @@ class Convolution:
         dummy_grad = rng.standard_normal(1) 
     
         if reference_implementation is None:
-            from src.implementations.E3NNConv import E3NNConv 
+            from src.implementations.convolution.E3NNConv import E3NNConv 
             reference_implementation = E3NNConv 
 
         reference_tp = reference_implementation(self.config, torch_op=True)
@@ -493,7 +493,6 @@ class Convolution:
         result = {}
         tensors = []
         for i, tp in enumerate([self, reference_tp]):
-            print(f"Running {i}th iteration")
             in1_torch = torch.tensor(in1, device='cuda', requires_grad=True)
             in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
             weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
@@ -503,7 +502,7 @@ class Convolution:
             torch_transpose_perm = torch.tensor(graph.transpose_perm, device='cuda')
 
             fwd_args = [in1_torch, in2_torch, weights_torch, torch_cols, torch_rows]
-            if self.deterministic:
+            if tp.deterministic:
                 fwd_args.append(torch_transpose_perm)
 
             out_torch = tp.forward(*fwd_args)
@@ -688,6 +687,6 @@ class Convolution:
                 op6 = forward(A, F, D, src, dst, transpose_perm)
                 op7 = forward(A, B, G, src, dst, transpose_perm)
 
-                return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None
+                return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None, None
 
             backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward) 

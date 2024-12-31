@@ -3,7 +3,6 @@ import numpy.linalg as la
 
 from src.implementations.convolution.Convolution import *
 from src.implementations.E3NNTensorProduct import *
-from src.implementations.convolution.scatter import scatter_sum
 
 class E3NNConv(Convolution):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
@@ -33,9 +32,12 @@ class E3NNConv(Convolution):
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float32)  # Reset to default
 
+        from src.implementations.convolution.scatter import scatter_sum
+        self.scatter_sum = scatter_sum
+
     def forward(self, L1_in, L2_in, weights, src, dst):
         tp_outputs = self.reference_tp(L1_in[src], L2_in, weights)
-        return scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
+        return self.scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
 
     @staticmethod
     def name():
