@@ -155,9 +155,9 @@ if __name__=='__main__':
                 "128x0e+128x1o+128x2e+128x3o")
     ]
 
-    for problem in conv_problems:
-        problem.irrep_dtype = np.float64
-        problem.weight_dtype = np.float64
+    #for problem in conv_problems:
+    #    problem.irrep_dtype = np.float64
+    #    problem.weight_dtype = np.float64
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
@@ -169,7 +169,7 @@ if __name__=='__main__':
  
     implementations = [
         #E3NNTensorProduct,
-        CUETensorProduct, 
+        #CUETensorProduct, 
         LoopUnrollTP,
         #MultiplicityOuterProductTP
         ]
@@ -185,7 +185,7 @@ if __name__=='__main__':
     #)
     #exit(1)
 
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=False, benchmark=True) 

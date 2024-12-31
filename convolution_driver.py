@@ -141,7 +141,7 @@ if __name__=='__main__':
 
     configs = [
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x0e + 128x1o + 128x2e", 
+        ChannelwiseTPP("128x0e+128x1o+128x2e", 
                 "1x0e+1x1o+1x2e+1x3o",
                 "128x0e+128x1o+128x2e+128x3o"),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
@@ -160,14 +160,13 @@ if __name__=='__main__':
     graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        configs, graph, torch_op=True)
-    bench.run([ LoopUnrollConvScatterSum, 
-                CUEConv,
-                #LoopUnrollConvDeterministic, 
-                LoopUnrollConvAtomic
-                ], 
-            direction="forward", 
-            correctness=False,
+        configs, graph, torch_op=False)
+    bench.run([ #LoopUnrollConvScatterSum, 
+                #CUEConv,
+                LoopUnrollConvDeterministic, 
+                LoopUnrollConvAtomic], 
+            direction="backward", 
+            correctness=True,
             double_backward_correctness=False,
             benchmark=True)
 
