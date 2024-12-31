@@ -150,17 +150,14 @@ if __name__=='__main__':
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True)
-        #mace_conf("64x2e", "1x0e", 2), 
-        #mace_conf("128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2),
-        #mace_conf("128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2), 
-        ChannelTPP("128x2e + 128x1e + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 3)
-        #ChannelTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
+        ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o")
     ]
 
-    #for problem in conv_problems:
-    #    problem.irrep_dtype = np.float64
-    #    problem.weight_dtype = np.float64
+    for problem in conv_problems:
+        problem.irrep_dtype = np.float64
+        problem.weight_dtype = np.float64
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
@@ -172,7 +169,7 @@ if __name__=='__main__':
  
     implementations = [
         #E3NNTensorProduct,
-        #CUETensorProduct, 
+        CUETensorProduct, 
         LoopUnrollTP,
         #MultiplicityOuterProductTP
         ]
@@ -190,7 +187,8 @@ if __name__=='__main__':
 
     directions = ['forward'] 
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, 
+                correctness=False, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
@@ -200,7 +198,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=False
+        torch_op=True
     )
 
     logger.setLevel(logging.INFO)

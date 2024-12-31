@@ -141,7 +141,9 @@ if __name__=='__main__':
 
     configs = [
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e", 3),
+        ChannelwiseTPP("128x0e + 128x1o + 128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o"),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
@@ -159,8 +161,8 @@ if __name__=='__main__':
 
     bench = ConvBenchmarkSuite(
         configs, graph, torch_op=True)
-    bench.run([ #LoopUnrollConvScatterSum, 
-                #CUEConv,
+    bench.run([ LoopUnrollConvScatterSum, 
+                CUEConv,
                 #LoopUnrollConvDeterministic, 
                 LoopUnrollConvAtomic
                 ], 

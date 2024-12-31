@@ -402,7 +402,7 @@ class Convolution:
         time_millis = [float(el) for el in time_millis] 
 
         result = {
-            "direction": "forward",
+            "direction": direction,
             "flops_per_tp": ops_per_tp,
             "data_per_tp": data_per_tp,
 
