@@ -157,7 +157,7 @@ class TestBenchmarkSuite:
                         torch_op=self.torch_op
                     )
     
-            fname = pathlib.Path(f"{output_folder}/{test_ID}.json")
+            fname = pathlib.Path(f"{output_folder}/{test_ID}_{impl.name()}.json")
 
             pretty_result = json.dumps(obj=result, indent=2).replace('\\n', '\n')
             logger.debug(pretty_result)

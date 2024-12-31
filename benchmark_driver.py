@@ -54,9 +54,15 @@ def benchmark_conv():
                         ]
     directions = ['forward', 'backward']
 
+    problems = mace_conv + nequip_conv
+    
+    #for problem in problems:
+    #    problem.irrep_dtype = np.float64
+    #    problem.weight_dtype = np.float64
+
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
-             in itertools.product(implementations, mace_conv + nequip_conv, directions)]
+             in itertools.product(implementations, problems, directions)]
 
     # CUE tensor product cannot handle backwards pass for all input configs 
     tests = [test for test in tests 
