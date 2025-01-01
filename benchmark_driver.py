@@ -16,17 +16,23 @@ Paper-ready benchmarks; driver.py is used for prototyping / debugging.
 CTPP = ChannelwiseTPP
 
 mace_conv = [  
-    CTPP("128x2e + 128x1o + 128x0e", "1x0e + 1x1e + 1x2e + 1x3e", 2, "mace-large"),
-    CTPP("128x1o + 128x0e", "1x0e + 1x1e", 1, "mace-medium"),
+        ChannelwiseTPP("128x0e+128x1o+128x2e", "1x0e+1x1o+1x2e+1x3o", "128x0e+128x1o+128x2e+128x3o", 
+                "mace-large"),
 ]
 
 nequip_conv = [
-    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e', '0e + 1o + 2e', 2, 'nequip-lips'),
-    CTPP('64x0o + 64x0e + 64x1o + 64x1e', '0e + 1o', 1, 'nequip-revmd17-aspirin'),
-    CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e', '0e + 1o + 2e', 2, 'nequip-revmd17-toluene'),
-    CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', 3, 'nequip-revmd17-benzene'),
-    CTPP('32x0o + 32x0e + 32x1o + 32x1e', '0e + 1o', 1, 'nequip-waterA'),
-    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', 3, 'nequip-waterB')
+    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e', '0e + 1o + 2e', '32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e', 
+            'nequip-lips'),
+    CTPP('64x0o + 64x0e + 64x1o + 64x1e', '0e + 1o', '64x0o + 64x0e + 64x1o + 64x1e',
+            'nequip-revmd17-aspirin'),
+    CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e', '0e + 1o + 2e', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e',
+            'nequip-revmd17-toluene'),
+    CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
+            'nequip-revmd17-benzene'),
+    CTPP('32x0o + 32x0e + 32x1o + 32x1e', '0e + 1o', '32x0o + 32x0e + 32x1o + 32x1e', 
+            'nequip-waterA'),
+    CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', '32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e',
+            'nequip-waterB')
 ]
 
 
@@ -48,9 +54,15 @@ def benchmark_conv():
                         ]
     directions = ['forward', 'backward']
 
+    problems = mace_conv + nequip_conv
+    
+    #for problem in problems:
+    #    problem.irrep_dtype = np.float64
+    #    problem.weight_dtype = np.float64
+
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
-             in itertools.product(implementations, mace_conv + nequip_conv, directions)]
+             in itertools.product(implementations, problems, directions)]
 
     # CUE tensor product cannot handle backwards pass for all input configs 
     tests = [test for test in tests 

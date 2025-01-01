@@ -29,6 +29,7 @@ class TestBenchmarkSuite:
     prng_seed : int = 12345
     reference_implementation : Optional[type[TensorProduct]] = None
     correctness_threshold : float = 5e-7
+    torch_op : bool = True
 
     @staticmethod
     def validate_inputs(test_list : list[TestDefinition]) -> None:
@@ -63,7 +64,7 @@ class TestBenchmarkSuite:
                 "implementations" : implementation_names,
                 "directions" : directions,
                 "did_correctness" :  did_correctness, 
-                "did_benchmark" : did_benchmark,
+                "did_benchmark" : did_benchmark
             }
         
         test_details = {}
@@ -95,6 +96,7 @@ class TestBenchmarkSuite:
             logger.info(f'Config: {str(tpp)}')
             logger.info(f'Implementation Name: {impl.name()}')
             logger.info(f'Test Direction: {test.direction}')
+            logger.info(f"Torch Overhead Included: {self.torch_op}")
 
             result = {
                 "config_str" : str(tpp),
@@ -103,7 +105,8 @@ class TestBenchmarkSuite:
                 "direction" :  test.direction, 
                 "implementation_name": impl.name(),
                 "correctness": str(test.correctness),
-                "benchmark": str(test.benchmark)
+                "benchmark": str(test.benchmark),
+                "torch_overhead_included": self.torch_op
             }
 
             if test.direction == 'forward':
@@ -125,7 +128,8 @@ class TestBenchmarkSuite:
                         batch_size=self.bench_batch_size,
                         num_warmup=self.num_warmup,
                         num_iter=self.num_iter,
-                        prng_seed=self.prng_seed
+                        prng_seed=self.prng_seed,
+                        torch_op=self.torch_op
                     )
 
 
@@ -149,10 +153,11 @@ class TestBenchmarkSuite:
                         batch_size=self.bench_batch_size,
                         num_warmup=self.num_warmup,
                         num_iter=self.num_iter,
-                        prng_seed=self.prng_seed
+                        prng_seed=self.prng_seed,
+                        torch_op=self.torch_op
                     )
     
-            fname = pathlib.Path(f"{output_folder}/{test_ID}.json")
+            fname = pathlib.Path(f"{output_folder}/{test_ID}_{impl.name()}.json")
 
             pretty_result = json.dumps(obj=result, indent=2).replace('\\n', '\n')
             logger.debug(pretty_result)

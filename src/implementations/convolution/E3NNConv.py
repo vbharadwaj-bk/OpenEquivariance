@@ -1,57 +1,15 @@
-import torch
-import e3nn
-
 import numpy as np
 import numpy.linalg as la
 
-from src.implementations.Convolution import *
+from src.implementations.convolution.Convolution import *
 from src.implementations.E3NNTensorProduct import *
-
-'''
-Scatter sum operator from MACE.
-
-basic scatter_sum operations from torch_scatter from
-https://github.com/mir-group/pytorch_runstats/blob/main/torch_runstats/scatter_sum.py
-Using code from https://github.com/rusty1s/pytorch_scatter, but cut down to avoid a dependency.
-'''
-def _broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
-    if dim < 0:
-        dim = other.dim() + dim
-    if src.dim() == 1:
-        for _ in range(0, dim):
-            src = src.unsqueeze(0)
-    for _ in range(src.dim(), other.dim()):
-        src = src.unsqueeze(-1)
-    src = src.expand_as(other)
-    return src
-
-def scatter_sum(
-    src: torch.Tensor,
-    index: torch.Tensor,
-    dim: int = -1,
-    out: Optional[torch.Tensor] = None,
-    dim_size: Optional[int] = None,
-    reduce: str = "sum",
-) -> torch.Tensor:
-    assert reduce == "sum"  # for now, TODO
-    index = _broadcast(index, src, dim)
-    if out is None:
-        size = list(src.size())
-        if dim_size is not None:
-            size[dim] = dim_size
-        elif index.numel() == 0:
-            size[dim] = 0
-        else:
-            size[dim] = int(index.max()) + 1
-        out = torch.zeros(size, dtype=src.dtype, device=src.device)
-        return out.scatter_add_(dim, index, src)
-    else:
-        return out.scatter_add_(dim, index, src)
 
 class E3NNConv(Convolution):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         assert(torch_op)
         super().__init__(config, idx_dtype, torch_op)
+
+        import e3nn
 
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float64)
@@ -74,9 +32,12 @@ class E3NNConv(Convolution):
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float32)  # Reset to default
 
+        from src.implementations.convolution.scatter import scatter_sum
+        self.scatter_sum = scatter_sum
+
     def forward(self, L1_in, L2_in, weights, src, dst):
         tp_outputs = self.reference_tp(L1_in[src], L2_in, weights)
-        return scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
+        return self.scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
 
     @staticmethod
     def name():

@@ -51,7 +51,6 @@ class LoopUnrollTP(TensorProduct):
         if self.torch_op:
             self.setup_torch_custom_op()
 
-
     @staticmethod
     def name():
         return "LoopUnrollTP"

@@ -25,7 +25,7 @@ public:
         void* cols,
         uint64_t nnz,
         uint64_t node_count,
-        bool disable_tensor_op) = 0;
+        void* workspace) = 0;
 
     void exec_conv_rawptrs(
         uint64_t L1_in,
@@ -36,7 +36,7 @@ public:
         uint64_t cols,
         uint64_t nnz,
         uint64_t node_count,
-        bool disable_tensor_op) {
+        uint64_t workspace) {
 
         exec_conv(
             reinterpret_cast<void*>(L1_in),
@@ -47,7 +47,7 @@ public:
             reinterpret_cast<void*>(cols),
             nnz,
             node_count,
-            disable_tensor_op);
+            reinterpret_cast<void*>(workspace));
     }
 
     virtual void backward(
@@ -57,7 +57,7 @@ public:
         void* L3_grad,
         void* rows, void* cols,
         uint64_t nnz, uint64_t node_count,
-        bool disable_tensor_op) = 0;
+        void* workspace, void* inverse_perm) = 0;
 
     void backward_rawptrs(
         uint64_t L1_in, uint64_t L1_grad,
@@ -66,7 +66,7 @@ public:
         uint64_t L3_grad,
         uint64_t rows, uint64_t cols,
         uint64_t nnz, uint64_t node_count,
-        bool disable_tensor_op) {
+        uint64_t workspace, uint64_t inverse_perm) {
 
         backward(
             reinterpret_cast<void*>(L1_in),
@@ -80,7 +80,8 @@ public:
             reinterpret_cast<void*>(cols),
             nnz,
             node_count,
-            disable_tensor_op);
+            reinterpret_cast<void*>(workspace),
+            reinterpret_cast<void*>(inverse_perm));
     }
 
     virtual ~ConvolutionImpl() {};
@@ -107,7 +108,7 @@ public:
         void* cols,
         uint64_t nnz,
         uint64_t node_count,
-        bool disable_tensor_op); 
+        void* workspace); 
 
     void backward(
         void* L1_in, void* L1_grad,
@@ -116,7 +117,8 @@ public:
         void* L3_grad,
         void* rows, void* cols,
         uint64_t nnz, uint64_t node_count,
-        bool disable_tensor_op);
+        void* workspace,
+        void* transpose_perm);
 
     ~JITConvImpl() = default; 
 };

@@ -29,16 +29,21 @@ struct ConvData {
     unsigned long node_count;
 };
 
-/*
-* Forward kernel assumes that rows, cols in ConvData sorted in row-major order.
-*/
+__global__ void fixup_forward(void* workspace, IRREP_T* dst_ptr) {
+    // Empty, no fixup
+}
+
+__global__ void fixup_backward(void* workspace, IRREP_T* dst_ptr) {
+    // Empty, no fixup
+}
+
 __global__ void forward(
         IRREP_T* L1_in,
         IRREP_T* L2_in,
         WEIGHT_T* weights,
         IRREP_T* L3_out,
         ConvData c,
-        bool disable_tensor_op) {
+        void* workspace) {
  
     extern __shared__ char s[];
     size_t num_products = c.nnz;
@@ -49,16 +54,17 @@ __global__ void forward(
     {%- set tpp = forward_schedule.updated_config %}
     char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
 
-    for(size_t i = start; i < end; i++) {
-        unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
+    {%- for i, segment in enumerate(forward_schedule.segments) %} {
+        {{ declare_smem_variables(segment, "smem") }}
 
-        IRREP_T* l1 = L1_in + col * {{forward_schedule.L1.dim}} + lane_id;
-        IRREP_T* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
-        IRREP_T* l3 = L3_out + row * {{forward_schedule.L3.dim}} + lane_id;
-        WEIGHT_T* w = weights + i * {{tpp.weight_numel}};
+        for(size_t i = start; i < end; i++) {
+            unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
 
-        {%- for i, segment in enumerate(forward_schedule.segments) %} {
-            {{ declare_smem_variables(segment, "smem") }}
+            IRREP_T* l1 = L1_in + col * {{forward_schedule.L1.dim}} + lane_id;
+            IRREP_T* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
+            IRREP_T* l3 = L3_out + row * {{forward_schedule.L3.dim}} + lane_id;
+            WEIGHT_T* w = weights + i * {{tpp.weight_numel}};
+
             {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
             ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
@@ -69,8 +75,8 @@ __global__ void forward(
             __syncwarp();
 
             {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
-        } {%- endfor %}
-    }
+        } 
+    } {%- endfor %}
 }
 
 {%- for i, segment in enumerate(backward_schedule.segments) %}
@@ -81,7 +87,7 @@ __global__ void backward(
         IRREP_T* L1_in, IRREP_T* L1_grad,
         IRREP_T* L2_in, IRREP_T* L2_grad,
         WEIGHT_T* weights, WEIGHT_T* weights_grad,
-        IRREP_T* L3_grad, ConvData c, bool disable_tensor_op) {
+        IRREP_T* L3_grad, ConvData c, void* workspace, unsigned {{idx_type}}* transpose_perm) {
 
     extern __shared__ char s[];
     size_t num_products = c.nnz;
@@ -107,6 +113,7 @@ __global__ void backward(
             {{ load_ir_segments(segment.L2Map, "l2_shft", "L2_smem", "j") }}
             {{ load_ir_segments(segment.L3Map, "l3_shft", "L3_grad_smem", "j") }}
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights_shft[{{segment.weight_offset}} + j];)
+
 
             {%- if not segment.L1Map.persist_load %}
                 ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)

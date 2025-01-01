@@ -121,12 +121,13 @@ class ChannelwiseTPP(TPProblem):
         self,
         irreps_in1: Irreps,
         irreps_in2: Irreps,
-        lmax: int,
+        irreps_out: Irreps,
         label: Optional[str] = None):
 
         trainable = True
         irreps1 = Irreps(irreps_in1)
         irreps2 = Irreps(irreps_in2)
+        irreps_out = Irreps(irreps_out)
 
         # Collect possible irreps and their instructions
         irreps_out_list = []
@@ -134,7 +135,7 @@ class ChannelwiseTPP(TPProblem):
         for i, (mul, ir_in) in enumerate(irreps1):
             for j, (_, ir_edge) in enumerate(irreps2):
                 for ir_out in ir_in * ir_edge:  # | l1 - l2 | <= l <= l1 + l2
-                    if ir_out.l <= lmax:
+                    if ir_out in irreps_out:
                         k = len(irreps_out_list)  # instruction index
                         irreps_out_list.append((mul, ir_out))
                         instructions.append((i, j, k, "uvu", trainable))

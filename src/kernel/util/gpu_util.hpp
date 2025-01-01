@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <cstdio>
+#include "buffer.hpp"
 
 using namespace std;
 
@@ -43,6 +44,13 @@ public:
         cudaEventSynchronize(stop_evt);
         cudaEventElapsedTime(&time_millis, start_evt, stop_evt);
         return time_millis; 
+    }
+
+    void clear_L2_cache() {
+        size_t element_count = 25000000; 
+        DeviceBuffer<int> slab(element_count);
+        gpuErrchk(cudaMemset(slab.ptr, 42, element_count * sizeof(int)));
+        cudaDeviceSynchronize();
     }
     
     ~GPUTimer() {

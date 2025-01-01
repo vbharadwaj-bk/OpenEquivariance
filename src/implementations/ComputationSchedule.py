@@ -152,7 +152,8 @@ class ComputationSchedule:
             block_count, 
             direction,
             irrep_dtype,
-            weight_dtype):
+            weight_dtype,
+            schedule_type=2):
         '''
         smem_limit: size of available shared memory in bytes 
         '''
@@ -161,6 +162,7 @@ class ComputationSchedule:
         # Step 1: Break the irreps and the instructions into chunks of at most 32 x 32 x 32. 
 
         self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
+        self.total_warps = warps_per_block * block_count
 
         dtype_to_str_map = {
             np.float32: "float",
@@ -281,11 +283,12 @@ class ComputationSchedule:
 
         schedule2_succeeded = False
         try:
+            if schedule_type != 2:
+                raise Exception("Asked for schedule case 3.")
             self.segments = create_schedule_case2(self.new_instructions, self.memory_per_warp, calculate_smem)
             logger.info(f"{direction.title()} case 2 scheduling succeeded with {len(self.segments)} segments.") 
             schedule2_succeeded = True
         except Exception as e:
-            logger.info(f"{direction.title()} case 2 scheduling failed, trying case 3.") 
             self.segments = create_schedule_case3(self.new_instructions, self.memory_per_warp, calculate_smem) 
             logger.info(f"{direction.title()} case 3 scheduling succeeded with {len(self.segments)} segments.")
 
