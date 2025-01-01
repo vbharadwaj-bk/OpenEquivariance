@@ -110,7 +110,8 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     // Prepare compilation options
     std::vector<const char*> opts = {
         "--std=c++17", 
-        "--device-as-default-execution-space", 
+        "--device-as-default-execution-space",
+        "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/",
         "-arch=sm_80",
         "--ptxas-options=-v",
         "--split-compile=0",

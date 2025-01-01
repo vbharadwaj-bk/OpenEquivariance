@@ -136,6 +136,7 @@ class ConvBenchmarkSuite:
 def clean_benchmark():
     covid_spike = load_graph("covid_spike_radius3.0")
     dhfr = load_graph("1drf_radius6.0")
+    carbon = load_graph("carbon_lattice_radius6.0")
 
     configs = [ ChannelwiseTPP("128x0e+128x1o+128x2e", 
                 "1x0e+1x1o+1x2e+1x3o",
@@ -156,7 +157,7 @@ def clean_benchmark():
                         LoopUnrollConvAtomic
                         ]
 
-    for graph in [covid_spike, dhfr]:
+    for graph in [covid_spike, dhfr, carbon]:
         for direction in ["forward", "backward"]:
             bench.run(
                     implementations = implementations,
@@ -168,10 +169,10 @@ def clean_benchmark():
 
 
 if __name__=='__main__':
-    #clean_benchmark()
-    #exit(1)
+    clean_benchmark()
+    exit(1)
     #graph = load_graph("debug")
-    graph = load_graph("covid_spike_radius2.0")
+    #graph = load_graph("carbon_lattice_radius6.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -197,13 +198,13 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, torch_op=True)
     bench.run( graph,
-            [   #LoopUnrollConvScatterSum, 
-                #CUEConv,
-                #LoopUnrollConvDeterministic, 
+            [   LoopUnrollConvScatterSum, 
+                CUEConv,
+                LoopUnrollConvDeterministic, 
                 LoopUnrollConvAtomic
                 ], 
             direction="backward", 
-            correctness=True,
+            correctness=False,
             double_backward_correctness=False,
             benchmark=True)
 

@@ -49,7 +49,8 @@ def filter(benchmarks, base, match_one=True):
 
 def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0, 
         rotate_xlabels=True, 
-        colormap=None, 
+        colormap=None,
+        hatchmap=None, 
         label=True,
         edgecolor='k',
         edgewidth=1.0,
@@ -79,6 +80,7 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
     '''
     xtick_labels = list(data.keys())
     color_keys = {} # Maps bars to colors
+    hatch_keys = {} # Maps bars to hatch patterns
     
     coord = 0.0
     xticks = []
@@ -99,14 +101,20 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
                     color_keys[bar_label] = colormap(len(color_keys))
                 is_first_label = True
 
+                if hatchmap is not None and bar_label in hatchmap:
+                    hatch_keys[bar_label] = hatchmap[bar_label]
+                else:
+                    hatch_keys[bar_label] = None
+
+
             rects = None    
             if is_first_label:      
                 rects = ax.bar(coord + bar_width * (i + 0.5), bars[bar_label], label=bar_label, width=bar_width, 
-                        color=color_keys[bar_label], edgecolor=edgecolor, linewidth=edgewidth)
+                        color=color_keys[bar_label], edgecolor=edgecolor, linewidth=edgewidth, hatch=hatch_keys[bar_label])
             else:
                 rects = ax.bar(coord + bar_width * (i + 0.5), bars[bar_label], width=bar_width, 
                         color=color_keys[bar_label],
-                        edgecolor=edgecolor, linewidth=edgewidth)
+                        edgecolor=edgecolor, linewidth=edgewidth, hatch=hatch_keys[bar_label])
 
             if bar_height_fontsize > 0:
                 ax.bar_label(rects, padding=3, fontsize=bar_height_fontsize) 

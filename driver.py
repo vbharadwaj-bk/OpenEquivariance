@@ -150,9 +150,9 @@ if __name__=='__main__':
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x0e+128x1o+128x2e", 
-                "1x0e+1x1o+1x2e+1x3o",
-                "128x0e+128x1o+128x2e+128x3o")
+        #ChannelwiseTPP("128x0e+128x1o+128x2e", 
+        #        "1x0e+1x1o+1x2e+1x3o",
+        #        "128x0e+128x1o+128x2e+128x3o")
     ]
 
     #for problem in conv_problems:
@@ -161,31 +161,20 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        #increasing_multiplicity_fully_connected_problems,
+        increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        conv_problems,
+        #conv_problems,
     ))
  
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
-        LoopUnrollTP,
-        #MultiplicityOuterProductTP
+        #LoopUnrollTP,
+        MultiplicityOuterProductTP
         ]
 
-    #from src.benchmark.correctness_utils import correctness_double_backward
-    #result = correctness_double_backward(
-    #    problem = conv_problems[0],
-    #    test_implementation = LoopUnrollTP,
-    #    reference_implementation = E3NNTensorProduct,
-    #    batch_size = 100, 
-    #    correctness_threshold = 1e-5, 
-    #    prng_seed = 12345  
-    #)
-    #exit(1)
-
-    directions = ['backward'] 
+    directions = ['forward', 'backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=False, benchmark=True) 
@@ -204,3 +193,14 @@ if __name__=='__main__':
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
+
+    #from src.benchmark.correctness_utils import correctness_double_backward
+    #result = correctness_double_backward(
+    #    problem = conv_problems[0],
+    #    test_implementation = LoopUnrollTP,
+    #    reference_implementation = E3NNTensorProduct,
+    #    batch_size = 100, 
+    #    correctness_threshold = 1e-5, 
+    #    prng_seed = 12345  
+    #)
+    #exit(1)
