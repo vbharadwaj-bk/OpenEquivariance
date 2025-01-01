@@ -39,3 +39,4 @@ def cif_to_molecular_graph(cif_file, cp, radii):
 if __name__=='__main__':
     #cif_to_molecular_graph('hiv_capsid.cif', (10, 11, 12), radii=[2.0, 2.5, 3.0, 3.5])  
     cif_to_molecular_graph('covid_spike.cif', (10, 11, 12), radii=[2.0, 2.5, 3.0, 3.5])  
+    cif_to_molecular_graph('1drf.cif', (10, 11, 12), radii=[6.0])  

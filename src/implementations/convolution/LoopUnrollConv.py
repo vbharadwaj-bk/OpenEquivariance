@@ -19,7 +19,7 @@ class LoopUnrollConv(Convolution):
 
         dp = DeviceProp(0)
 
-        schedule_type = 3
+        schedule_type = 2
         if deterministic:
             schedule_type = 3
             template = env.get_template("loop_unroll_conv_det.cuh")

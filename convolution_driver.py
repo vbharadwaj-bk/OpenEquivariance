@@ -45,7 +45,7 @@ def load_graph(name):
 
 
 class ConvBenchmarkSuite:
-    def __init__(self, configs, graph,
+    def __init__(self, configs, 
         num_warmup = 10,
         num_iter = 30,
         reference_impl=None,
@@ -53,7 +53,6 @@ class ConvBenchmarkSuite:
         prng_seed = 12345
     ):
         self.configs = configs
-        self.graph = graph
         self.num_warmup = num_warmup
         self.num_iter = num_iter
         self.reference_impl = reference_impl
@@ -61,28 +60,26 @@ class ConvBenchmarkSuite:
         self.correctness_threshold = 1e-5
         self.torch_op = torch_op
 
-    def run(self, tp_implementations, direction, correctness=True, double_backward_correctness=False, benchmark=True):        
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
-        output_folder.mkdir(parents=True)
+        self.output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+        self.output_folder.mkdir(parents=True)
+        self.exp_count = 0
 
-        graph = self.graph
-
+    def run(self, graph, implementations, direction, correctness=True, double_backward_correctness=False, benchmark=True):        
         metadata = {
             "test_name": "Convolution",
             "configs": [str(config) for config in self.configs], 
-            "implementations": [impl.name() for impl in tp_implementations],
+            "implementations": [impl.name() for impl in implementations],
             "graph": graph.name
         }
-        with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
-            json.dump(metadata, f, indent=2) 
-
-        exp_count = 0
+        if self.exp_count == 0:
+            with open(os.path.join(self.output_folder,'metadata.json'), 'w') as f:
+                json.dump(metadata, f, indent=2) 
 
         for config in self.configs: 
             L1_in, L2_in, weights, L3_out = get_random_buffers_forward_conv(config, graph.node_count, graph.nnz, self.prng_seed)
 
-            for impl in tp_implementations:
+            for impl in implementations:
                 tc_name = f"{config}, {impl.name()}"
                 logger.info(f'Starting {tc_name}, graph {graph.name}, {direction}')
                 conv = impl(config, torch_op=self.torch_op)
@@ -95,29 +92,31 @@ class ConvBenchmarkSuite:
 
                 if direction == "forward":
                     if correctness:
-                        correctness = conv.test_correctness_forward(self.graph, 
+                        correctness = conv.test_correctness_forward(graph, 
                                 thresh=self.correctness_threshold, 
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
 
                     if benchmark:
                         benchmark = conv.benchmark_forward(self.num_warmup,
-                                    self.num_iter, self.graph, prng_seed=12345)
+                                    self.num_iter, graph, prng_seed=12345)
 
 
                 if direction == "backward":
                     if correctness:
-                        correctness = conv.test_correctness_backward(self.graph, 
+                        correctness = conv.test_correctness_backward(graph, 
                                 thresh=self.correctness_threshold, 
                                 prng_seed=self.prng_seed, 
                                 reference_implementation=self.reference_impl)
 
                     if benchmark:
                         benchmark = conv.benchmark_backward(self.num_warmup,
-                                    self.num_iter, self.graph, prng_seed=12345)
+                                    self.num_iter, graph, prng_seed=12345)
 
                 result = {
                     "config": str(config),
+                    "irrep_dtype": str(config.irrep_dtype),
+                    "weight_dtype": str(config.weight_dtype),
                     "torch_overhead_included": self.torch_op,
                     "direction": direction,
                     "graph": graph.name,
@@ -127,14 +126,50 @@ class ConvBenchmarkSuite:
                     "double_backward_correctness": double_backward_correctness
                 }
          
-                fname = pathlib.Path(f"{output_folder}/{exp_count}_{impl.name()}_{graph.name}.json")
+                fname = pathlib.Path(f"{self.output_folder}/{self.exp_count}_{impl.name()}_{graph.name}.json")
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
-                exp_count += 1
+                self.exp_count += 1
 
                 logger.info(f'Finished {tc_name}, graph {graph.name}')
 
+def clean_benchmark():
+    covid_spike = load_graph("covid_spike_radius3.0")
+    dhfr = load_graph("1drf_radius6.0")
+
+    configs = [ ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o"),
+                ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o"),
+                ] # MACE-large 
+
+    configs[1].irrep_dtype = np.float64
+    configs[1].weight_dtype = np.float64
+
+    bench = ConvBenchmarkSuite(configs, torch_op=True)
+
+    implementations = [ LoopUnrollConvScatterSum, 
+                        CUEConv,
+                        LoopUnrollConvDeterministic, 
+                        LoopUnrollConvAtomic
+                        ]
+
+    for graph in [covid_spike, dhfr]:
+        for direction in ["forward", "backward"]:
+            bench.run(
+                    implementations = implementations,
+                    graph = graph,
+                    direction=direction, 
+                    correctness=False,
+                    double_backward_correctness=False,
+                    benchmark=True)
+
+
 if __name__=='__main__':
+    #clean_benchmark()
+    #exit(1)
     #graph = load_graph("debug")
     graph = load_graph("covid_spike_radius2.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
@@ -150,9 +185,9 @@ if __name__=='__main__':
         #ChannelwiseTPP("32x2e + 32x1e + 32x0e", "1x0e + 1x1e", 3)
     ]
 
-    #for config in configs:
-    #    config.irrep_dtype = np.float64
-    #    config.weight_dtype = np.float64
+    for config in configs:
+        config.irrep_dtype = np.float64
+        config.weight_dtype = np.float64
 
     cut_size = len(graph.rows)
     graph.rows = graph.rows[:cut_size]
@@ -160,14 +195,15 @@ if __name__=='__main__':
     graph.nnz = cut_size
 
     bench = ConvBenchmarkSuite(
-        configs, graph, torch_op=True)
-    bench.run([ #LoopUnrollConvScatterSum, 
+        configs, torch_op=True)
+    bench.run( graph,
+            [ #LoopUnrollConvScatterSum, 
                 #CUEConv,
-                LoopUnrollConvDeterministic, 
+                #LoopUnrollConvDeterministic, 
                 LoopUnrollConvAtomic
                 ], 
             direction="backward", 
-            correctness=True,
+            correctness=False,
             double_backward_correctness=False,
             benchmark=True)
 
