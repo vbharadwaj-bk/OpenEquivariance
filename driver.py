@@ -16,6 +16,7 @@ from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProd
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
 from src.implementations.E3NNTensorProduct import E3NNTensorProduct
 from src.implementations.CUETensorProduct import CUETensorProduct
+import src.implementations.warp_matmul as warp_matmul 
 
 logger = getLogger()
 
@@ -111,7 +112,10 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
         assert(False)
     np.set_printoptions()
 
-if __name__=='__main__':  
+if __name__=='__main__':
+    warp_matmul.test_simple_kernel()
+    exit(1)
+
     FCTPP = FullyConnectedTPProblem
     ChannelTPP = ChannelwiseTPP 
     basic_fully_connected_problems = [

@@ -44,4 +44,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("start", &GPUTimer::start)
         .def("stop_clock_get_elapsed", &GPUTimer::stop_clock_get_elapsed)
         .def("clear_L2_cache", &GPUTimer::clear_L2_cache);
+    py::class_<MMTester>(m, "MMTester")
+        .def(py::init<std::string>())
+        .def("execute", &MMTester::execute);
 }

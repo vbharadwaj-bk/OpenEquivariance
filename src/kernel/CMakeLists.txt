@@ -12,6 +12,7 @@ add_library(espmm SHARED
   util/jit.cpp
   util/device_prop.hpp
   util/device_prop.cpp
+  util/mm_tester.hpp
 
   tensorproducts/tensorproducts.hpp
   tensorproducts/jit_tp.cpp
