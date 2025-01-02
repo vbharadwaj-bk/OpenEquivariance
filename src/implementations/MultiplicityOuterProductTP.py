@@ -200,11 +200,16 @@ class MultiplicityOuterProductTP(TensorProduct):
             smem_gemm_info=smem_gemm_info,
             forward_config=forward_launch_config,
             backward_config=backward_launch_config
-        )
+        )   
 
         self.jit_kernel = kernel_text
         
-        logger.debug(kernel_text)
+        def add_fixed_width_line_numbers(text):
+            lines = text.split('\n')
+            numbered_lines = [f"{i + 1:03}: {line}" for i, line in enumerate(lines)]
+            return '\n'.join(numbered_lines)
+            
+        logger.debug(add_fixed_width_line_numbers(kernel_text))
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)

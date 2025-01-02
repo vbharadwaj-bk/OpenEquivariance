@@ -3,13 +3,15 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
-#include <cuda/barrier>
+#include <cuda/barrier> 
+
+#include <cute/tensor.hpp>
 
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/warp/mma_simt.h>
 #include <cutlass/gemm/warp/mma_simt_policy.h>
-#include "cutlass/epilogue/warp/fragment_iterator_simt.h"
-#include "cutlass/epilogue/warp/tile_iterator_simt.h"
+#include <cutlass/epilogue/warp/fragment_iterator_simt.h>
+#include <cutlass/epilogue/warp/tile_iterator_simt.h>
 
 // #include <cutlass/gemm/warp/mma_tensor_op.h>
 // #include <cutlass/array.h>
@@ -19,8 +21,11 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 #include <cutlass/arch/arch.h>
 #include <cutlass/numeric_types.h>
 
+#include <cute/util/print.hpp>
 
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
+
+#define DEBUG_PRINTING 1
 
 namespace cg = cooperative_groups;
 typedef cg::thread_block_tile<32> Warp_Tile;
@@ -34,6 +39,8 @@ template<typename T, typename Group>
 __device__ __forceinline__ void dynamic_contiguous_copy(Group, T*, T*, int); 
 template<typename T, typename Group>
 __device__ __forceinline__ void dynamic_contiguous_set (Group, T*, T , int);
+template<typename Tensor>
+__device__ __forceinline__ void print_tensor_contents(Tensor t); 
 
 // DOES ONE BATCH ELEMENT
 template<typename Tile> 
@@ -78,77 +85,108 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         float* L3_smem_interaction_shift = L3_smem_warp + {{L3.offsets[w]}};  
         float* weights_interaction_shift = weights + {{weight_offset}}; 
 
-        // Setup CUTLASS things
+        // CUTLASS STUFF 
+
+        // Tensor Definitions
+        // C = A * B 
+        
+        // C : L3       {irrep_length, L3_mults} column_major 
+        // B : L1L2     {irrep_length, 32      } column_major
+        // A : Weights  {32       , L3_mults} row_major  
+
+        // M, N, K Definition
         constexpr int gemm_M = L3_irrep_length;
         constexpr int gemm_N = L3_mults; 
         constexpr int gemm_K = 32; // BAD HARDCODING 
-    
-        using ElementTypeA           = float; // BAD HARDCODING 
-        using ElementTypeB           = float; // BAD HARDCODING 
-        using ElementTypeC           = float; // BAD HARDCODING 
-        using ElementTypeAccumulator = float; // BAD HARDCODING 
+        
+        // Create CuTe problem shape
 
-        using LayoutA = cutlass::layout::ColumnMajor; 
-        using LayoutB = cutlass::layout::RowMajor;
-        using LayoutC = cutlass::layout::ColumnMajor; 
+        auto shape_MNK = cute::make_shape(gemm_M, gemm_N, gemm_K); 
 
-        // using MMAOp = cutlass::arch::OpClassTensorOp; // SAYING I WILL USE TENSOR OPS 
-        // using SmArch = cutlass::arch::Sm80; // SPECIALIZING FOR ARCH Sm80 
 
-        using WarpGemmShape = cutlass::gemm::GemmShape<gemm_M, gemm_N, gemm_K>; //Warp size: M, N, K 
-        // using InstructionShape = cutlass::gemm::GemmShape<16, 16, 8>;    
-        // using ShapeMMAOp = cutlass::gemm::gemmShape<16, 8, 8>;
+        CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{});  
 
-        using MmaPolicy = cutlass::gemm::warp::MmaSimtPolicy<
-            cutlass::MatrixShape<1,1>, 
-            cutlass::layout::ColumnMajor, 
-            cutlass::gemm::GemmShape<1,1,1>
-        >;
+        // SMEM TENSORS 
+        // Create Smem Layouts
+        cute::Layout layout_A_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
+        cute::Layout layout_B_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_N>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
+        cute::Layout layout_C_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
+        cute::Layout layout_output = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
 
-        using Mma = cutlass::gemm::warp::MmaSimt<
-            WarpGemmShape,
-            ElementTypeA, LayoutA, 
-            ElementTypeB, LayoutB, 
-            ElementTypeAccumulator, LayoutC,
-            MmaPolicy
-        >; 
+        // Create Smem Tensors 
+        cute::Tensor tensor_A_smem = cute::make_tensor(cute::make_smem_ptr(gemm_L3_smem_warp),         layout_A_smem);
+        cute::Tensor tensor_B_smem = cute::make_tensor(cute::make_smem_ptr(gemm_weights_smem_warp),    layout_B_smem); 
+        cute::Tensor tensor_C_smem = cute::make_tensor(cute::make_smem_ptr(L3_smem_interaction_shift), layout_C_smem); 
+        // cute::Tensor tensor_output = cute::make_tensor(cute::make_smem_ptr(L3_smem_)) 
 
-        //number of 'K groups'
-        int const kKgroups = WarpGemmShape::kK; 
+        // THREAD TENSORS
+        // Create thread layouts
+        // cute::Layout layout_A_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{}));
+        // cute::Layout layout_B_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{}));
+        cute::Layout layout_C_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{})); 
 
-        using FragmentIterator = cutlass::epilogue::warp::FragmentIteratorSimt<
-            typename Mma::Shape,
-            typename Mma::ThreadMma,
-            cutlass::layout::ColumnMajor,                // SMEM layout
-            typename Mma::Policy
-        >;
+        // CUTE_STATIC_ASSERT_V(cute::size(layout_A_threads) == cute::size(layout_B_threads));        
+        // CUTE_STATIC_ASSERT_V(cute::size(layout_A_threads) == cute::size(layout_C_threads)); 
+        
+   
 
-        using AccumulatorTileIterator = cutlass::epilogue::warp::TileIteratorSimtCanonical<
-            typename Mma::Shape,
-            typename Mma::ThreadMma,
-            ElementTypeAccumulator,               // ElementAccumulator
-            cutlass::layout::ColumnMajor,                  // SMEM layout
-            typename Mma::Policy
-        >;
-                
-        using TensorRefA = cutlass::TensorRef<ElementTypeA, LayoutA>; 
-        using TensorRefB = cutlass::TensorRef<ElementTypeB, LayoutB>; 
-        using TensorRefC = cutlass::TensorRef<ElementTypeC, LayoutC>; 
+         // ALL OF THIS IS RELATED TO TUTORIAL 1 
+            
+            // TUTORIAL: Example of simple raked partitioning of ThreadLayouts tA|tB over data A|B tiles
+            // cute::Tensor layout_A_thread_partitioning_smem_A = cute::local_partition(tensor_A_smem, layout_A_threads, tile.thread_rank());
+            // cute::Tensor layout_B_thread_partitioning_smem_B = cute::local_partition(tensor_B_smem, layout_B_threads, tile.thread_rank()); 
 
-        LayoutA layout_A(gemm_M);
-        LayoutB layout_B(gemm_N);
-        LayoutC layout_C(gemm_M); 
+            // Partition sA (M,K) by the rows of tC
+            cute::Tensor layout_C_thread_partioning_smem_A = cute::local_partition(tensor_A_smem, layout_C_threads, tile.thread_rank(), cute::Step<cute::_1,cute::X>{});   // (THR_M,BLK_K)
+            // Partition sB (N,K) by the cols of tC
+            cute::Tensor layout_C_thread_partioning_smem_B = cute::local_partition(tensor_B_smem, layout_C_threads, tile.thread_rank(), cute::Step<cute::X,cute::_1>{});   // (THR_N,BLK_K)
+            // Partition sC (M,N) by the tile of tC
+            cute::Tensor layout_C_thread_partioning_smem_C = cute::local_partition(tensor_C_smem, layout_C_threads, tile.thread_rank(), cute::Step<cute::_1,cute::_1>{});   // (THR_M,THR_N)
+            
+            // Allocate the accumulators -- same shape/layout as the partitioned data
+            cute::Tensor layout_C_thread_partitioning_smem_C_registers = cute::make_tensor_like(layout_C_thread_partioning_smem_C);
+            
+            // // PREDICATING 
+            cute::Tensor tCpC = cute::make_tensor<bool>(cute::make_shape(cute::size<0>(layout_C_thread_partioning_smem_C), cute::size<1>(layout_C_thread_partioning_smem_C)),cute::make_stride(cute::Int<1>{}, cute::Int<0>{})); 
 
-        TensorRefA tensor_A(gemm_L3_smem_warp, layout_A); 
-        TensorRefB tensor_B(gemm_weights_smem_warp, layout_B);
-        TensorRefC tensor_C(L3_smem_interaction_shift, layout_C); 
+            cute::Tensor cC = cute::make_identity_tensor(cute::make_shape(cute::size<0>(tensor_C_smem),cute::size<1>(tensor_C_smem))); 
 
-        Mma::FragmentA fragment_A; 
-        Mma::FragmentB fragment_B; 
-        Mma::FragmentC fragment_C; 
+            cute::Tensor tCcC = cute::local_partition(cC, layout_C_threads, tile.thread_rank()); 
 
-        Mma mma; 
- 
+            CUTE_UNROLL
+            for (int m = 0; m < cute::size<0>(tCpC); ++m){
+                CUTE_UNROLL 
+                for (int n = 0; n < cute::size<1>(tCpC); ++n){
+                       tCpC(m,n) = (cute::get<0>(tCcC(m,0)) < cute::Int<gemm_M>{}) || (cute::get<0>(tCcC(0,n) < cute::Int<gemm_N>{})); 
+                }             
+            }
+
+           
+
+            // END OF STUFF RELATED TO Tutorial 1
+
+            // TUTORIAL 2 ################################################
+            // cute::TiledMMA tiled_mma = cute::make_tiled_mma(
+            //     cute::UniversalFMA<float, float, float>{},
+            //     cute::Layout<cute::Shape<cute::_1,cute::_32>>{} // mnk? 
+            //     ); 
+
+            // cute::ThrMMA thread_mma = tiled_mma.get_slice(tile.thread_rank()); 
+            
+            // cute::Tensor layout_C_thread_partioning_smem_A = thread_mma.partition_A(tensor_A_smem); 
+            // cute::Tensor layout_C_thread_partioning_smem_B = thread_mma.partition_B(tensor_B_smem); 
+            // cute::Tensor layout_C_thread_partioning_smem_C = thread_mma.partition_C(tensor_C_smem); 
+
+            // cute::Tensor layout_C_thread_partitioning_smem_C_registers = thread_mma.make_fragment_C(layout_C_thread_partioning_smem_C); 
+
+            // CUTE_STATIC_ASSERT_V(cute::size<1>(layout_C_thread_partioning_smem_C) == cute::size<1>(layout_C_thread_partioning_smem_A));                // MMA_M
+            // CUTE_STATIC_ASSERT_V(cute::size<2>(layout_C_thread_partioning_smem_C) == cute::size<1>(layout_C_thread_partioning_smem_B));                // MMA_N
+            // CUTE_STATIC_ASSERT_V(cute::size<2>(layout_C_thread_partioning_smem_A) == cute::size<2>(layout_C_thread_partioning_smem_B));                // MMA_K
+            
+
+            // TUTORIAL 2
+       
+   
         constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
 
         // Assign Each Thread one multiplictiy interaction, tile.size() stride kernel  
@@ -170,9 +208,15 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             // READ N SETS OF WEIGHTS FROM GLOBAL MEMORY, 
             // HOPEFULLY L2 CACHE TO SMEM COLUMN MAJOR ORDER
             float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_block_start_index * {{L3.mults[w]}});           
-            dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
-
+            // dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
+            
             bool active_for_tensor_product = (tile.thread_rank() < n);
+
+            #pragma unroll
+            for(int L3_mult_index = 0; L3_mult_index < L3_mults; L3_mult_index++){
+                tensor_B_smem(L3_mult_index, tile.thread_rank()) = active_for_tensor_product ? weights_mult1_mult2_shift[(tile.thread_rank() * L3_mults) + L3_mult_index] : 0.0f; 
+            }
+
             // N threads perform a tensor product 
             if (active_for_tensor_product){
                 
@@ -207,24 +251,120 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 gemm_L3_smem_warp[(tile.thread_rank() * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = (active_for_tensor_product ? L3_local_vec[L3_irrep_index] : 0.0f); 
             }
 
-            tile.sync();
-            Mma::IteratorA iter_A(tensor_A, {Mma::Shape::kM, Mma::Shape::kK}, tile.thread_rank()); 
-            Mma::IteratorB iter_B(tensor_B, {Mma::Shape::kK, Mma::Shape::kN}, tile.thread_rank()); 
-            Mma::IteratorC iter_C(tensor_C, {Mma::Shape::kM, Mma::Shape::kN}, tile.thread_rank());
+           
 
-            fragment_C.clear(); 
 
-            for(int k = 0; k < kKgroups; ++k){
-                iter_A.load(fragment_A);
-                iter_B.load(fragment_B); 
+            // zero registers
+            cute::clear(layout_C_thread_partitioning_smem_C_registers); 
 
-                ++iter_A; 
-                ++iter_B; 
-
-                mma(fragment_C, fragment_A, fragment_B, fragment_C); 
+            #if 1
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+                // cute::print("layout_A_threads: "); cute::print(layout_A_threads); cute::print("\n");
+                // cute::print("layout_B_threads: "); cute::print(layout_B_threads); cute::print("\n");
+                cute::print("layout_C_threads: "); cute::print(layout_C_threads); cute::print("\n");
             }
+            #endif
+
+            #if 1
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+                cute::print("  sA : "); cute::print(tensor_A_smem); cute::print("\n");
+                cute::print("  sB : "); cute::print(tensor_B_smem); cute::print("\n");
+                cute::print("  sC : "); cute::print(tensor_C_smem); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
+
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+                
+                cute::print("tCsA : "); cute::print(layout_C_thread_partioning_smem_A); cute::print("\n");
+                cute::print("tCsB : "); cute::print(layout_C_thread_partioning_smem_B); cute::print("\n");
+                cute::print("tCrC : "); cute::print(layout_C_thread_partioning_smem_C); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
             
-            iter_C.store(fragment_C); 
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+                cute::print("Pre Multiplication State:\n");
+                cute::print("sA :\n"); print_tensor_contents(tensor_A_smem); cute::print("\n");
+                cute::print("sB :\n"); print_tensor_contents(tensor_B_smem); cute::print("\n");
+                cute::print("sC :\n"); print_tensor_contents(tensor_C_smem); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
+
+
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+           
+                // cute::print("tCsA :\n"); print_tensor_contents(layout_C_thread_partioning_smem_A); cute::print("\n");
+                // cute::print("tCsB :\n"); print_tensor_contents(layout_C_thread_partioning_smem_B); cute::print("\n");
+                // cute::print("tCrC :\n"); print_tensor_contents(layout_C_thread_partioning_smem_C); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
+
+            // auto K_TILE_MAX = cute::size<2>(layout_A_thread_partitioning_smem_A); this dosn't work. 
+
+            // for(int k_tile = 0; k_tile < K_TILE_MAX; ++k_tile){
+            //     // Copy gmem to smem with tA|tB thread-partitioned tensors
+            //     copy(tAgA(_,_,k_tile), tAsA);      // A   (THR_M,THR_K) -> (THR_M,THR_K)
+            //     copy(tBgB(_,_,k_tile), tBsB);      // B   (THR_N,THR_K) -> (THR_N,THR_K)
+
+            //     cute::cp_async_fence();   // Label the end of (potential) cp.async instructions
+            //     cute::cp_async_wait<0>(); // Sync on all (potential) cp.async instructions
+                
+                tile.sync();              // Wait for all threads to write to smem
+                
+       
+                // cute::gemm(tiled_mma, layout_C_thread_partioning_smem_A, layout_C_thread_partioning_smem_B, layout_C_thread_partitioning_smem_C_registers);
+                cute::gemm(layout_C_thread_partioning_smem_A, layout_C_thread_partioning_smem_B, layout_C_thread_partitioning_smem_C_registers); // (THR_M,THR_N) += (THR_M,BLK_K) * (THR_N,BLK_K)
+     
+                // if(tile.thread_rank() == 0){
+                    // CUTE_UNROLL
+                    // for (int k = 0; k < cute::size<1>(layout_C_thread_partioning_smem_A); ++k) {
+                    //     CUTE_UNROLL
+                    //     for (int m = 0; m < cute::size<0>(layout_C_thread_partioning_smem_C); ++m) {
+                    //     CUTE_UNROLL
+                    //     for (int n = 0; n < cute::size<1>(layout_C_thread_partioning_smem_C); ++n) {
+                    //         layout_C_thread_partitioning_smem_C_registers(m,n) += layout_C_thread_partioning_smem_A(m,k) * layout_C_thread_partioning_smem_B(n,k);
+                    //     }
+                    //     }
+                    // } 
+                // // }
+                
+                tile.sync();
+            // }
+
+            cute::copy_if(tCpC, layout_C_thread_partitioning_smem_C_registers, layout_C_thread_partioning_smem_C); 
+            
+            // int i = tile.thread_rank();
+            // #pragma unroll
+            // for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
+            //     L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += layout_C_thread_partitioning_smem_C_registers(j,i);
+            // }
+        
+
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+                cute::print("Post Multiplciation State:\n");
+                cute::print("sA :\n"); print_tensor_contents(tensor_A_smem); cute::print("\n");
+                cute::print("sB :\n"); print_tensor_contents(tensor_B_smem); cute::print("\n");
+                cute::print("sC :\n"); print_tensor_contents(tensor_C_smem); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
+
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+           
+                // cute::print("tCsA :\n"); print_tensor_contents(layout_C_thread_partioning_smem_A); cute::print("\n");
+                // cute::print("tCsB :\n"); print_tensor_contents(layout_C_thread_partioning_smem_B); cute::print("\n");
+                // cute::print("tCrC :\n"); print_tensor_contents(layout_C_thread_partioning_smem_C); cute::print("\n");
+                cute::print("\n");
+            }
+            #endif
 
             // // PERFORM MATMUL 
             // int i = tile.thread_rank();
@@ -257,7 +397,6 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
     {%- endfor %}  
 }
 
-
 // Generic kernel which calls a subkernel for each forward interaction
 // column-major data layout 
 __global__ void forward(
@@ -272,7 +411,7 @@ __global__ void forward(
     constexpr int warps_per_block = {{warps_per_block}}; 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = idx / THREADS_PER_WARP; 
-    int lane_id = idx % THREADS_PER_WARP;
+    // int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % {{warps_per_block}}; 
 
     {{ declare_smem_arrays( { 
@@ -503,7 +642,7 @@ __global__ void backward(
     constexpr int warps_per_block = {{warps_per_block}}; 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = idx / THREADS_PER_WARP; 
-    int lane_id = idx % THREADS_PER_WARP;
+    // int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % {{warps_per_block}}; 
 
     {{ declare_smem_arrays( { 
@@ -630,5 +769,15 @@ __device__ __forceinline__ void dynamic_contiguous_set(Group g, T* ptr, T value,
         if (i + thread_lane < n){
             ptr[i + thread_lane] = value; 
         }
+    }
+}
+
+template<typename Tensor>
+__device__ __forceinline__ void print_tensor_contents(Tensor t){
+    for (int row = 0; row < cute::size<0>(t); row++){
+        for (int col = 0; col < cute::size<1>(t); col++){
+            cute::print("%+1.2f",t(row,col)); cute::print(" ");
+        } 
+        cute::print("\n");
     }
 }
