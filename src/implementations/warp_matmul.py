@@ -23,13 +23,14 @@ class WarpMatmulTest:
 
         wmm_dev.copy_to_host()
 
-        print("WarpMatmul pass?:", np.allclose(wmm_result, self.C))
+        print("WarpMatmul pass?", np.allclose(wmm_result, self.C))
 
 def test_simple_kernel():
     env = get_jinja_environment()
     template = env.get_template("wmm.cuh")
     env.globals['enumerate'] = enumerate
-    kernel = template.render()
-    
-    test = WarpMatmulTest(32, 32, 32, np.float32)
+
+    M, N, K = 32, 32, 32
+    kernel = template.render(M=M, N=N, K=K) 
+    test = WarpMatmulTest(M, N, K, np.float32)
     test.run(kernel)
