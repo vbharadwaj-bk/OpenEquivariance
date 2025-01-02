@@ -12,11 +12,11 @@ public:
     }
 
     // Executes matmul with a single warp
-    void execute(int M, int N, int K, uint64_t A_ptr, uint64_t B_ptr, uint64_t C_ptr) {
+    void execute(uint64_t A_ptr, uint64_t B_ptr, uint64_t C_ptr) {
         void* A_cast = reinterpret_cast<void*>(A_ptr);
         void* B_cast = reinterpret_cast<void*>(B_ptr);
         void* C_cast = reinterpret_cast<void*>(C_ptr);
-        void *args[] = { &M, &N, &K, &A_cast, &B_cast, &C_cast}; 
+        void *args[] = { &A_cast, &B_cast, &C_cast}; 
         jit.execute(0, 1, 32, args, 0);
     }
 };

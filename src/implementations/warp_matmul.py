@@ -18,8 +18,7 @@ class WarpMatmulTest:
 
         wmm_result = np.zeros((self.M, self.N), dtype=self.C.dtype)
         wmm_dev = DeviceBuffer(wmm_result)
-        cpp_tester.execute(self.M, self.N, self.K,
-            a_dev.data_ptr(), b_dev.data_ptr(), wmm_dev.data_ptr())
+        cpp_tester.execute(a_dev.data_ptr(), b_dev.data_ptr(), wmm_dev.data_ptr())
 
         wmm_dev.copy_to_host()
 
@@ -30,7 +29,7 @@ def test_simple_kernel():
     template = env.get_template("wmm.cuh")
     env.globals['enumerate'] = enumerate
 
-    M, N, K = 32, 32, 32
+    M, N, K = 32, 32, 16
     kernel = template.render(M=M, N=N, K=K) 
     test = WarpMatmulTest(M, N, K, np.float32)
     test.run(kernel)
