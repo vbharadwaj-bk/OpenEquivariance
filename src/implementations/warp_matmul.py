@@ -29,7 +29,7 @@ def test_simple_kernel():
     template = env.get_template("wmm.cuh")
     env.globals['enumerate'] = enumerate
 
-    M, N, K = 32, 32, 16
+    M, N, K = 64, 64, 32 
     kernel = template.render(M=M, N=N, K=K) 
     test = WarpMatmulTest(M, N, K, np.float32)
     test.run(kernel)
