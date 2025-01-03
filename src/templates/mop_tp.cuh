@@ -7,20 +7,6 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 
 #include <cute/tensor.hpp>
 
-#include <cutlass/cutlass.h>
-#include <cutlass/gemm/warp/mma_simt.h>
-#include <cutlass/gemm/warp/mma_simt_policy.h>
-#include <cutlass/epilogue/warp/fragment_iterator_simt.h>
-#include <cutlass/epilogue/warp/tile_iterator_simt.h>
-
-// #include <cutlass/gemm/warp/mma_tensor_op.h>
-// #include <cutlass/array.h>
-#include <cutlass/layout/matrix.h> 
-#include <cutlass/matrix_shape.h>
-#include <cutlass/tensor_view.h>
-#include <cutlass/arch/arch.h>
-#include <cutlass/numeric_types.h>
-
 #include <cute/util/print.hpp>
 
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
@@ -97,7 +83,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         // M, N, K Definition
         constexpr int gemm_M = L3_irrep_length;
         constexpr int gemm_N = L3_mults; 
-        constexpr int gemm_K = 32; // BAD HARDCODING 
+        constexpr int gemm_K = tile.size(); 
         
         // Create CuTe problem shape
 
@@ -123,7 +109,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         // Create thread layouts
         // cute::Layout layout_A_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{}));
         // cute::Layout layout_B_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{}));
-        cute::Layout layout_C_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<32>{})); 
+        cute::Layout layout_C_threads = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int<tile.size()>{})); 
 
         // CUTE_STATIC_ASSERT_V(cute::size(layout_A_threads) == cute::size(layout_B_threads));        
         // CUTE_STATIC_ASSERT_V(cute::size(layout_A_threads) == cute::size(layout_C_threads)); 
@@ -190,15 +176,15 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
 
         // Assign Each Thread one multiplictiy interaction, tile.size() stride kernel  
-        for (int L1_L2_block_start_index = 0; 
-             L1_L2_block_start_index < num_L1_L2_combinations; 
-             L1_L2_block_start_index += tile.size()
+        for (int L1_L2_warp_start_index = 0; 
+             L1_L2_warp_start_index < num_L1_L2_combinations; 
+             L1_L2_warp_start_index += tile.size()
             ){
             
-            int num_L1_L2_blocks_to_do = min(tile.size(), num_L1_L2_combinations - L1_L2_block_start_index);
+            int num_L1_L2_blocks_to_do = min(tile.size(), num_L1_L2_combinations - L1_L2_warp_start_index);
             int n = num_L1_L2_blocks_to_do; 
 
-            int L1_L2_thread_index = L1_L2_block_start_index + tile.thread_rank(); 
+            int L1_L2_thread_index = L1_L2_warp_start_index + tile.thread_rank(); 
             int L1_mult_index = L1_L2_thread_index / L2_mults; 
             int L2_mult_index = L1_L2_thread_index % L2_mults; 
 
@@ -207,7 +193,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
             // READ N SETS OF WEIGHTS FROM GLOBAL MEMORY, 
             // HOPEFULLY L2 CACHE TO SMEM COLUMN MAJOR ORDER
-            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_block_start_index * {{L3.mults[w]}});           
+            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_warp_start_index * {{L3.mults[w]}});           
             // dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
             
             bool active_for_tensor_product = (tile.thread_rank() < n);
@@ -422,8 +408,8 @@ __global__ void forward(
             ("L1_smem_warp", "float", L1.rep_len),
             ("L2_smem_warp", "float", L2.rep_len), 
             ("L3_smem_warp", "float", L3.rep_len),
-            ("gemm_L3_smem_warp", "float", smem_gemm_info.L3_scratch_elems),
-            ("gemm_weights_smem_warp", "float", smem_gemm_info.weight_scratch_elems), 
+            ("gemm_L3_smem_warp", "float", forward_smem_gemm_info.L3_scratch_elems),
+            ("gemm_weights_smem_warp", "float", forward_smem_gemm_info.weight_scratch_elems), 
         ]
         }, "warp_loc", forward_config)}}    
 
@@ -474,18 +460,19 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
     float* __restrict__ L2_grad_shared_shift_warp, 
     float* __restrict__ L3_grad_shared_shift_warp,
     float* __restrict__ weights,     // global
-    float* __restrict__ weights_grad // global 
+    float* __restrict__ weights_grad, // global 
+    float* __restrict__ gemm_L1L2_shared_warp, 
+    float* __restrict__ gemm_weights_shared_warp
     )
 {
     float L1_local_vec[{{L1.irrep_lengths | max}}];
     float L1_grad_local_vec[{{L1.irrep_lengths | max}}];
     float L2_local_vec[{{L2.irrep_lengths | max}}];
     float L2_grad_local_vec[{{L2.irrep_lengths | max}}];
-    float L3_grad_local_vec[{{L3.irrep_lengths | max}}];
+    float L1l2_grad_local_vec[{{L3.irrep_lengths | max}}];
 
     {% set num_scratch_reg = 1 %}
-    float scratch1[{{num_scratch_reg}}];
-    float scratch2[{{num_scratch_reg}}];
+    float scratch[{{num_scratch_reg}}];
 
     cg::thread_block block = cg::this_thread_block();
 
@@ -506,39 +493,66 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         float* weights_global_shift_interaction = weights + {{weight_offset}}; 
         float* weights_grad_global_shift_interaction = weights_grad + {{weight_offset}}; 
 
-        int L1_mults = {{L1.mults[u]}};
-        int L2_mults = {{L2.mults[v]}};
-        int L3_mults = {{L3.mults[w]}};
+        constexpr int L1_mults = {{L1.mults[u]}};
+        constexpr int L2_mults = {{L2.mults[v]}};
+        constexpr int L3_mults = {{L3.mults[w]}};
         
-        int L1_irrep_length = {{L1.irrep_lengths[u]}}; 
-        int L2_irrep_length = {{L2.irrep_lengths[v]}};
-        int L3_irrep_length = {{L3.irrep_lengths[w]}}; 
-        
-        int num_weights = L1_mults * L2_mults * L3_mults;
+        constexpr int L1_irrep_length = {{L1.irrep_lengths[u]}}; 
+        constexpr int L2_irrep_length = {{L2.irrep_lengths[v]}};
+        constexpr int L3_irrep_length = {{L3.irrep_lengths[w]}}; 
 
-        // cute::Layout layout_L1L2_smem    = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
-        // cute::Layout layout_weights_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_N>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
-        // cute::Layout layout_L3_smem      = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
         
-        // cute::Tensor tensor_L1L2_smem         = cute::make_tensor(cute::make_smem_ptr(gemm_L3_smem_warp),         layout_L1L2_smem);
-        // cute::Tensor tensor_L1L2_grad_smem    = cute::make_tensor(cute::make_smem_ptr(                 ), layout_L1L2L_smem); 
-        // cute::Tensor tensor_weights_smem      = cute::make_tensor(cute::make_smem_ptr(gemm_weights_smem_warp),    layout_B_smem); 
-        // cute::Tensor tensor_weights_grad_smem = cute::make_tensor(cute::make_smem_ptr(), )
-        // cute::Tensor tensor_L3_grad_smem      = cute::make_tensor(cute::make_smem_ptr(L3_smem_interaction_shift), layout_C_smem); 
+        // FIRST MATMUL 
+        // weights_grad (K,N) = L1L2.transpose(K,M) * L3_grad(M,N)
 
-        for ( 
-            int block_start_weight_index = 0;
-            block_start_weight_index < num_weights;  
-            block_start_weight_index += tile.size() 
-            )
-            {
+        constexpr gemm_M = L3_irrep_length; 
+        constexpr gemm_N = L3_mults; 
+        constexpr gemm_K = tile.size();  
+        
+        cute::Layout layout_L1L2_smem         = cute::make_layout(cute::make_shape(cute::Int<gemm_K>{}, cute::Int<gemm_M>{}), cute::LayoutRight{}); // Row Major    (irrep_dim x tile.size)
+        cute::Layout layout_L3_grad_smem      = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft {}); // Column Major (irrep_dim x L3_mults)
+        cute::Layout layout_weights_grad_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_K>{}, cute::Int<gemm_N>{}), cute::LayoutLeft {}); // Column Major (L3_mults  x tiles.size)
+        
+        cute::Tensor tensor_L1L2_smem         = cute::make_tensor(cute::make_smem_ptr(gemm_L3_smem_warp)                , layout_L1L2_smem);
+        cute::Tensor tensor_L3_grad_smem      = cute::make_tensor(cute::make_smem_ptr(L3_grad_shared_interaction_shift) , layout_L3_smem);
+        cute::Tensor tensor_weights_smem      = cute::make_tensor(cute::make_smem_ptr(gemm_weights_smem_warp)           , layout_weights_smem); 
+        
+
+        cute::Layout first_gemm_layout = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int< tile.size()>)); 
+        
+        cute::Layout tensor_L1L2_thread         = cute::local_partition(tensor_L1L2_smem,    first_gemm_layout, tile.thread_rank(), cute::Step<cute::_1,cute::X> {});
+        cute::Layout tensor_L3_grad_thread      = cute::local_partition(tensor_L3_grad_smem, first_gemm_layout, tile.thread_rank(), cute::Step<cute::X ,cute::_1>{});
+        cute::Layout tensor_weights_grad_thread = cute::local_partition(tensor_weights_smem, first_gemm_layout, tile.thread_rank(), cute::Step<cute::_1,cute::_1>{});
+
+        cute::Tensor tensor_weights_grad_fragment = cute::make_tensor_like(tensor_weights_grad_thread); 
+
+        // SECOND MATMUL 
+        // L1L2_grad (irreps, tile.size) = L3_grad (irreps, L3_mults) x weights.transpose (L3_mults, ) 
+        // L1L2_grad (M, K) = L3_grad (M,N) x weights.transpose (N,K)
+
+        // cute::Layout layout_L3_grad    = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{});  // Column Major (irrep_dim x L3_mults)  
+        cute::Layout layout_weights    = cute::make_layout(cute::make_shape(cute::Int<gemm_N>{}, cute::Int<gemm_K>{}), cute::LayoutRight{}); // Row    Major (tile.size x L3_mults)
+        cute::Layout layout_L1L2_grad  = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{});  // Column Major (irrep_dim x tile.size) 
+  
+        cute::Tensor tensor_weights           = cute::make_tensor(cute::make_smem_ptr(), layout_weights);
+        cute::Tensor tensor_L1L2_grad         = cute::make_tensor(cute::make_smem_ptr(), layout_L1L2_grad);        
+
+        constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
+
+        // Assign Each Thread one multiplictiy interaction, tile.size() stride kernel  
+        for (int L1_L2_warp_start_index = 0; 
+             L1_L2_warp_start_index < num_L1_L2_combinations; 
+             L1_L2_warp_start_index += tile.size()
+            ){
             
             int weight_index = block_start_weight_index + tile.thread_rank(); 
 
-            int L1_mult_index = weight_index / (L2_mults * L3_mults);
-            int remaining = weight_index % (L2_mults * L3_mults);
-            int L2_mult_index = remaining / L3_mults;
-            int L3_mult_index = remaining % L3_mults;  
+            int num_L1_L2_blocks_to_do = min(tile.size(), num_L1_L2_combinations - L1_L2_warp_start_index);
+            int n = num_L1_L2_blocks_to_do; 
+
+            int L1_mult_index = L1_L2_thread_index / L2_mults; 
+            int L2_mult_index = L1_L2_thread_index % L2_mults; 
+            int L3_mult_index = tile.thread_rank(); 
 
             float* L1_smem_multiplicity_shift = L1_shared_shift_interaction + (L1_mult_index * L1_irrep_length); 
             float* L1_grad_smem_multiplicity_shift = L1_grad_shared_shift_interaction + (L1_mult_index * L1_irrep_length); 
@@ -546,12 +560,81 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
             float* L2_grad_smem_multiplicity_shift = L2_grad_shared_shift_interaction + (L2_mult_index * L2_irrep_length); 
             float* L3_grad_smem_multiplicity_shift = L3_grad_shared_shift_interaction + (L3_mult_index * L3_irrep_length);
             
-   
-            
-            
             tile.sync();
 
-            if(weight_index < num_weights)
+            bool active_for_tensor_product = (tile.thread_rank() < n); 
+
+            // Weights Grad
+            // doing this via weights_grad = L1L2.transpose * L3_grad 
+
+            // CREATE L1L2 INTERMEDIATES (FORWARD)
+            // THIS IS REQUIRED TO DO THE WEIGHT GRADIENT
+            // N threads perform a tensor product 
+            if (active_for_tensor_prodcut) {
+                
+                // CLEAR L3 REGISTERS
+                #pragma unroll
+                for(int L3_irrep_index = 0; L3_irrep_index < L3_irrep_length; L3_irrep_index++){
+                        L1L2_local_vec[L3_irrep_index] = 0.0f;
+                }
+
+                // LOAD L1_SMEM INTO REGISTERS 
+                #pragma unroll
+                for (int L1_irrep_index = 0; L1_irrep_index < L1_irrep_length; L1_irrep_index++){
+                    L1_local_vec[L1_irrep_index] = L1_smem_multiplicity_shift[L1_irrep_index];  
+                }
+
+                // LOAD L2_SMEM INTO REGISTERS
+                #pragma unroll 
+                for(int L2_irrep_index = 0; L2_irrep_index < L2_irrep_length; L2_irrep_index++){
+                    L2_local_vec[L2_irrep_index] = L2_smem_multiplicity_shift[L2_irrep_index];
+                }
+
+                // PERFORM CG DECOMPOSITION CALCULATION 
+                {%- for i in range(tensor.nnz) %}
+                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                    L1L2_local_vec[{{coord3}}] += {{value}} * {{instructions[interaction_index].path_weight}} * L1_local_vec[{{coord1}}] * L2_local_vec[{{coord2}}];
+                {%- endfor %}   
+            }
+
+            // WRITE TO GEMM_L1L2, but do it TRANSPOSED. 
+                // TRANSPOSED WRITE with Zeros if not active
+            #pragma unroll 
+            for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
+                gemm_L1L2_smem_warp[(L3_irrep_index * {{L3.irrep_lengths[w]}}) + tile.thread_rank()] = active_for_tensor_product ? L1L2_local_vec[L3_irrep_index] : 0.0f; 
+            }
+            // TRANSPOSED WRITE
+
+            // MATMUL HERE 
+            // weights_grad = L1L2.transpose * L3_grad 
+            
+            cute::clear(tensor_weights_grad_fragment); 
+            
+            cute::gemm(tensor_L1L2_thread, tensor_L3_grad_thread, tensor_weights_grad_fragment);
+
+
+            tile.sync(); 
+
+            // WRITE Weight Grad update to global
+            for(int weight_L1L2_index = 0; weigh_L1L2_index < n; weight_L1L2_index++){
+                if (tile.thread_rank() < L3_mults){
+                    weight_index = weight_L1L2_index * L3_mults + tile.thread_rank(); 
+                    float local_weight = tensor_weights_grad_fragment(weight_L1L2_index, tile.thread_rank()); 
+                    // DEVICE-WIDE ATOMIC ADD WEIGHT_GRAD 
+                    atomicAdd(&weights_grad_global_shift_interaction[weight_index], local_weight_grad); 
+                }
+            }
+            
+            tile.sync(); 
+            // NOW WE ARE DOING THE L1L2 GRADIENTS
+            // This is done by L1L2_grad = L3_grad x weights.transpose 
+            // 
+
+            // MATMUL HERE
+
+
+
+            if(active_for_tensor_product)
             {
                 // LOAD DATA 
 
@@ -573,9 +656,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                     L3_grad_local_vec[L3_irrep_index] = L3_grad_smem_multiplicity_shift[L3_irrep_index];
                 }
                 
-                // LOAD WEIGHT 
-                float local_weight = weights_global_shift_interaction[weight_index]; 
-
+          
                 // ZERO ACUMULATORS 
 
                 // ZERO L1_GRAD_LOCAL
@@ -589,16 +670,12 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                 for(int L2_irrep_index = 0; L2_irrep_index < L2_irrep_length; L2_irrep_index++){
                     L2_grad_local_vec[L2_irrep_index] = 0;
                 }
-                            
-                // ZERO WEIGHT GRAD 
-                float local_weight_grad = 0; 
+
 
                 // BACKPROP THROUGH CG contraction
                 {%- for i in range(tensor.nnz) %} 
                         {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                        scratch1[{{i % num_scratch_reg}}] = L3_grad_local_vec[{{coord3}}] * ({{value}}*{{instructions[interaction_index].path_weight}}); 
-                        local_weight_grad += scratch1[{{i % num_scratch_reg}}] * L2_local_vec[{{coord2}}] * L1_local_vec[{{coord1}}];
-                        scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * local_weight;
+                        scratch[{{i % num_scratch_reg}}] = L3_grad_local_vec[{{coord3}}] * ({{value}}*{{instructions[interaction_index].path_weight}}); 
                         L2_grad_local_vec[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * L1_local_vec[{{coord1}}];
                         L1_grad_local_vec[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * L2_local_vec[{{coord2}}];
                 {%- endfor %}
@@ -666,7 +743,9 @@ __global__ void backward(
             ("L1_grad_shared_shift_warp", "float", L1.rep_len), 
             ("L2_shared_shift_warp", "float", L2.rep_len),
             ("L2_grad_shared_shift_warp", "float", L2.rep_len), 
-            ("L3_grad_shared_shift_warp", "float", L3.rep_len),            
+            ("L3_grad_shared_shift_warp", "float", L3.rep_len),
+            ("gemm_L1L2_smem_warp", "float", backward_smem_gemm_info.L3_scratch_elems),
+            ("gemm_weights_smem_warp", "float", backward_smem_gemm_info.weight_scratch_elems),             
         ]
         }, "warp_loc", forward_config)}}    
 
@@ -704,7 +783,9 @@ __global__ void backward(
             L2_grad_shared_shift_warp, 
             L3_grad_shared_shift_warp, 
             weights, 
-            weights_grad
+            weights_grad,
+            gemm_L1L2_smem_warp, 
+            gemm_weights_smem_warp,
             );
 
         warp_tile.sync();

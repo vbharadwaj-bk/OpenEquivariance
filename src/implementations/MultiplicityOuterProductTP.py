@@ -96,21 +96,21 @@ class MultiplicityOuterProductTP(TensorProduct):
         forward_smem_per_warp['out'] = (irreps_out.dim * sizeof('float'))
 
         # IMPORTANT! 
-        smem_gemm_max_n = dp.warpsize
-        smem_gemm_L3_scratch = smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
-        smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * smem_gemm_max_n
+        forward_smem_gemm_max_n = dp.warpsize
+        forward_smem_gemm_L3_scratch = forward_smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
+        foward_smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * forward_smem_gemm_max_n
 
-        smem_gemm_info = {
-            'n' : smem_gemm_max_n,
-            'L3_scratch_elems' : smem_gemm_L3_scratch,
-            'weight_scratch_elems' : smem_gemm_weights_scratch,
+        forward_smem_gemm_info = {
+            'n' : forward_smem_gemm_max_n,
+            'L3_scratch_elems' : forward_smem_gemm_L3_scratch,
+            'weight_scratch_elems' : foward_smem_gemm_weights_scratch,
         }
 
-        logger.debug(f"{smem_gemm_info=}")
+        logger.debug(f"{forward_smem_gemm_info=}")
         # END OF IMPORTANT
 
-        forward_smem_per_warp['gemm_L3'] = (smem_gemm_L3_scratch * sizeof('float'))
-        forward_smem_per_warp['gemm_weights'] = (smem_gemm_weights_scratch * sizeof('float'))
+        forward_smem_per_warp['gemm_L3'] = (forward_smem_gemm_L3_scratch * sizeof('float'))
+        forward_smem_per_warp['gemm_weights'] = (foward_smem_gemm_weights_scratch * sizeof('float'))
 
         logger.debug(f"{forward_smem_per_warp=}")
 
@@ -133,15 +133,26 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         backward_launch_config = KernelLaunchConfig()
         backward_launch_config.num_blocks = dp.multiprocessorCount * 2
-    
+
+        backward_smem_gemm_max_n = dp.warpsize
+        backward_smem_gemm_L1L2_scratch = backward_smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
+        backward_smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * backward_smem_gemm_max_n
 
         backward_smem_per_warp = {}
-        backward_smem_per_warp['in1']      = (irreps_in1.dim * sizeof('float'))
-        backward_smem_per_warp['in1_grad'] = (irreps_in1.dim * sizeof('float'))
-        backward_smem_per_warp['in2']      = (irreps_in2.dim * sizeof('float'))
-        backward_smem_per_warp['in2_grad'] = (irreps_in2.dim * sizeof('float'))
-        backward_smem_per_warp['out_grad'] = (irreps_out.dim * sizeof('float'))
+        backward_smem_per_warp['in1']          = (irreps_in1.dim * sizeof('float'))
+        backward_smem_per_warp['in1_grad']     = (irreps_in1.dim * sizeof('float'))
+        backward_smem_per_warp['in2']          = (irreps_in2.dim * sizeof('float'))
+        backward_smem_per_warp['in2_grad']     = (irreps_in2.dim * sizeof('float'))
+        backward_smem_per_warp['out_grad']     = (irreps_out.dim * sizeof('float'))
+        backward_smem_per_warp['gemm_L1L2']    = (backward_smem_gemm_L1L2_scratch * sizeof('float'))
+        backward_smem_per_warp['gemm_weights'] = (backward_smem_gemm_weights_scratch * sizeof('float'))
         
+        backward_smem_gemm_info = {
+            'n' : backward_smem_gemm_max_n,
+            'L1L2_scratch_elems' : backward_smem_gemm_L1L2_scratch,
+            'weight_scratch_elems' : backward_smem_gemm_weights_scratch,
+        }
+
         logger.debug(msg=f"{backward_smem_per_warp=}")
 
         backward_smem_per_warp_total = sum(backward_smem_per_warp.values())
@@ -197,7 +208,8 @@ class MultiplicityOuterProductTP(TensorProduct):
             weight_offsets=weight_offsets,
             instructions=instructions,
             interactions=interactions,
-            smem_gemm_info=smem_gemm_info,
+            forward_smem_gemm_info=forward_smem_gemm_info,
+            backward_smem_gemm_info=backward_smem_gemm_info
             forward_config=forward_launch_config,
             backward_config=backward_launch_config
         )   
