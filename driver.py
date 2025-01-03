@@ -24,7 +24,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
-    batch_size = 10_000
+    batch_size = 1
     prng_seed = 12345
     
     tp = tp_impl(config)
@@ -34,20 +34,28 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
 
     logger.debug(repr(config))
 
-    np.set_printoptions(formatter={'float': '{:0.3f}'.format})
+    np.set_printoptions(
+        formatter={'float': '{:0.3f}'.format},
+        linewidth=200,
+        threshold=sys.maxsize,
+        )
+    
     if direction == "forward":
         in1, in2, weights, out = get_random_buffers_forward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
 
-        print(f"{out =}")
+        out_shape = (-1, config.irreps_out[0].ir.dim)
+        # print("out")
+        # print(out)
         test_out = out.copy()
         tp.forward_cpu(
             L1_in=in1, 
             L2_in=in2, 
             L3_out=test_out, 
             weights=weights
-            )   
-        
-        print(f"{test_out = }")
+            ) 
+          
+        print("test out")
+        print(test_out.reshape(out_shape))
 
         ground_truth_out = out.copy()
         ref_tp.forward_cpu(
@@ -56,14 +64,15 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
             L3_out=ground_truth_out,
             weights=weights
             )
-        
-        print(f"{ground_truth_out = }")
+
+        print("ground truth out")
+        print(ground_truth_out.reshape(out_shape))
 
         print("LA.Norm:")
         print(la.norm((test_out - ground_truth_out).flatten(), ord=np.inf))
 
         print("test_output / ground_truth_output")
-        print( test_out / ground_truth_out)
+        print( (test_out / ground_truth_out).reshape(out_shape))
 
     elif direction == "backward":
         in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(tpp=config, batch_size=batch_size, prng_seed=prng_seed)
@@ -102,9 +111,12 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
             ("weight_grad", ref_weights_grad, test_weights_grad),
             ]:
             print(name)
-            print(ground_truth, "ground truth")
-            print(test_result , "test_result" )
-            print(test_result / ground_truth, "ratio")
+            print("ground truth")
+            print(ground_truth)
+            print("test results")
+            print(test_result)
+            print("ratio")
+            print(test_result / ground_truth)
             print("LA.Norm:")
             print(la.norm((test_result - ground_truth).flatten(), ord=np.inf))
     else:
@@ -130,6 +142,39 @@ if __name__=='__main__':
         FCTPP("8x1e", "8x1e", "8x1e"),
         FCTPP("16x1e", "16x1e", "16x1e"),
         FCTPP("32x1e", "32x1e", "32x1e"),
+    ]
+
+    cutlass_troubleshooting = [
+        FCTPP("16x1e", "16x1e", "16x1e"),
+        FCTPP("15x1e", "16x1e", "16x1e"), 
+        FCTPP("16x1e", "15x1e", "16x1e"), 
+        FCTPP("16x1e", "17x1e", "16x1e"),
+        FCTPP("17x1e", "16x1e", "16x1e"),
+        FCTPP("16x1e", "16x1e", "15x1e"),
+        FCTPP("16x1e", "16x1e", "17x1e"),
+        FCTPP("16x1e", "16x1e", "31x1e"),
+        FCTPP("16x1e", "16x1e", "32x1e"),
+        FCTPP(" 1x1e", "16x1e", "32x1e"),
+        FCTPP(" 1x1e", " 1x1e", "32x1e"),
+        FCTPP(" 1x1e", " 1x1e", "31x1e"),
+        FCTPP(" 1x1e", " 1x1e", "16x1e"),
+        FCTPP(" 1x1e", " 1x1e", "15x1e"),
+        FCTPP(" 1x1e", " 1x1e", "14x1e"),
+        FCTPP(" 1x1e", " 1x1e", "13x1e"),
+        FCTPP(" 1x1e", " 1x1e", "12x1e"),
+
+        FCTPP(" 1x1e", " 1x1e", " 9x1e"),
+        FCTPP(" 1x1e", " 1x1e", " 8x1e"),
+        FCTPP(" 1x1e", " 1x1e", " 4x1e"),
+        FCTPP(" 1x1e", " 1x1e", " 2x1e"),
+        FCTPP(" 1x1e", " 1x1e", " 1x1e"),
+        
+        FCTPP(" 1x1e", " 1x1e", "11x1e"),
+        FCTPP(" 1x1e", " 1x1e", "10x1e"),
+        FCTPP(" 1x1e", " 1x1e", " 7x2e"),
+        FCTPP(" 1x1e", " 1x1e", " 6x2e"),
+        FCTPP(" 1x1e", " 1x2e", " 10x3e"),
+        FCTPP(" 1x1e", " 1x2e", " 4x3e"),
     ]
 
     full_size_uvw_case = [
@@ -163,9 +208,10 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         basic_fully_connected_problems,
-        # increasing_multiplicty_fully_connected_problems,
-        # full_size_uvw_case,
-        # basic_multi_interaction_problems,
+        increasing_multiplicty_fully_connected_problems,
+        full_size_uvw_case,
+        cutlass_troubleshooting,
+        basic_multi_interaction_problems,
         #conv_problems,
     ))
  
@@ -177,7 +223,7 @@ if __name__=='__main__':
     
     directions : list[Direction] = [
         'forward', 
-        # 'backward',
+        'backward',
         ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
@@ -194,4 +240,6 @@ if __name__=='__main__':
 
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
-    #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
+
+    # debug_config = cutlass_troubleshooting[0]
+    # debug(MultiplicityOuterProductTP, debug_config, direction="forward")
