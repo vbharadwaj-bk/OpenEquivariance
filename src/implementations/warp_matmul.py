@@ -8,6 +8,9 @@ class WarpMatmulTest:
         rng = np.random.default_rng(12345)
         self.A = rng.random((M, K), dtype=dtype)
         self.B = rng.random((K, N), dtype=dtype)
+
+        self.A = np.array(self.A, order='C')
+
         self.C = self.A @ self.B 
 
     def run(self, kernel):
