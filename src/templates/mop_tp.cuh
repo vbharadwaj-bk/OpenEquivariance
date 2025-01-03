@@ -25,7 +25,7 @@ constexpr int THREADS_PER_WARP = {{forward_config.warp_size}};
 
 {%- from 'macros.jinja' import declare_smem_arrays with context %}
 
-#define DEBUG_PRINTING 1
+#define DEBUG_PRINTING 0
 
 namespace cg = cooperative_groups;
 typedef cg::thread_block_tile<32> Warp_Tile;
@@ -101,17 +101,17 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         
         // Create CuTe problem shape
 
-        auto shape_MNK = cute::make_shape(gemm_M, gemm_N, gemm_K); 
+        // auto shape_MNK = cute::make_shape(gemm_M, gemm_N, gemm_K); 
 
 
-        CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{});  
+        // CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{});  
 
         // SMEM TENSORS 
         // Create Smem Layouts
         cute::Layout layout_A_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
         cute::Layout layout_B_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_N>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
         cute::Layout layout_C_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
-        cute::Layout layout_output = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
+        // cute::Layout layout_output = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
 
         // Create Smem Tensors 
         cute::Tensor tensor_A_smem = cute::make_tensor(cute::make_smem_ptr(gemm_L3_smem_warp),         layout_A_smem);
@@ -146,20 +146,20 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             // Allocate the accumulators -- same shape/layout as the partitioned data
             cute::Tensor layout_C_thread_partitioning_smem_C_registers = cute::make_tensor_like(layout_C_thread_partioning_smem_C);
             
-            // // PREDICATING 
-            cute::Tensor tCpC = cute::make_tensor<bool>(cute::make_shape(cute::size<0>(layout_C_thread_partioning_smem_C), cute::size<1>(layout_C_thread_partioning_smem_C)),cute::make_stride(cute::Int<1>{}, cute::Int<0>{})); 
+            // // // PREDICATING 
+            // cute::Tensor tCpC = cute::make_tensor<bool>(cute::make_shape(cute::size<0>(layout_C_thread_partioning_smem_C), cute::size<1>(layout_C_thread_partioning_smem_C)),cute::make_stride(cute::Int<1>{}, cute::Int<0>{})); 
 
-            cute::Tensor cC = cute::make_identity_tensor(cute::make_shape(cute::size<0>(tensor_C_smem),cute::size<1>(tensor_C_smem))); 
+            // cute::Tensor cC = cute::make_identity_tensor(cute::make_shape(cute::size<0>(tensor_C_smem),cute::size<1>(tensor_C_smem))); 
 
-            cute::Tensor tCcC = cute::local_partition(cC, layout_C_threads, tile.thread_rank()); 
+            // cute::Tensor tCcC = cute::local_partition(cC, layout_C_threads, tile.thread_rank()); 
 
-            CUTE_UNROLL
-            for (int m = 0; m < cute::size<0>(tCpC); ++m){
-                CUTE_UNROLL 
-                for (int n = 0; n < cute::size<1>(tCpC); ++n){
-                       tCpC(m,n) = (cute::get<0>(tCcC(m,0)) < cute::Int<gemm_M>{}) || (cute::get<0>(tCcC(0,n) < cute::Int<gemm_N>{})); 
-                }             
-            }
+            // CUTE_UNROLL
+            // for (int m = 0; m < cute::size<0>(tCpC); ++m){
+            //     CUTE_UNROLL 
+            //     for (int n = 0; n < cute::size<1>(tCpC); ++n){
+            //            tCpC(m,n) = (cute::get<0>(cute::get<0>(tCcC(m,n))) < cute::size<0>(cC)) || (cute::get<0>(cute::get<1>(tCcC(m,n)) < cute::size<1>(cC))); 
+            //     }             
+            // }
 
            
 
@@ -252,21 +252,21 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             }
 
            
-
+            // 
 
             // zero registers
             cute::clear(layout_C_thread_partitioning_smem_C_registers); 
 
-            #if 1
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (n != tile.size())) {
                 // cute::print("layout_A_threads: "); cute::print(layout_A_threads); cute::print("\n");
                 // cute::print("layout_B_threads: "); cute::print(layout_B_threads); cute::print("\n");
                 cute::print("layout_C_threads: "); cute::print(layout_C_threads); cute::print("\n");
             }
             #endif
 
-            #if 1
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            #if DEBUG_PRINTING
+            if(cute::thread0() && (n != tile.size())) {
                 cute::print("  sA : "); cute::print(tensor_A_smem); cute::print("\n");
                 cute::print("  sB : "); cute::print(tensor_B_smem); cute::print("\n");
                 cute::print("  sC : "); cute::print(tensor_C_smem); cute::print("\n");
@@ -275,7 +275,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             #endif
 
             #if DEBUG_PRINTING
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            if(cute::thread0() && (n != tile.size())) {
                 
                 cute::print("tCsA : "); cute::print(layout_C_thread_partioning_smem_A); cute::print("\n");
                 cute::print("tCsB : "); cute::print(layout_C_thread_partioning_smem_B); cute::print("\n");
@@ -285,7 +285,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             #endif
             
             #if DEBUG_PRINTING
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            if(cute::thread0() && (n != tile.size())) {
                 cute::print("Pre Multiplication State:\n");
                 cute::print("sA :\n"); print_tensor_contents(tensor_A_smem); cute::print("\n");
                 cute::print("sB :\n"); print_tensor_contents(tensor_B_smem); cute::print("\n");
@@ -296,7 +296,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
 
             #if DEBUG_PRINTING
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            if(cute::thread0() && (n != tile.size())) {
            
                 // cute::print("tCsA :\n"); print_tensor_contents(layout_C_thread_partioning_smem_A); cute::print("\n");
                 // cute::print("tCsB :\n"); print_tensor_contents(layout_C_thread_partioning_smem_B); cute::print("\n");
@@ -337,17 +337,18 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 tile.sync();
             // }
 
-            cute::copy_if(tCpC, layout_C_thread_partitioning_smem_C_registers, layout_C_thread_partioning_smem_C); 
+            // cute::copy(layout_C_thread_partitioning_smem_C_registers, layout_C_thread_partioning_smem_C); 
+            // cute::copy_if(tCpC, layout_C_thread_partitioning_smem_C_registers, layout_C_thread_partioning_smem_C); 
             
-            // int i = tile.thread_rank();
-            // #pragma unroll
-            // for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
-            //     L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += layout_C_thread_partitioning_smem_C_registers(j,i);
-            // }
+            int i = tile.thread_rank();
+            #pragma unroll
+            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
+                L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += layout_C_thread_partitioning_smem_C_registers(j,i);
+            }
         
 
             #if DEBUG_PRINTING
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            if(cute::thread0() && (n != tile.size())) {
                 cute::print("Post Multiplciation State:\n");
                 cute::print("sA :\n"); print_tensor_contents(tensor_A_smem); cute::print("\n");
                 cute::print("sB :\n"); print_tensor_contents(tensor_B_smem); cute::print("\n");
@@ -357,7 +358,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             #endif
 
             #if DEBUG_PRINTING
-            if(cute::thread0() && (L1_L2_block_start_index == 0)) {
+            if(cute::thread0() && (n != tile.size())) {
            
                 // cute::print("tCsA :\n"); print_tensor_contents(layout_C_thread_partioning_smem_A); cute::print("\n");
                 // cute::print("tCsB :\n"); print_tensor_contents(layout_C_thread_partioning_smem_B); cute::print("\n");
@@ -515,7 +516,16 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         
         int num_weights = L1_mults * L2_mults * L3_mults;
 
-        // assign every thread one weight LMAO, yes, this is very bad, correctness here we come
+        // cute::Layout layout_L1L2_smem    = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
+        // cute::Layout layout_weights_smem = cute::make_layout(cute::make_shape(cute::Int<gemm_N>{}, cute::Int<gemm_K>{}), cute::LayoutLeft{}); // Column Major
+        // cute::Layout layout_L3_smem      = cute::make_layout(cute::make_shape(cute::Int<gemm_M>{}, cute::Int<gemm_N>{}), cute::LayoutLeft{}); // Column Major  
+        
+        // cute::Tensor tensor_L1L2_smem         = cute::make_tensor(cute::make_smem_ptr(gemm_L3_smem_warp),         layout_L1L2_smem);
+        // cute::Tensor tensor_L1L2_grad_smem    = cute::make_tensor(cute::make_smem_ptr(                 ), layout_L1L2L_smem); 
+        // cute::Tensor tensor_weights_smem      = cute::make_tensor(cute::make_smem_ptr(gemm_weights_smem_warp),    layout_B_smem); 
+        // cute::Tensor tensor_weights_grad_smem = cute::make_tensor(cute::make_smem_ptr(), )
+        // cute::Tensor tensor_L3_grad_smem      = cute::make_tensor(cute::make_smem_ptr(L3_smem_interaction_shift), layout_C_smem); 
+
         for ( 
             int block_start_weight_index = 0;
             block_start_weight_index < num_weights;  
@@ -535,6 +545,9 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
             float* L2_smem_multiplicity_shift = L2_shared_shift_interaction + (L2_mult_index * L2_irrep_length); 
             float* L2_grad_smem_multiplicity_shift = L2_grad_shared_shift_interaction + (L2_mult_index * L2_irrep_length); 
             float* L3_grad_smem_multiplicity_shift = L3_grad_shared_shift_interaction + (L3_mult_index * L3_irrep_length);
+            
+   
+            
             
             tile.sync();
 
@@ -722,7 +735,7 @@ __device__ __forceinline__ void static_contiguous_copy(Group g, T* dst, T* src){
         constexpr int quotient = Num_Elements / g.size();
         constexpr int offset = quotient * g.size();  
         if (thread_rank < remainder){
-            dst[quotient + thread_rank] = src[quotient + thread_rank];
+            dst[offset + thread_rank] = src[offset + thread_rank];
         }
     }
 }
@@ -745,7 +758,7 @@ __device__ __forceinline__ void static_contiguous_set(Group g, T* dst, T value){
         constexpr int quotient = Num_Elements / g.size();
         constexpr int offset = quotient * g.size();  
         if (thread_rank < remainder){
-            dst[quotient + thread_rank] = value;
+            dst[offset + thread_rank] = value;
         }
     }
 }
@@ -776,7 +789,7 @@ template<typename Tensor>
 __device__ __forceinline__ void print_tensor_contents(Tensor t){
     for (int row = 0; row < cute::size<0>(t); row++){
         for (int col = 0; col < cute::size<1>(t); col++){
-            cute::print("%+1.2f",t(row,col)); cute::print(" ");
+            cute::print("%+1.3f",t(row,col)); cute::print(" ");
         } 
         cute::print("\n");
     }
