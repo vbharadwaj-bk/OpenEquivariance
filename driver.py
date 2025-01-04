@@ -152,7 +152,7 @@ if __name__=='__main__':
     ]
 
     conv_problems = [  
-        FCTPP("32x5e", "32x3e", "32x5e"),
+        FCTPP("16x1e", "16x1e", "16x1e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #ChannelwiseTPP("128x0e+128x1o+128x2e", 
         #        "1x0e+1x1o+1x2e+1x3o",
@@ -172,7 +172,7 @@ if __name__=='__main__':
     ))
  
     implementations = [
-        #E3NNTensorProduct,
+        E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
         MultiplicityOuterProductTP,
@@ -192,7 +192,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=False
+        torch_op=True
     )
 
     logger.setLevel(logging.INFO)

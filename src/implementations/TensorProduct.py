@@ -61,7 +61,7 @@ class TensorProduct:
                 L3_grad)
 
     def forward_cpu(
-        self, 
+        self,
         L1_in: np.ndarray, 
         L2_in: np.ndarray, 
         L3_out: np.ndarray, 

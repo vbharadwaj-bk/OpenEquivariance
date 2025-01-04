@@ -12,7 +12,6 @@ class ManyOneUVWTP(TensorProduct):
         config = self.config
 
         mul_0 = L1[0].mul
-        assert(mul_0 == 32)
 
         for (mul, ir) in L1:
             assert(mul == mul_0) 
@@ -21,7 +20,6 @@ class ManyOneUVWTP(TensorProduct):
             assert(mul == mul_0)
 
         assert(len(config.instructions) == 1)
-        #assert(config.instructions[0].connection_mode == "uvw")
 
         env = get_jinja_environment()
         template = env.get_template("many_one_uvw.cuh")
@@ -80,18 +78,19 @@ class ManyOneUVWTP(TensorProduct):
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
         logger.info("Kernel compiled!")
 
-    def exec_tensor_product_cpu(self, L1_in, L2_in, L3_out, weights):
+        if torch_op:
+            self.setup_torch_custom_op()
+
+    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
         L1, L2, L3 = self.L1, self.L2, self.L3
-        logger.warning(f"{bcolors.WARNING}Executing a transpose that is not benchmarked.{bcolors.ENDC}")
 
-        L1Rep, L2Rep, L3Rep = Representation(str(L1)), Representation(str(L2)), Representation(str(L3))
+        weights_copy = weights.copy()
 
-        L1Rep.transpose_irreps_cpu(L1_in, True)
-        self.internal.exec_tensor_product_cpu(L1_in, L2_in, L3_out, weights) 
-        L1Rep.transpose_irreps_cpu(L1_in, False)
+        for i, _ in enumerate(self.config.instructions):
+            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
+            weights_copy[start:end] = weights[start:end].reshape(shape).transpose(1, 0, 2).flatten()
 
-    def backward_cpu(self, L1_in, L2_in, L3_grad, weights):
-        raise NotImplementedError("Backward pass not implemented for ManyOneUVWTP")
+        super().forward_cpu(L1_in, L2_in, L3_out, weights_copy)
 
     @staticmethod
     def name():

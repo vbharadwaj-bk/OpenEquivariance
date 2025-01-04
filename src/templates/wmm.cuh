@@ -2,7 +2,7 @@
 
 {%-set TILES_PER_COL = 32 // TILES_PER_ROW %}
 
-__global__ void {{name}}(float* A, float* B, float* C) {    
+__device__ __forceinline__ void {{name}}(const float* __restrict__ A, const float* __restrict__ B, float* C) {    
     int t_idx = threadIdx.x + blockIdx.x * blockDim.x;
     int lane_id = t_idx % 32;
 
@@ -61,9 +61,9 @@ __global__ void {{name}}(float* A, float* B, float* C) {
         for(int j = 0; j < cpt; j++) {
             if(i + ist < {{M}} && j + jst < {{N}}) {
                 {%- if OUTPUT_RMAJOR %}
-                    C[(i + ist) * {{N}} + j + jst] = tile[i][j];
+                    C[(i + ist) * {{N}} + j + jst] += tile[i][j];
                 {%- else %}
-                    C[(j + jst) * {{M}} + i + ist] = tile[i][j];
+                    C[(j + jst) * {{M}} + i + ist] += tile[i][j];
                 {%- endif %}
             }
         } 
@@ -71,5 +71,3 @@ __global__ void {{name}}(float* A, float* B, float* C) {
 }
 
 {%- endmacro %}
-
-/*{{ generate_matmul("warp_matmul", M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR) }}*/

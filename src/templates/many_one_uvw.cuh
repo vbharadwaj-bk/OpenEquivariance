@@ -2,6 +2,7 @@
 
 {% include 'common.cuh' %}
 {%- from 'macros.jinja' import declare_smem_arrays, transpose_store with context %}
+{%- from 'wmm.cuh' import generate_matmul %}
 
 #define THREADS_PER_WARP {{ forward_config.warp_size }} 
 #define FULL_MASK 0xffffffff
@@ -23,63 +24,7 @@
 {%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
-/*
-* Two template params: tile HEIGHT, DITH. Threads laid out in an 8 x 4 grid,
-* so the output has dimensions (8 * HEIGHT) x (4 * WIDTH). 0-padding
-* is applied to the input irreps but NOT the output buffer, conditionals are used for loads.
-* Weights is N x K, irreps is M x K, output is M x N. 
-*/
-
-template<int HEIGHT, int WIDTH, int M, int N, int K>
-__device__ __forceinline__ void warp_matmul(
-            const float* __restrict__ irreps, 
-            const float* __restrict__ weights, 
-            float* out,
-            int lane_id) {
-
-    float output[WIDTH][HEIGHT]; float col_weights[HEIGHT]; float row_irreps[WIDTH];
-
-    int N_padded = 12; // Multiply THREAD_COLS=3 by 4, # of tiles spanning column dimension 
-    int t_row_idx = lane_id % 8; int t_col_idx = lane_id / 8;
-    int row_start = t_col_idx * WIDTH; int col_start = t_row_idx * HEIGHT;
-
-    // Zero out the output buffer
-    #pragma unroll
-    for(int i = 0; i < WIDTH; i++) {
-        #pragma unroll
-        for(int j = 0; j < HEIGHT; j++)
-            output[i][j] = 0.0f;
-    }
-
-    for(int k = 0; k < K; k++) {
-        #pragma unroll
-        for(int i = 0; i < WIDTH; i++) {
-            row_irreps[i] = irreps[row_start + i + k * N_padded];
-        }
-
-        #pragma unroll
-        for(int j = 0; j < HEIGHT; j++) {
-            col_weights[j] = weights[col_start + j + k * K];
-        }
-
-        #pragma unroll
-        for(int i = 0; i < WIDTH; i++) {
-            #pragma unroll
-            for(int j = 0; j < HEIGHT; j++)
-                output[i][j] += row_irreps[i] * col_weights[j];
-        }
-    }
-
-    #pragma unroll
-    for(int i = 0; i < WIDTH; i++) {
-        #pragma unroll
-        for(int j = 0; j < HEIGHT; j++) {
-            if(row_start + i < N && col_start + j < M) {
-                out[(col_start + j) * N + row_start + i] += output[i][j];
-            }
-        }
-    }
-}
+{{generate_matmul("warp_matmul", L3[0].mul, L3[0].ir.dim, L1[0].mul, 4, True)}}
 
 __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
         const float* __restrict__ weights_smem, float* __restrict__ L3_smem, float* __restrict__ L3_scratch, int lane_id) {
@@ -94,30 +39,33 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
         {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
         {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
 
-        #pragma unroll
-        for(int j = 0; j < {{L1[u].ir.dim}}; j++)
-            l1_vec[j] = L1_smem[{{L1[u].mul}} * j + {{ L1.slices()[u].start}}];
+        if(lane_id < {{L1[u].mul}}) {
+            #pragma unroll
+            for(int j = 0; j < {{L1[u].ir.dim}}; j++)
+                l1_vec[j] = L1_smem[{{L1[u].ir.dim}} * lane_id + j];
 
-        #pragma unroll
-        for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-            l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
+            #pragma unroll
+            for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
 
-        #pragma unroll
-        for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-            l3_vec[j] = 0.0f;
+            #pragma unroll
+            for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                l3_vec[j] = 0.0f;
 
-        {%- for i in range(tensor.nnz) %}
-            {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-            l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
-        {%- endfor %}
+            {%- for i in range(tensor.nnz) %}
+                {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
+            {%- endfor %}
 
-        // Store to appropriate location, after transposing within warp, to shared memory 
-        #pragma unroll
-        for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
-            L3_scratch[12 * lane_id + j] = l3_vec[j]; // Padding applied here 
+            // Store to appropriate location, after transposing within warp, to shared memory 
+            #pragma unroll
+            for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
+                L3_scratch[{{L3[w].ir.dim}} * lane_id + j] = l3_vec[j]; 
+            }
         }
+
         __syncwarp();
-        warp_matmul<4, 3, 32, 11, 32>(L3_scratch, weights_smem, L3_smem, lane_id);
+        warp_matmul(weights_smem, L3_scratch, L3_smem);
         __syncwarp();
     {%- endfor %}
 }
@@ -135,11 +83,9 @@ __global__ void forward(
             ("L1_smem", "float", L1.dim),
             ("L2_smem", "float", L2.dim),
             ("L3_smem", "float", L3.dim),
-            ("L3_scratch", "float", 32 * 12),
+            ("L3_scratch", "float", L3.dim),
             ("weights_smem", "float", 32 * 32)
         ]}, "warp_loc", forward_config)}}
-
-    ROW_OPERATION({{32 * 3}}, j, L3_scratch[j + lane_id] = 0.0;)
 
     for(size_t i = start; i < end; i++) {
         float* l1_shft = L1_in + i * {{L1.dim}} + lane_id;
@@ -153,9 +99,9 @@ __global__ void forward(
 
         __syncwarp();
         for(int k = 0; k < {{L2[0].mul}}; k++) {
-            ROW_OPERATION({{32 * 32}}, j, weights_smem[j + lane_id] = weights_shft[k + 1024];)
+            ROW_OPERATION({{L3[0].mul * L1[0].mul}}, j, weights_smem[j + lane_id] = weights_shft[j + k * {{L3[0].mul * L1[0].mul}}];)
             __syncwarp();
-            forward_many_one(L1_smem + lane_id, L2_smem + k * {{L2[0].ir.dim}}, weights_smem, L3_smem, L3_scratch, lane_id);
+            forward_many_one(L1_smem, L2_smem + k * {{L2[0].ir.dim}}, weights_smem, L3_smem, L3_scratch, lane_id);
         }
 
         __syncwarp();
