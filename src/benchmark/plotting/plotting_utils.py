@@ -21,8 +21,8 @@ impl_to_project_map : dict[str, Project] = defaultdict(
 
 project_to_color_map : dict[Project, str] = {
     'e3nn' : 'lightblue',
-    'cuE' : 'orange',
-    'ours' : 'green'
+    'cuE'  : 'orange',
+    'ours' : 'green',
 }
 
 project_to_display_order_map : dict[Project, int] = {

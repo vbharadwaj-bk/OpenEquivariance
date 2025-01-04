@@ -134,9 +134,10 @@ class MultiplicityOuterProductTP(TensorProduct):
         backward_launch_config = KernelLaunchConfig()
         backward_launch_config.num_blocks = dp.multiprocessorCount * 2
 
+
         backward_smem_gemm_max_n = dp.warpsize
         backward_smem_gemm_L1L2_scratch = backward_smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
-        backward_smem_gemm_weights_scratch = max(RepData(config.irreps_out).mults) * backward_smem_gemm_max_n
+        backward_smem_gemm_weights_scratch = backward_smem_gemm_max_n * max(RepData(config.irreps_out).mults) 
 
         backward_smem_per_warp = {}
         backward_smem_per_warp['in1']          = (irreps_in1.dim * sizeof('float'))
@@ -165,6 +166,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         backward_num_warps = min(backward_num_warps_that_fit, backward_num_warps_sane_limit)
         logger.info(msg=f"{backward_num_warps=}")
 
+        backward_launch_config.warp_size = dp.warpsize
         backward_launch_config.num_threads = backward_launch_config.warp_size * backward_num_warps
         backward_launch_config.smem = backward_smem_per_warp_total * backward_num_warps
 
@@ -209,7 +211,7 @@ class MultiplicityOuterProductTP(TensorProduct):
             instructions=instructions,
             interactions=interactions,
             forward_smem_gemm_info=forward_smem_gemm_info,
-            backward_smem_gemm_info=backward_smem_gemm_info
+            backward_smem_gemm_info=backward_smem_gemm_info,
             forward_config=forward_launch_config,
             backward_config=backward_launch_config
         )   

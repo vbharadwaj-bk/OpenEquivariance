@@ -1,4 +1,4 @@
-import itertools, typing
+import itertools, typing, random
 
 import numpy as np
 import numpy.linalg as la
@@ -19,14 +19,20 @@ from src.implementations.CUETensorProduct import CUETensorProduct
 
 logger = getLogger()
 
-def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Direction) -> None:
+def debug( test : TestDefinition) -> None: 
+    print(test)
+    tp_impl = test.implementation
+    config = test.problem  
+    direction = test.direction
+
     assert issubclass(tp_impl, TensorProduct)
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
     batch_size = 1
-    prng_seed = 12345
-    
+    # prng_seed = 12345
+    prng_seed = random.randint(100, 100000)
+
     tp = tp_impl(config)
 
     from src.implementations.E3NNTensorProduct import E3NNTensorProduct
@@ -106,9 +112,9 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
 
 
         for name, ground_truth, test_result in [
+            ("weight_grad", ref_weights_grad, test_weights_grad),
             ("L1_grad", ref_in1_grad , test_in1_grad),
             ("L2_grad", ref_in2_grad , test_in2_grad),
-            ("weight_grad", ref_weights_grad, test_weights_grad),
             ]:
             print(name)
             print("ground truth")
@@ -119,6 +125,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
             print(test_result / ground_truth)
             print("LA.Norm:")
             print(la.norm((test_result - ground_truth).flatten(), ord=np.inf))
+            print()
     else:
         assert(False)
     np.set_printoptions()
@@ -128,7 +135,7 @@ if __name__=='__main__':
     ChannelTPP = ChannelwiseTPP 
     basic_fully_connected_problems = [
         FCTPP("1x1e", "1x1e", "1x1e"),
-        FCTPP("1x1e", "1x1e", "2x1e"),
+        FCTPP("1x1e", "1x1e", "4x1e"),
         FCTPP("1x1e", "2x1e", "1x1e"), 
         FCTPP("2x1e", "1x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "1x1e"),
@@ -222,7 +229,7 @@ if __name__=='__main__':
         MultiplicityOuterProductTP]
     
     directions : list[Direction] = [
-        'forward', 
+        # 'forward', 
         'backward',
         ] 
 
@@ -233,13 +240,11 @@ if __name__=='__main__':
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
-        bench_batch_size=50000,
+        bench_batch_size=10_000_000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111
     )
 
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
-
-    # debug_config = cutlass_troubleshooting[0]
-    # debug(MultiplicityOuterProductTP, debug_config, direction="forward")
+    # debug(tests[4])

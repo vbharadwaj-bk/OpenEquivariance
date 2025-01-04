@@ -20,10 +20,24 @@ if __name__ == '__main__':
 
     problems = [
             FCTPP("2x1e", "2x1e", "2x1e"),
+            FCTPP("2x4e", "2x4e", "2x4e"),
+            FCTPP("2x8e", "2x8e", "2x8e"),
+
             FCTPP("4x1e", "4x1e", "4x1e"),
+            FCTPP("4x4e", "4x4e", "4x4e"),
+            FCTPP("4x8e", "4x8e", "4x8e"),
+
             FCTPP("8x1e", "8x1e", "8x1e"),
+            FCTPP("8x4e", "8x4e", "8x4e"),
+            FCTPP("8x8e", "8x8e", "8x8e"),
+
             FCTPP("16x1e", "16x1e", "16x1e"),
+            FCTPP("16x4e", "16x4e", "16x4e"),
+            FCTPP("16x8e", "16x8e", "16x8e"),
+
             FCTPP("32x1e", "32x1e", "32x1e"),
+            FCTPP("32x4e", "32x4e", "32x4e"),
+            # FCTPP("32x8e", "32x8e", "32x8e"),
         ]
 
     directions : list[Direction] = [
@@ -33,7 +47,7 @@ if __name__ == '__main__':
 
     implementations = [
             E3NNTensorProduct,
-            CUETensorProduct, 
+            # CUETensorProduct, 
             MultiplicityOuterProductTP
         ]
 
@@ -44,7 +58,7 @@ if __name__ == '__main__':
     bench_suite = TestBenchmarkSuite(
             correctness_threshold = 5e-5,
             num_iter=5,
-            bench_batch_size=50000,
+            bench_batch_size=500_000,
             prng_seed=11111
         )
     
