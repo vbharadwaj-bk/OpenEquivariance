@@ -1,6 +1,8 @@
+{%- macro generate_matmul(name, M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR) %}
+
 {%-set TILES_PER_COL = 32 // TILES_PER_ROW %}
 
-__global__ void warp_matmul(float* A, float* B, float* C) {    
+__global__ void {{name}}(float* A, float* B, float* C) {    
     int t_idx = threadIdx.x + blockIdx.x * blockDim.x;
     int lane_id = t_idx % 32;
 
@@ -58,7 +60,7 @@ __global__ void warp_matmul(float* A, float* B, float* C) {
     for(int i = 0; i < rpt; i++) {
         for(int j = 0; j < cpt; j++) {
             if(i + ist < {{M}} && j + jst < {{N}}) {
-                {%- if STOREBACK_RMAJOR %}
+                {%- if OUTPUT_RMAJOR %}
                     C[(i + ist) * {{N}} + j + jst] = tile[i][j];
                 {%- else %}
                     C[(j + jst) * {{M}} + i + ist] = tile[i][j];
@@ -66,18 +68,8 @@ __global__ void warp_matmul(float* A, float* B, float* C) {
             }
         } 
     }
-    // Print lane_id, is, ie, js, je
-    // printf("lane_id: %d, is: %d, ie: %d, js: %d, je: %d\n", lane_id, is, ie, js, je);
 }
 
-/*if(t_idx == 0) {
-    for(int i = 0; i < {{M}}; i++) {
-        for(int j = 0; j < {{N}}; j++) {
-            float sum = 0;
-            for(int k = 0; k < {{K}}; k++) {
-                sum += A[i * {{K}} + k] * B[k * {{N}} + j];
-            }
-            C[i * {{N}} + j] = sum;
-        }
-    }
-}*/
+{%- endmacro %}
+
+/*{{ generate_matmul("warp_matmul", M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR) }}*/

@@ -36,6 +36,6 @@ def test_simple_kernel():
 
     M, N, K = 17, 3, 5 
     kernel = template.render(M=M, N=N, K=K, 
-            TILES_PER_ROW=4, STOREBACK_RMAJOR=False)
+            TILES_PER_ROW=2, STOREBACK_RMAJOR=False)
     test = WarpMatmulTest(M, N, K, np.float32)
     test.run(kernel)

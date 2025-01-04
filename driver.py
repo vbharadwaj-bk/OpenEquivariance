@@ -113,8 +113,8 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     np.set_printoptions()
 
 if __name__=='__main__':
-    warp_matmul.test_simple_kernel()
-    exit(1)
+    #warp_matmul.test_simple_kernel()
+    #exit(1)
 
     FCTPP = FullyConnectedTPProblem
     ChannelTPP = ChannelwiseTPP 
@@ -152,7 +152,7 @@ if __name__=='__main__':
     ]
 
     conv_problems = [  
-        #FCTPP("32x2e", "32x1e", "32x2e"),
+        FCTPP("32x5e", "32x3e", "32x5e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #ChannelwiseTPP("128x0e+128x1o+128x2e", 
         #        "1x0e+1x1o+1x2e+1x3o",
@@ -165,23 +165,24 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        increasing_multiplicity_fully_connected_problems,
+        #increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        #conv_problems,
+        conv_problems,
     ))
  
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
-        MultiplicityOuterProductTP
+        MultiplicityOuterProductTP,
+        ManyOneUVWTP
         ]
 
-    directions = ['forward', 'backward'] 
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
-                correctness=False, benchmark=True) 
+                correctness=True, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
@@ -191,7 +192,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=True
+        torch_op=False
     )
 
     logger.setLevel(logging.INFO)
