@@ -159,6 +159,29 @@ if __name__=='__main__':
         #        "128x0e+128x1o+128x2e+128x3o")
     ]
 
+    test_problems = [
+            FCTPP("2x1e", "2x1e", "2x1e"),
+            FCTPP("2x4e", "2x4e", "2x4e"),
+            FCTPP("2x8e", "2x8e", "2x8e"),
+
+            FCTPP("4x1e", "4x1e", "4x1e"),
+            FCTPP("4x4e", "4x4e", "4x4e"),
+            FCTPP("4x8e", "4x8e", "4x8e"),
+
+            FCTPP("8x1e", "8x1e", "8x1e"),
+            FCTPP("8x4e", "8x4e", "8x4e"),
+            FCTPP("8x8e", "8x8e", "8x8e"),
+
+            FCTPP("16x1e", "16x1e", "16x1e"),
+            FCTPP("16x4e", "16x4e", "16x4e"),
+            FCTPP("16x8e", "16x8e", "16x8e"),
+
+            FCTPP("32x1e", "32x1e", "32x1e"),
+            FCTPP("32x4e", "32x4e", "32x4e"),
+            # FCTPP("32x8e", "32x8e", "32x8e")
+    ]
+
+
     #for problem in conv_problems:
     #    problem.irrep_dtype = np.float64
     #    problem.weight_dtype = np.float64
@@ -168,7 +191,7 @@ if __name__=='__main__':
         #increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        conv_problems,
+        test_problems,
     ))
  
     implementations = [
