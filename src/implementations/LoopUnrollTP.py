@@ -13,8 +13,8 @@ class LoopUnrollTP(TensorProduct):
         super().__init__(config, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3 
 
-        for (mul, ir) in L2:
-            assert(mul == 1)
+        #for (mul, ir) in L2:
+        #    assert(mul == 1)
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
@@ -50,6 +50,21 @@ class LoopUnrollTP(TensorProduct):
 
         if self.torch_op:
             self.setup_torch_custom_op()
+
+    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
+        config = self.config
+        weights_copy = weights.copy()
+
+        print("STARTING FORWARD_CPU!")
+
+        for i, inst in enumerate(self.config.instructions):
+            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
+            if inst.connection_mode == "uvu":
+                if not config.shared_weights:
+                    shape = (weights_copy.shape[0], shape[0], shape[1])
+                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
+
+        super().forward_cpu(L1_in, L2_in, L3_out, weights_copy)
 
     @staticmethod
     def name():

@@ -22,17 +22,9 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const IRREP_T* __rest
         {%- set weight_start, _, _ = problem.weight_range_and_shape_for_instruction(k)%}
 
         if(lane_id < {{L1[u].mul}}) {
-            weight = weights_smem[{{weight_start}}];
-
             {%- if k == 0 or interactions[k][0] != interactions[k-1][0] %}
                 offset = {{ L1.slices()[u].start}}; 
                 {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_smem', 'offset', 'l1_vec')}}
-            {%- endif %}
-
-            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] %}
-                #pragma unroll
-                for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-                    l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
             {%- endif %}
 
             {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
@@ -41,14 +33,22 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const IRREP_T* __rest
                     l3_vec[j] = 0.0f;
             {%- endif %}
 
-            {%- for i in range(tensor.nnz) %}
-                {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
-            {%- endfor %}
+            for(int k = 0; k < {{L2[0].mul}}; k++) {
+                weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}}];
+
+                #pragma unroll
+                for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                    l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;
+
+                {%- for i in range(tensor.nnz) %}
+                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                    l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}]; 
+                {%- endfor %}
+            }
 
             {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
                 offset = {{ L3.slices()[w].start}}; 
-                {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', 'weight')}}
+                {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', '1.0')}}
             {%- endif %}
         }
     {%- endfor %}

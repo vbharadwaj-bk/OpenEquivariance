@@ -26,12 +26,12 @@
 
 {{generate_matmul("warp_matmul", L3[0].mul, L3[0].ir.dim, L1[0].mul, 4, True)}}
 
-__device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem, 
-        const float* __restrict__ weights_smem, float* __restrict__ L3_smem, float* __restrict__ L3_scratch, int lane_id) {
+__device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_smem, const float* __restrict__ L2_smem,
+        const float* __restrict__ weights_shft,
+        float* weights_smem, float* __restrict__ L3_smem, float* __restrict__ L3_scratch, int lane_id) {
     float l1_vec[{{L1_irrep_lengths | max}}];
     float l2_vec[{{L2_irrep_lengths | max}}];
     float l3_vec[{{L3_irrep_lengths | max}}];
-    float l3_vec_weighted[{{L3_irrep_lengths | max}}];
 
     {%- set num_interact = interactions | length %}
     
@@ -39,34 +39,39 @@ __device__ __forceinline__ void forward_many_one(const float* __restrict__ L1_sm
         {%- set u, v, w, instruction_idx, tensor = interactions[k] %}
         {%- set weight_start, _, _ = config.weight_range_and_shape_for_instruction(instruction_idx)%}
 
-        if(lane_id < {{L1[u].mul}}) {
-            #pragma unroll
-            for(int j = 0; j < {{L1[u].ir.dim}}; j++)
-                l1_vec[j] = L1_smem[{{L1[u].ir.dim}} * lane_id + j];
+        for(int k = 0; k < {{L2[0].mul}}; k++) {
 
-            #pragma unroll
-            for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-                l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}}];
+            if(lane_id < {{L1[u].mul}}) {
+                #pragma unroll
+                for(int j = 0; j < {{L1[u].ir.dim}}; j++)
+                    l1_vec[j] = L1_smem[{{L1[u].ir.dim}} * lane_id + j];
 
-            #pragma unroll
-            for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-                l3_vec[j] = 0.0f;
+                #pragma unroll
+                for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                    l2_vec[j] = L2_smem[k * {{L2[0].ir.dim}} + 
+                        j + {{L2.slices()[v].start}}];
 
-            {%- for i in range(tensor.nnz) %}
-                {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
-            {%- endfor %}
+                #pragma unroll
+                for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                    l3_vec[j] = 0.0f;
 
-            // Store to appropriate location, after transposing within warp, to shared memory 
-            #pragma unroll
-            for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
-                L3_scratch[{{L3[w].ir.dim}} * lane_id + j] = l3_vec[j]; 
+                {%- for i in range(tensor.nnz) %}
+                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                    l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}];
+                {%- endfor %}
+
+                // Store to appropriate location, after transposing within warp, to shared memory 
+                #pragma unroll
+                for(int j = 0; j < {{L3[w].ir.dim}}; j++) {
+                    L3_scratch[{{L3[w].ir.dim}} * lane_id + j] = l3_vec[j]; 
+                }
             }
-        }
 
-        __syncwarp();
-        warp_matmul(weights_smem, L3_scratch, L3_smem);
-        __syncwarp();
+            ROW_OPERATION({{L3[0].mul * L1[0].mul}}, j, weights_smem[j + lane_id] = weights_shft[j + k * {{L3[0].mul * L1[0].mul}}];)
+            __syncwarp();
+            warp_matmul(weights_smem, L3_scratch, L3_smem);
+            __syncwarp();
+        }
     {%- endfor %}
 }
 
@@ -98,11 +103,8 @@ __global__ void forward(
         ROW_OPERATION({{L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
 
         __syncwarp();
-        for(int k = 0; k < {{L2[0].mul}}; k++) {
-            ROW_OPERATION({{L3[0].mul * L1[0].mul}}, j, weights_smem[j + lane_id] = weights_shft[j + k * {{L3[0].mul * L1[0].mul}}];)
-            __syncwarp();
-            forward_many_one(L1_smem, L2_smem + k * {{L2[0].ir.dim}}, weights_smem, L3_smem, L3_scratch, lane_id);
-        }
+
+        forward_many_one(L1_smem, L2_smem, weights_shft, weights_smem, L3_smem, L3_scratch, lane_id); 
 
         __syncwarp();
 
