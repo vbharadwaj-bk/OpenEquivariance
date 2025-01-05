@@ -563,10 +563,6 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         cute::Tensor tensor_weights_grad_fragment = cute::make_tensor_like(tensor_weights_grad_thread); 
         // Gemm 2 
         cute::Tensor tensor_L1L2_grad_fragment = cute::make_tensor_like(tensor_L1L2_grad_thread); 
-
-        // cute::Layout layout_L3_grad    = cute::make_layout(cute::make_shape(cute::Int<gemm_I>{}, cute::Int<gemm_M>{}), cute::LayoutLeft{});  // Column Major (irrep_dim x L3_mults)        
-        // cute::Layout second_gemm_layout = cute::make_layout(cute::make_shape(cute::Int< 1>{}, cute::Int< tile.size()>));
-        // cute::Layout tensor_L3_grad_thread_   = cute::local_partition(tensor_  , second_gemm_layout, tile.thread_rank(), cute::Step<cute::_1,cute::X> {});        
         
         constexpr int num_L1_L2_combinations = L1_mults * L2_mults; 
 
@@ -592,8 +588,6 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
             tile.sync();
 
             bool active_for_tensor_product = (tile.thread_rank() < n); 
-
-            /*
 
             // CREATE L1L2 INTERMEDIATES (FORWARD)
             // THIS IS REQUIRED TO DO THE WEIGHT GRADIENT
@@ -667,8 +661,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
             }
             #endif
 
-            */
-            
+           
             tile.sync(); 
             // NOW WE ARE DOING THE L1L2 GRADIENTS
             // This is done by L1L2_grad = L3_grad x weights.transpose 
@@ -768,7 +761,6 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                     atomicAdd_block(&L1_grad_smem_multiplicity_shift[L1_irrep_index], L1_grad_local_vec[L1_irrep_index]);
                 }
                 
-
                 // BLOCK-WIDE ATOMIC ADD L2_GRAD_LOCAL TO L2_GRAD_SMEM 
                 #pragma unroll 
                 for(int L2_irrep_index = 0; L2_irrep_index < L2_irrep_length; L2_irrep_index++){
