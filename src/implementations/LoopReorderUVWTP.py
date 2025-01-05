@@ -154,7 +154,7 @@ class LoopReorderUVWTP(TensorProduct):
         env.globals['enumerate'] = enumerate 
         env.globals['len'] = len
         env.globals['math.prod'] = math.prod
-        main_template = env.get_template("subkernel_per_interaction_multirep.cuh")
+        main_template = env.get_template("loop_reorder_uvw_cutlass_tp.cuh")
         
 
         # =====================================================================
