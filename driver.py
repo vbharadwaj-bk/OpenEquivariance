@@ -178,10 +178,12 @@ if __name__=='__main__':
         
         FCTPP(" 1x1e", " 1x1e", "11x1e"),
         FCTPP(" 1x1e", " 1x1e", "10x1e"),
+        
         FCTPP(" 1x1e", " 1x1e", " 7x2e"),
         FCTPP(" 1x1e", " 1x1e", " 6x2e"),
-        FCTPP(" 1x1e", " 1x2e", " 10x3e"),
-        FCTPP(" 1x1e", " 1x2e", " 4x3e"),
+        
+        FCTPP(" 1x1e", " 1x2e", " 9x3e"),
+        FCTPP(" 1x1e", " 1x2e", " 8x3e"),
     ]
 
     full_size_uvw_case = [
