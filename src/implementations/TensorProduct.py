@@ -271,3 +271,17 @@ class TensorProduct:
             return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7)
 
         backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
+
+
+    def reorder_weights(self, weights):
+        config = self.config
+        weights_copy = weights.copy()
+
+        for i, inst in enumerate(self.config.instructions):
+            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
+            if inst.connection_mode == "uvu":
+                if not config.shared_weights:
+                    shape = (weights_copy.shape[0], shape[0], shape[1])
+                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
+
+        return weights_copy

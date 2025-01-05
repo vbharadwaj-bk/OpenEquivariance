@@ -153,10 +153,10 @@ if __name__=='__main__':
 
     conv_problems = [  
         #FCTPP("32x5e", "32x3e", "32x5e"),
-        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x0e+128x1o+128x2e", 
-                "1x0e+1x1o+1x2e+1x3o",
-                "128x0e+128x1o+128x2e+128x3o")
+        SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
+        #ChannelwiseTPP("128x0e+128x1o+128x2e", 
+        #        "1x0e+1x1o+1x2e+1x3o",
+        #        "128x0e+128x1o+128x2e+128x3o")
     ]
 
     test_problems = [
@@ -202,7 +202,7 @@ if __name__=='__main__':
         #ManyOneUVWTP
         ]
 
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=True, benchmark=True) 

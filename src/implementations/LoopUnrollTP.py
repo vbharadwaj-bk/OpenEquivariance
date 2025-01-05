@@ -11,10 +11,7 @@ logger = getLogger()
 class LoopUnrollTP(TensorProduct):
     def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)
-        L1, L2, L3 = self.L1, self.L2, self.L3 
-
-        #for (mul, ir) in L2:
-        #    assert(mul == 1)
+        L1, L2, L3 = self.L1, self.L2, self.L3
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
@@ -52,19 +49,11 @@ class LoopUnrollTP(TensorProduct):
             self.setup_torch_custom_op()
 
     def forward_cpu(self, L1_in, L2_in, L3_out, weights):
-        config = self.config
-        weights_copy = weights.copy()
+        super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights))
 
-        print("STARTING FORWARD_CPU!")
-
-        for i, inst in enumerate(self.config.instructions):
-            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
-            if inst.connection_mode == "uvu":
-                if not config.shared_weights:
-                    shape = (weights_copy.shape[0], shape[0], shape[1])
-                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
-
-        super().forward_cpu(L1_in, L2_in, L3_out, weights_copy)
+    def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad):
+        super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad, self.reorder_weights(weights), weights_grad)
+        weights_grad[:] = self.reorder_weights(weights_grad) 
 
     @staticmethod
     def name():
