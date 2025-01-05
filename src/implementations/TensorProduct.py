@@ -273,12 +273,14 @@ class TensorProduct:
         backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
 
 
-    def reorder_weights(self, weights):
+    def reorder_weights(self, weights, direction):
         config = self.config
         weights_copy = weights.copy()
 
         for i, inst in enumerate(self.config.instructions):
             start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
+            if direction == "backward":
+                shape = (shape[1], shape[0])
             if inst.connection_mode == "uvu":
                 if not config.shared_weights:
                     shape = (weights_copy.shape[0], shape[0], shape[1])
