@@ -19,19 +19,29 @@ class LoopUnrollTP(TensorProduct):
 
         dp = DeviceProp(0)
 
+        for inst in config.instructions:
+            assert(inst.connection_mode == config.instructions[0].connection_mode)         
+        assert(config.instructions[0].connection_mode in ["uvu", "uvw"]) 
+        assert(config.irrep_dtype == config.weight_dtype)
+        is_uvw = (config.instructions[0].connection_mode == "uvw")
+
         forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                include_scratch=is_uvw,
+                stream_weights=is_uvw)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                include_scratch=is_uvw,
+                stream_weights=is_uvw)
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,

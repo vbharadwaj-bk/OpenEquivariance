@@ -153,6 +153,8 @@ class ComputationSchedule:
             direction,
             irrep_dtype,
             weight_dtype,
+            include_scratch=False,
+            stream_weights=False, 
             schedule_type=2):
         '''
         smem_limit: size of available shared memory in bytes 
@@ -171,6 +173,9 @@ class ComputationSchedule:
 
         self.irrep_dtype_cstr = dtype_to_str_map[irrep_dtype]
         self.weight_dtype_cstr = dtype_to_str_map[weight_dtype]
+
+        # Stream weights on the fly before pre-loading 
+        self.stream_weights = False
 
         reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
         reps = [Irreps(), Irreps(), Irreps()]
@@ -215,6 +220,7 @@ class ComputationSchedule:
 
         def calculate_forward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
+            weight_itemsize = np.dtype(weight_dtype).itemsize
             smem = {
                 "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
@@ -230,7 +236,12 @@ class ComputationSchedule:
                     if inst.connection_mode == "uvu":
                         weights_smem += np.prod(inst.path_shape)
 
-            smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+            smem["weights"]["size"] = weights_smem * weight_itemsize 
+
+            if include_scratch: 
+                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                # Max irrep size of 10 -> dim = 21 
+                smem["scratch"] = {"size": (32 * 21) * weight_itemsize, "dtype": self.weight_dtype_cstr}
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
