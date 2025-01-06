@@ -147,7 +147,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                 }
             {%- endif %}
 
-            weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}}];
+            weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
             weight_grad = 0.0;
 
             {%- for i in range(tensor.nnz) %} 

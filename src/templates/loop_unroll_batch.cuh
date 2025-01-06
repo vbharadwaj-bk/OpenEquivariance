@@ -78,7 +78,8 @@ __global__ void backward(
         IRREP_T* l1_shft = L1_in + i * {{backward_schedule.L1.dim}} + lane_id;
         IRREP_T* l2_shft = L2_in + i * {{backward_schedule.L2.dim}} + lane_id; 
         IRREP_T* l3_shft = L3_grad + i * {{backward_schedule.L3.dim}} + lane_id;
-        WEIGHT_T* weights_shft = weights + i * {{tpp.weight_numel}} + lane_id;
+        WEIGHT_T* w = weights + i * {{tpp.weight_numel}}; 
+        WEIGHT_T* weights_shft = w + lane_id;
 
         {%- for i, segment in enumerate(backward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
@@ -99,7 +100,7 @@ __global__ void backward(
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
             __syncwarp();
-            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem + lane_id, L3_grad_smem,
+            backward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem, L3_grad_smem,
                     L1_grad_smem, L2_grad_smem, weights_grad, weights_grad_smem + lane_id, scratch_smem, lane_id);
             __syncwarp();
 
