@@ -1,4 +1,4 @@
-{%- from 'macros.jinja' import transpose_load, transpose_store with context %}
+{%- from 'macros.jinja' import transpose_load, transpose_store, reg_store with context %}
 {%- from 'wmm.cuh' import generate_matmul %}
 
 {%- macro generate_segment_kernel_forward(id, segment) %}
@@ -13,6 +13,7 @@
     {%- if inst.connection_mode == "uvw" %}
         {{generate_matmul("matmul_fwd_%d" % i, L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
         {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L3[w].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False, accum=False)}}
+        {{generate_matmul("matmul_bwd_B_%d" % i, L3[w].mul, L1[u].mul, L3[w].ir.dim, 4, False, A_CMAJOR=False, accum=False)}}
     {%- endif %}
 {%- endfor %}
 
@@ -197,11 +198,18 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                         l3_grad[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}]; 
                     {%- endfor %}
 
-                    __syncwarp();
-                    //offset = {{ L3.slices()[w].start}}; 
-                    //matmul_fwd_{{k}}(weights_smem, scratch, L3_smem + offset);
-                    //__syncwarp();
+                    {{ reg_store(L1[u].mul, L3[w].ir.dim, "scratch", "0", "l3_grad", "=", 1.0) }}
 
+                    __syncwarp(); 
+                    matmul_bwd_B_{{k}}(L3_grad_smem + offset, scratch, weights_smem);
+                    __syncwarp();
+
+                    tmp = weights_grad + {{weight_start}} + k * {{slice_size}} + lane_id;
+                    {%- if problem.shared_weights %}
+                        ROW_OPERATION({{slice_size}}, j, atomicAdd(tmp + j, weights_smem[j + lane_id]);)
+                    {%- else %}
+                        ROW_OPERATION({{slice_size}}, j, tmp[j] = weights_smem[j + lane_id];)
+                    {%- endif %}
                 }
             {%- endif %}
 

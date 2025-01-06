@@ -69,7 +69,9 @@ class LoopUnrollTP(TensorProduct):
         super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights, "forward"))
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad):
-        super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad, self.reorder_weights(weights, "forward"), weights_grad)
+        super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad,
+            self.reorder_weights(weights, "forward"), 
+            weights_grad)
         weights_grad[:] = self.reorder_weights(weights_grad, "backward")         
 
     @staticmethod
