@@ -175,7 +175,7 @@ class ComputationSchedule:
         self.weight_dtype_cstr = dtype_to_str_map[weight_dtype]
 
         # Stream weights on the fly before pre-loading 
-        self.stream_weights = False
+        self.stream_weights = stream_weights 
 
         reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
         reps = [Irreps(), Irreps(), Irreps()]
@@ -198,8 +198,11 @@ class ComputationSchedule:
                     for idx2 in irrep_maps[1, v]:
                         self.new_instructions.append((idx1, idx2, irrep_maps[2, w][i], connection_mode, has_weight, path_weight ** 2))
 
-            else:
-                raise Exception(f"Connection mode {connection_mode} not supported!")
+            elif connection_mode == "uvw":
+                for idx1 in irrep_maps[0, u]:
+                    for idx2 in irrep_maps[1, v]:
+                        for idx3 in irrep_maps[2, w]:
+                            self.new_instructions.append((idx1, idx2, idx3, connection_mode, has_weight, path_weight ** 2))
 
         #self.new_instructions.sort(key=lambda x: (x[2], x[0], x[1]))
 

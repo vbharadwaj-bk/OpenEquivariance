@@ -11,7 +11,7 @@
 {%- for i, inst in enumerate(problem.instructions) %}
     {%- set u, v, w, _ = interactions[i] %}
     {%- if inst.connection_mode == "uvw" %}
-        {{generate_matmul("matmul_fwd" + str(i), L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
+        {{generate_matmul("matmul_fwd_%d" % i, L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
     {%- endif %}
 {%- endfor %}
 
@@ -40,25 +40,40 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
                 {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_smem', 'offset', 'l1_vec')}}
             {%- endif %}
 
-            {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
-                #pragma unroll
-                for(int j = 0; j < {{L3[w].ir.dim}}; j++)
-                    l3_vec[j] = 0.0f;
-            {%- endif %}
+            #pragma unroll
+            for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                l3_vec[j] = 0.0f;
 
             for(int k = 0; k < {{L2[v].mul}}; k++) {
-                weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
-                #pragma unroll
-                for(int j = 0; j < {{L2[v].ir.dim}}; j++)
-                    l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;
+                {%- if problem.instructions[k].connection_mode == "uvu" %}
+                    weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
+                    #pragma unroll
+                    for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                        l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;
+                {%- elif problem.instructions[k].connection_mode == "uvw" %}
+                    ROW_OPERATION({{L3[w].mul * L1[u].mul}}, j, weights_smem[j + lane_id] = weights[j + k * {{L3[0].mul * L1[0].mul}} + lane_id];)
+                    #pragma unroll
+                    for(int j = 0; j < {{L2[v].ir.dim}}; j++)
+                        l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}];
+                {%- endif %}
 
+
+                // ----------------- CORE CALCULATION -----------------
                 {%- for i in range(tensor.nnz) %}
                     {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
                     l3_vec[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}]; 
                 {%- endfor %}
+                // ----------------- CORE CALCULATION -----------------
+
+
+                {%- if problem.instructions[k].connection_mode == "uvw" %}
+                    offset = {{ L3.slices()[w].start}}; 
+                    {{transpose_store(L3[w].mul, L3[w].ir.dim, 'scratch', '0', 'l3_vec', '=', '1.0')}}
+                    matmul_fwd_{{k}}(weights_smem, scratch, L3_smem + offset);
+                {%- endif %}
             }
 
-            {%- if k == num_interact - 1 or interactions[k][2] != interactions[k+1][2] %}
+            {%- if problem.instructions[k].connection_mode != "uvw" %}
                 offset = {{ L3.slices()[w].start}}; 
                 {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', '1.0')}}
             {%- endif %}
