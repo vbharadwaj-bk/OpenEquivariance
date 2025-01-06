@@ -49,6 +49,8 @@ def correctness_forward(
  
     in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
 
+    weights[:] = 1.0
+
     # run reference
     ref_tp = reference_implementation(problem)
 

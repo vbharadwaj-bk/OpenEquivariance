@@ -12,7 +12,7 @@
     {%- set u, v, w, _ = interactions[i] %}
     {%- if inst.connection_mode == "uvw" %}
         {{generate_matmul("matmul_fwd_%d" % i, L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
-        {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L1[u].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False)}}
+        {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L3[w].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False)}}
     {%- endif %}
 {%- endfor %}
 
@@ -157,6 +157,16 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
             {%- if problem.instructions[k].connection_mode == "uvu" %}
                 weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
                 weight_grad = 0.0;
+
+                {%- for i in range(tensor.nnz) %} 
+                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                    scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
+                    weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
+                    scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
+                    l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
+                    l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
+                {%- endfor %}
+
             {%- elif problem.instructions[k].connection_mode == "uvw" %}
                 {%- set slice_size = L3[w].mul * L1[u].mul %}
                 {
@@ -165,25 +175,19 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
 
                     __syncwarp();
                     offset = {{ L3.slices()[w].start}}; 
-                    matmul_bwd_A_{{k}}(weights_smem, L3_smem + offset, scratch);
+                    matmul_bwd_A_{{k}}(weights_smem, L3_grad_smem + offset, scratch);
                     __syncwarp();
 
                     {{transpose_load(L3[w].mul, L3[w].ir.dim, 'scratch', '0', 'l3_grad')}}
+
+                    {%- for i in range(tensor.nnz) %} 
+                        {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                        scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
+                        l2_grad[{{coord2}}] += scratch1[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
+                        l1_grad[{{coord1}}] += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
+                    {%- endfor %}
                 }
             {%- endif %}
-
-            {%- for i in range(tensor.nnz) %} 
-                {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
-
-                {%- if problem.instructions[k].connection_mode != "uvw" %}
-                    weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
-                {%- endif %}
-
-                scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
-                l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
-                l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
-            {%- endfor %}
 
             {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 %}
                 #pragma unroll
