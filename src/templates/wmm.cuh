@@ -1,4 +1,4 @@
-{%- macro generate_matmul(name, M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR) %}
+{%- macro generate_matmul(name, M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR, A_CMAJOR=True, B_RMAJOR=True) %}
 
 {%-set TILES_PER_COL = 32 // TILES_PER_ROW %}
 

@@ -151,11 +151,11 @@ if __name__=='__main__':
     ]
 
     conv_problems = [  
-        #FCTPP("16x3e + 16x3e", "1x2e", "16x5e"),
+        #FCTPP("16x3e", "1x2e", "16x5e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        #ChannelwiseTPP("128x0e+128x1o+128x2e", 
-        #        "1x0e+1x1o+1x2e+1x3o",
-        #        "128x0e+128x1o+128x2e+128x3o")
+        ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o")
     ]
 
     test_problems = [
@@ -190,18 +190,18 @@ if __name__=='__main__':
         #increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        basic_multi_interaction_problems,
+        conv_problems,
     ))
  
     implementations = [
         #E3NNTensorProduct,
         #CUETensorProduct, 
-        #LoopUnrollTP,
-        MultiplicityOuterProductTP,
+        LoopUnrollTP,
+        #MultiplicityOuterProductTP,
         #ManyOneUVWTP
         ]
 
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=True, benchmark=True) 
@@ -216,7 +216,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=True
+        torch_op=False
     )
 
     logger.setLevel(logging.INFO)

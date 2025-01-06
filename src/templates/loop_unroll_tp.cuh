@@ -97,12 +97,15 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
 __device__ __forceinline__ void backward_loop_unroll_{{id}}(
         const IRREP_T* L1_smem,
         const IRREP_T* L2_smem,
-        const WEIGHT_T* weights_smem,
+        const WEIGHT_T* weights,
+        WEIGHT_T* weights_smem,
         const IRREP_T* L3_grad_smem,
 
         IRREP_T* L1_grad_smem,
         IRREP_T* L2_grad_smem,
+        WEIGHT_T* weights_grad,
         WEIGHT_T* weights_grad_smem,
+        WEIGHT_T* scratch,
         int lane_id) {
 
     IRREP_T l1_vec[{{L1_irrep_lengths  | max}}]; 

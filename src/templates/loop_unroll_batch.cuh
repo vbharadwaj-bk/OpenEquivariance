@@ -99,8 +99,8 @@ __global__ void backward(
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
             __syncwarp();
-            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
-                    L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
+            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem + lane_id, L3_grad_smem,
+                    L1_grad_smem, L2_grad_smem, weights_grad, weights_grad_smem + lane_id, scratch_smem, lane_id);
             __syncwarp();
 
             IRREP_T* l1_grad_shft = L1_grad + i * {{backward_schedule.L1.dim}} + lane_id;

@@ -265,7 +265,8 @@ class ComputationSchedule:
                 "L2_grad": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L3_grad": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
-                "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr}
+                "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr},
+                "scratch": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
 
             weights_smem = 0
@@ -278,6 +279,13 @@ class ComputationSchedule:
 
             smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
             smem["weights_grad"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+
+            if include_scratch: 
+                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                # We can reuse the weight buffer to accumulate the gradient in shared memory 
+                smem["weights_grad"]["size"] = 0 
+                # Max irrep size of 10 -> dim = 21 
+                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
