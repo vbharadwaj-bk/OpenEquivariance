@@ -186,6 +186,22 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                         l2_grad[{{coord2}}] += scratch1[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
                         l1_grad[{{coord1}}] += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
                     {%- endfor %}
+
+                    #pragma unroll
+                    for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                        l3_grad[j] = 0.0;
+
+                    {# Phase 2, computing weight grad. Reusing L3 grad here #}
+                    {%- for i in range(tensor.nnz) %}
+                        {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
+                        l3_grad[{{coord3}}] += {{value}} * l1_vec[{{coord1}}] * l2_vec[{{coord2}}]; 
+                    {%- endfor %}
+
+                    __syncwarp();
+                    //offset = {{ L3.slices()[w].start}}; 
+                    //matmul_fwd_{{k}}(weights_smem, scratch, L3_smem + offset);
+                    //__syncwarp();
+
                 }
             {%- endif %}
 
