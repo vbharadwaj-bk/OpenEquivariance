@@ -52,7 +52,10 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
             {%- elif problem.instructions[k].connection_mode == "uvw" %}
                 {# Stream weights here #}
                 {%- set slice_size = L3[w].mul * L1[u].mul %}
-                ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = weights[{{weight_start}} + j + k * {{slice_size}} + lane_id];)
+                {
+                    WEIGHT_T* tmp = weights + {{weight_start}} + k * {{slice_size}} + lane_id;
+                    ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = tmp[j];)
+                }
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}];
@@ -97,7 +100,7 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
 __device__ __forceinline__ void backward_loop_unroll_{{id}}(
         const IRREP_T* L1_smem,
         const IRREP_T* L2_smem,
-        const WEIGHT_T* weights,
+        WEIGHT_T* weights,
         WEIGHT_T* weights_smem,
         const IRREP_T* L3_grad_smem,
 
@@ -150,6 +153,12 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
             {%- if problem.instructions[k].connection_mode == "uvu" %}
                 weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
                 weight_grad = 0.0;
+            {%- elif problem.instructions[k].connection_mode == "uvw" %}
+                {%- set slice_size = L3[w].mul * L1[u].mul %}
+                {
+                    WEIGHT_T* tmp = weights + {{weight_start}} + k * {{slice_size}} + lane_id;
+                    ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = tmp[j];)
+                }
             {%- endif %}
 
             {%- for i in range(tensor.nnz) %} 

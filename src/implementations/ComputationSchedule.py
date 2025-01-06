@@ -258,6 +258,7 @@ class ComputationSchedule:
 
         def calculate_backward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
+            weight_itemsize = np.dtype(weight_dtype).itemsize
             smem = {
                 "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L1_grad": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
