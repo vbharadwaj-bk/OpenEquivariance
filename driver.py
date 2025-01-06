@@ -195,10 +195,10 @@ if __name__=='__main__':
     ))
  
     implementations = [
-        #E3NNTensorProduct,
+        E3NNTensorProduct,
         #CUETensorProduct, 
         LoopUnrollTP,
-        #MultiplicityOuterProductTP,
+        MultiplicityOuterProductTP,
         #ManyOneUVWTP
         ]
 
@@ -217,7 +217,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=False
+        torch_op=True
     )
 
     logger.setLevel(logging.INFO)
