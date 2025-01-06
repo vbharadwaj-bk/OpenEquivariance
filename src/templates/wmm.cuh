@@ -33,14 +33,22 @@ __device__ __forceinline__ void {{name}}(const float* __restrict__ A, const floa
         #pragma unroll
         for(int i = 0; i < rpt; i++) {
             if(ist + i < {{M}}) {
-                col[i] = A[k * {{M}} + ist + i];
+                {%- if A_CMAJOR %}
+                    col[i] = A[k * {{M}} + ist + i];
+                {%- else %}
+                    col[i] = A[(ist + i) * {{K}} + k];
+                {%- endif %}
             }
         }
 
         #pragma unroll
         for(int j = 0; j < cpt; j++) {
             if(jst + j < {{N}}) {
-                row[j] = B[k * {{N}} + jst + j];
+                {%- if B_RMAJOR %}
+                    row[j] = B[k * {{N}} + jst + j];
+                {%- else %}
+                    row[j] = B[j * {{K}} + k];
+                {%- endif %}
             }
         }
 

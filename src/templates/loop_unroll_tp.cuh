@@ -12,6 +12,7 @@
     {%- set u, v, w, _ = interactions[i] %}
     {%- if inst.connection_mode == "uvw" %}
         {{generate_matmul("matmul_fwd_%d" % i, L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
+        {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L1[u].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False)}}
     {%- endif %}
 {%- endfor %}
 
@@ -136,9 +137,12 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
             {{transpose_load(L1[u].mul, L1[u].ir.dim, 'L1_grad_smem', 'offset', 'l1_grad')}}
         {%- endif %}
 
-        {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
-            offset = {{ L3.slices()[w].start}}; 
-            {{transpose_load(L3[w].mul, L3[w].ir.dim, 'L3_grad_smem', 'offset', 'l3_grad')}}
+
+        {%- if problem.instructions[k].connection_mode != "uvw" %}
+            {%- if k == 0 or interactions[k][2] != interactions[k-1][2] %}
+                offset = {{ L3.slices()[w].start}}; 
+                {{transpose_load(L3[w].mul, L3[w].ir.dim, 'L3_grad_smem', 'offset', 'l3_grad')}}
+            {%- endif %}
         {%- endif %}
 
         for(int k = 0; k < {{L2[v].mul}}; k++) {
@@ -158,6 +162,13 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                 {
                     WEIGHT_T* tmp = weights + {{weight_start}} + k * {{slice_size}} + lane_id;
                     ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = tmp[j];)
+
+                    __syncwarp();
+                    offset = {{ L3.slices()[w].start}}; 
+                    matmul_bwd_A_{{k}}(weights_smem, L3_smem + offset, scratch);
+                    __syncwarp();
+
+                    {{transpose_load(L3[w].mul, L3[w].ir.dim, 'scratch', '0', 'l3_grad')}}
                 }
             {%- endif %}
 
