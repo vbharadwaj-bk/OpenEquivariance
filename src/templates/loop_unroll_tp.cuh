@@ -147,13 +147,19 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                 }
             {%- endif %}
 
-            weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
-            weight_grad = 0.0;
+            {%- if problem.instructions[k].connection_mode == "uvu" %}
+                weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
+                weight_grad = 0.0;
+            {%- endif %}
 
             {%- for i in range(tensor.nnz) %} 
                 {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
                 scratch1[{{i % num_scratch_reg}}] = l3_grad[{{coord3}}] * {{value}}; 
-                weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
+
+                {%- if problem.instructions[k].connection_mode != "uvw" %}
+                    weight_grad += scratch1[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}] * l1_vec[{{coord1}}];
+                {%- endif %}
+
                 scratch2[{{i % num_scratch_reg}}] = scratch1[{{i % num_scratch_reg}}] * weight;
                 l2_grad[{{coord2}}] += scratch2[{{i % num_scratch_reg}}] * l1_vec[{{coord1}}];
                 l1_grad[{{coord1}}] += scratch2[{{i % num_scratch_reg}}] * l2_vec[{{coord2}}];
@@ -174,7 +180,10 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                         L2_grad_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] += l2_grad[j];
                 }
             {%- endif %}
-            weights_grad_smem[{{weight_start}} + k * {{L1[u].mul}}] = weight_grad; 
+
+            {%- if problem.instructions[k].connection_mode != "uvw" %}
+                weights_grad_smem[{{weight_start}} + k * {{L1[u].mul}}] = weight_grad; 
+            {%- endif %}
         }
 
         // Storeback
