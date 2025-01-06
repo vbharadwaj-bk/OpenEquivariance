@@ -19,6 +19,9 @@ class LoopUnrollTP(TensorProduct):
 
         dp = DeviceProp(0)
 
+        if len(config.instructions) == 0:
+            raise ValueError("Tensor product problem has no valid intructions!")
+
         for inst in config.instructions:
             assert(inst.connection_mode == config.instructions[0].connection_mode)         
         assert(config.instructions[0].connection_mode in ["uvu", "uvw"]) 
@@ -57,6 +60,10 @@ class LoopUnrollTP(TensorProduct):
 
         if self.torch_op:
             self.setup_torch_custom_op()
+
+        # Write kernel to scratch.txt
+        with open("scratch.txt", "w") as f:
+            f.write(self.jit_kernel)
 
     def forward_cpu(self, L1_in, L2_in, L3_out, weights):
         super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights, "forward"))

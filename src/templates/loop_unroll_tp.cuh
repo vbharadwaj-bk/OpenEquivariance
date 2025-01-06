@@ -50,8 +50,9 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;
             {%- elif problem.instructions[k].connection_mode == "uvw" %}
+                {# Stream weights here #}
                 {%- set slice_size = L3[w].mul * L1[u].mul %}
-                ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = weights[j + k * {{slice_size}} + lane_id];)
+                ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = weights[{{weight_start}} + j + k * {{slice_size}} + lane_id];)
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}];
@@ -66,9 +67,9 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
 
 
             {%- if problem.instructions[k].connection_mode == "uvw" %}
-                offset = {{ L3.slices()[w].start}}; 
-                {{transpose_store(L3[w].mul, L3[w].ir.dim, 'scratch', '0', 'l3_vec', '=', '1.0')}}
+                {{transpose_store(L1[u].mul, L3[w].ir.dim, 'scratch', '0', 'l3_vec', '=', '1.0')}}
                 __syncwarp();
+                offset = {{ L3.slices()[w].start}}; 
                 matmul_fwd_{{k}}(weights_smem, scratch, L3_smem + offset);
                 __syncwarp();
 

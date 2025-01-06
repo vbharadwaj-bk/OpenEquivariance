@@ -152,7 +152,7 @@ if __name__=='__main__':
     ]
 
     conv_problems = [  
-        #FCTPP("16x5e", "2x1e", "16x5e"),
+        #FCTPP("16x3e + 16x3e", "1x2e", "16x5e"),
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
         #ChannelwiseTPP("128x0e+128x1o+128x2e", 
         #        "1x0e+1x1o+1x2e+1x3o",
@@ -191,13 +191,13 @@ if __name__=='__main__':
         #increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
         # basic_multi_interaction_problems,
-        test_problems,
+        basic_multi_interaction_problems,
     ))
  
     implementations = [
-        E3NNTensorProduct,
+        #E3NNTensorProduct,
         #CUETensorProduct, 
-        LoopUnrollTP,
+        #LoopUnrollTP,
         MultiplicityOuterProductTP,
         #ManyOneUVWTP
         ]
