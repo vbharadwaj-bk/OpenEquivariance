@@ -13,6 +13,7 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.implementations.LoopReorderUVWTP import LoopReorderUVWTP
 from src.implementations.ManyOneUVWTP import ManyOneUVWTP 
 from src.implementations.E3NNTensorProduct import E3NNTensorProduct
 from src.implementations.CUETensorProduct import CUETensorProduct
@@ -228,11 +229,13 @@ if __name__=='__main__':
         #E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
-        MultiplicityOuterProductTP]
+        LoopReorderUVWTP,
+        # MultiplicityOuterProductTP,
+        ]
     
     directions : list[Direction] = [
-        # 'forward', 
-        'backward',
+        'forward', 
+        # 'backward',
         ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
@@ -247,6 +250,6 @@ if __name__=='__main__':
         prng_seed=11111
     )
 
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     bench_suite.run(tests)
     # debug(tests[4])

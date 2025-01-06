@@ -126,8 +126,7 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         logger.debug(f"Forward pass needs {forward_launch_config.smem} bytes of shared memory.")
 
-        if forward_launch_config.smem > dp.maxSharedMemPerBlock:
-            raise Exception(f"Error, requested shared memory {forward_launch_config.smem}B hits or exceeds maximum, {dp.maxSharedMemPerBlock}B !")
+        
         
         # =====================================================================
 

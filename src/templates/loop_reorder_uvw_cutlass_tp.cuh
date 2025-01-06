@@ -29,47 +29,56 @@ template<typename Tensor>
 __device__ __forceinline__ void print_tensor_contents(Tensor t); 
 
 // DOES ONE BATCH ELEMENT
-template<typename Tile> 
+template<
+    typename Tile,
+    typename CG_Contraction,
+    int L1_mults,
+    int L2_mults, 
+    int L3_mults, 
+    int L1_irrep_length, 
+    int L2_irrep_length, 
+    int L3_irrep_length
+    > 
 __device__ __forceinline__ void forward_kernel_shared_memory(
     Tile tile,
-    float* __restrict__ L1_smem_warp, 
-    float* __restrict__ L2_smem_warp,
-    float* __restrict__ gemm_L3_smem_warp, 
-    float* __restrict__ gemm_weights_smem_warp,  
-    float* __restrict__ L3_smem_warp,
-    float* __restrict__ weights 
+    CG_Contraction cg_contraction, 
+    float* __restrict__ L1_smem_interaction_shift, 
+    float* __restrict__ L2_smem_interaction_shift,
+    float* __restrict__ gemm_L3_smem_warp,  
+    float* __restrict__ L3_smem_interaction_shift,
+    float* __restrict__ weights_interaction_shift 
     ){ 
     // This function expects a to be pointed at a location in shared memory 
     // It will perform a fixed number of batch element`s per execution
     
-    float L1_local_vec[{{L1.irrep_lengths | max}}];
-    float L2_local_vec[{{L2.irrep_lengths | max}}];
-    float L3_local_vec[{{L3.irrep_lengths | max}}];
+    float L1_local_vec[L1_irrep_length];
+    float L2_local_vec[L2_irrep_length];
+    float L3_local_vec[L3_irrep_length];
 
-    static_contiguous_set<float, Tile, {{L3.rep_len}}>(tile, L3_smem_warp, 0.0f);
+    static_contiguous_set<float, Tile, (L3_mults * L3_irrep_length)>(tile, L3_smem_warp, 0.0f);
     
     tile.sync(); 
 
     // Loop Through Interactions
-    {%- set num_interact = interactions | length %}
-    {%- for interaction_index in range(num_interact) %}
-        {%- set u, v, w, tensor = interactions[interaction_index] %}
-        {%- set weight_offset = weight_offsets[interaction_index] %}
-    {   
-        // Get templated values out of jinja into C++  
-        constexpr int L1_mults = {{L1.mults[u]}};
-        constexpr int L2_mults = {{L2.mults[v]}};
-        constexpr int L3_mults = {{L3.mults[w]}};
+    // {%- set num_interact = interactions | length %}
+    // {%- for interaction_index in range(num_interact) %}
+    //     {%- set u, v, w, tensor = interactions[interaction_index] %}
+    //     {%- set weight_offset = weight_offsets[interaction_index] %}
+    // {   
+        // // Get templated values out of jinja into C++  
+        // constexpr int L1_mults = {{L1.mults[u]}};
+        // constexpr int L2_mults = {{L2.mults[v]}};
+        // constexpr int L3_mults = {{L3.mults[w]}};
         
-        constexpr int L1_irrep_length = {{L1.irrep_lengths[u]}}; 
-        constexpr int L2_irrep_length = {{L2.irrep_lengths[v]}};
-        constexpr int L3_irrep_length = {{L3.irrep_lengths[w]}}; 
+        // constexpr int L1_irrep_length = {{L1.irrep_lengths[u]}}; 
+        // constexpr int L2_irrep_length = {{L2.irrep_lengths[v]}};
+        // constexpr int L3_irrep_length = {{L3.irrep_lengths[w]}}; 
         
         // Calcualate all shifts
-        float* L1_smem_interaction_shift = L1_smem_warp + {{L1.offsets[u]}}; 
-        float* L2_smem_interaction_shift = L2_smem_warp + {{L2.offsets[v]}};
-        float* L3_smem_interaction_shift = L3_smem_warp + {{L3.offsets[w]}};  
-        float* weights_interaction_shift = weights + {{weight_offset}}; 
+        // float* L1_smem_interaction_shift = L1_smem_warp; 
+        // float* L2_smem_interaction_shift = L2_smem_warp;
+        // float* L3_smem_interaction_shift = L3_smem_warp;  
+        // float* weights_interaction_shift = weights + {{weight_offset}}; 
 
         // CUTLASS STUFF 
 
@@ -193,7 +202,7 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
             // READ N SETS OF WEIGHTS FROM GLOBAL MEMORY, 
             // HOPEFULLY L2 CACHE TO SMEM COLUMN MAJOR ORDER
-            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_warp_start_index * {{L3.mults[w]}});           
+            float* weights_mult1_mult2_shift = weights_interaction_shift + (L1_L2_warp_start_index * L3_mults);           
             // dynamic_contiguous_copy<float, Tile>(tile, gemm_weights_smem_warp, weights_mult1_mult2_shift, n * L3_mults); 
             
             bool active_for_tensor_product = (tile.thread_rank() < n);
@@ -208,33 +217,30 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
                 
                 // CLEAR L3 REGISTERS
                 #pragma unroll
-                for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
+                for(int L3_irrep_index = 0; L3_irrep_index < L3_irrep_length; L3_irrep_index++){
                         L3_local_vec[L3_irrep_index] = 0.0f;
                 }
 
                 // LOAD L1_SMEM INTO REGISTERS 
                 #pragma unroll
-                for (int L1_irrep_index = 0; L1_irrep_index < {{L1.irrep_lengths[u]}}; L1_irrep_index++){
+                for (int L1_irrep_index = 0; L1_irrep_index < L1_irrep_length; L1_irrep_index++){
                     L1_local_vec[L1_irrep_index] = L1_smem_multiplicity_shift[L1_irrep_index];  
                 }
 
                 // LOAD L2_SMEM INTO REGISTERS
                 #pragma unroll 
-                for(int L2_irrep_index = 0; L2_irrep_index < {{L2.irrep_lengths[v]}}; L2_irrep_index++){
+                for(int L2_irrep_index = 0; L2_irrep_index < L2_irrep_length; L2_irrep_index++){
                     L2_local_vec[L2_irrep_index] = L2_smem_multiplicity_shift[L2_irrep_index];
                 }
 
                 // PERFORM CG DECOMPOSITION CALCULATION 
-                {%- for i in range(tensor.nnz) %}
-                    {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
-                    L3_local_vec[{{coord3}}] += {{value}} * {{instructions[interaction_index].path_weight}} * L1_local_vec[{{coord1}}] * L2_local_vec[{{coord2}}];
-                {%- endfor %}   
+                cg_contraction(L1_local_vec, L2_local_vec, L3_local_vec);
             }
 
             // WRITE TO SMEM_GEMM_L3 
             #pragma unroll 
-            for(int L3_irrep_index = 0; L3_irrep_index < {{L3.irrep_lengths[w]}}; L3_irrep_index++){
-                gemm_L3_smem_warp[(tile.thread_rank() * {{L3.irrep_lengths[w]}}) + L3_irrep_index] = (active_for_tensor_product ? L3_local_vec[L3_irrep_index] : 0.0f); 
+            for(int L3_irrep_index = 0; L3_irrep_index < L3_irrep_length; L3_irrep_index++){
+                gemm_L3_smem_warp[(tile.thread_rank() * L3_irrep_length) + L3_irrep_index] = (active_for_tensor_product ? L3_local_vec[L3_irrep_index] : 0.0f); 
             }
 
            
@@ -328,11 +334,10 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             
             int i = tile.thread_rank();
             #pragma unroll
-            for(int j = 0; j < {{L3.irrep_lengths[w]}}; j++){
-                L3_smem_interaction_shift[(i * {{L3.irrep_lengths[w]}}) + j] += layout_C_thread_partitioning_smem_C_registers(j,i);
+            for(int j = 0; j < L3_irrep_length; j++){
+                L3_smem_interaction_shift[(i * L3_irrep_length) + j] += layout_C_thread_partitioning_smem_C_registers(j,i);
             }
         
-
             #if DEBUG_PRINTING
             if(cute::thread0() && (n != tile.size())) {
                 cute::print("Post Multiplciation State:\n");
@@ -380,8 +385,8 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
             tile.sync();  
         }
-    }
-    {%- endfor %}  
+    // }
+    // {%- endfor %}  
 }
 
 // Generic kernel which calls a subkernel for each forward interaction
@@ -400,66 +405,110 @@ __global__ void forward(
     int warp_id = idx / THREADS_PER_WARP; 
     // int lane_id = idx % THREADS_PER_WARP;
     int warp_loc = warp_id % {{warps_per_block}}; 
-
+    
     {{ declare_smem_arrays( { 
         "common": [
+            ("weights_smem", "float", max_weight_size),
             ], 
         "per_warp": [
-            ("L1_smem_warp", "float", L1.rep_len),
-            ("L2_smem_warp", "float", L2.rep_len), 
-            ("L3_smem_warp", "float", L3.rep_len),
+            ("L1_smem_warp", "float", max_in1_instruction_size),
+            ("L2_smem_warp", "float", max_in2_instruction_size), 
+            ("L3_smem_warp", "float", max_out_instruction_size),
             ("gemm_L3_smem_warp", "float", forward_smem_gemm_info.L3_scratch_elems),
-            ("gemm_weights_smem_warp", "float", forward_smem_gemm_info.weight_scratch_elems), 
-        ]
+            ("gemm_weights_smem_warp", "float", forward_smem_gemm_info.weight_scratch_elems),
+            ],
         }, "warp_loc", forward_config)}}    
 
-    Warp_Tile warp_tile = cg::tiled_partition<THREADS_PER_WARP>(cg::this_thread_block());
-
+    cg::thread_block block = cg::this_thread_block(); 
+    Warp_Tile warp_tile = cg::tiled_partition<THREADS_PER_WARP>(block);
+    
+    
     {%- for II in InstructionInfoList %}
-    {
-        float* instruction_weights = weights + {{II.weight_offset}};
-        constexpr int instruction_num_weights = {{math.prod(II.weight_shape)}}; 
-
-        
-
-    }
-    {% endfor %}    
-
-
-    // GRID STRIDE LOOP
-    for(
-        int batch_index = (blockIdx.x * warps_per_block) + warp_loc; 
-        batch_index < num_products; 
-        batch_index += (gridDim.x * warps_per_block) 
-        )
     {   
-        // CALCULATE PTRS TO THE ACTIVE BATCH ELEMENT REGION
-        float* L1_global_shift_warp = L1_in  + (batch_index * {{L1.rep_len}}); 
-        float* L2_global_shift_warp = L2_in  + (batch_index * {{L2.rep_len}}); 
-        float* L3_global_shift_warp = L3_out + (batch_index * {{L3.rep_len}}); 
-
-        // COPY FROM GLOBAL
-        static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}> (warp_tile, L1_smem_warp, L1_global_shift_warp);
-        static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}> (warp_tile, L2_smem_warp, L2_global_shift_warp);
-
-        warp_tile.sync(); 
-
-        // PERFORM TP 
-        forward_kernel_shared_memory<Warp_Tile>(
-            warp_tile, 
-            L1_smem_warp, 
-            L2_smem_warp, 
-            gemm_L3_smem_warp,
-            gemm_weights_smem_warp, 
-            L3_smem_warp, 
-            weights
-            );
-
-        warp_tile.sync();
+        constexpr int L1_mults = {{II.in1_multiplicity}};
+        constexpr int L2_mults = {{II.in2_multiplicity}};
+        constexpr int L3_mults = {{II.out_multiplicity}};
         
-        // WRITE TO GLOBAL
-        static_contiguous_copy<float, Warp_Tile, {{L3.rep_len}}> (warp_tile, L3_global_shift_warp, L3_smem_warp);
-    } 
+        constexpr int L1_irrep_length = {{II.in1_irrep_length}}; 
+        constexpr int L2_irrep_length = {{II.in2_irrep_length}};
+        constexpr int L3_irrep_length = {{II.out_irrep_length}}; 
+
+        constexpr int L1_size_instruction = L1_mults * L1_irrep_length;
+        constexpr int L2_size_instruction = L2_mults * L2_irrep_length;
+        constexpr int L3_size_instruction = L3_mults * L3_irrep_length;   
+
+        constexpr int weights_size_instruction = {{product(II.weight_shape)}}; 
+        
+        auto cg_contraction = [](
+            float (&L1_local_vec)[L1_irrep_length],
+            float (&L2_local_vec)[L2_irrep_length],
+            float (&L3_local_vec)[L3_irrep_length]
+            ){
+            // PERFORM CG DECOMPOSITION CALCULATION 
+            {%- for i in range(II.tensor.nnz) %}
+                {%- set coord1, coord2, coord3, value = II.tensor.tuples[i] %}
+                L3_local_vec[{{coord3}}] += {{value}} * {{II.path_weight}} * L1_local_vec[{{coord1}}] * L2_local_vec[{{coord2}}];
+            {%- endfor %}   
+        };
+
+        block.sync(); 
+
+        float* L1_global_shift_instruction = L1_in  + {{II.in1_offset}}; 
+        float* L2_global_shift_instruction = L2_in  + {{II.in2_offset}}; 
+        float* L3_global_shift_instruction = L3_out + {{II.out_offset}}; 
+
+        float* weights_shift_instruction = weights + {{II.weight_offset}};
+
+        dynamic_contiguous_copy<float, cg::thread_block>(block, weights_smem, weights, weights_size_instruction);  
+
+        block.sync(); 
+
+        // GRID STRIDE LOOP
+        for(
+            int batch_index = (blockIdx.x * warps_per_block) + warp_loc; 
+            batch_index < num_products; 
+            batch_index += (gridDim.x * warps_per_block) 
+            )
+        {   
+            // CALCULATE PTRS TO THE ACTIVE BATCH ELEMENT REGION
+            float* L1_global_shift_warp = L1_global_shift_instruction + (batch_index * {{L1.rep_len}}); 
+            float* L2_global_shift_warp = L2_global_shift_instruction + (batch_index * {{L2.rep_len}}); 
+            float* L3_global_shift_warp = L3_global_shift_instruction + (batch_index * {{L3.rep_len}}); 
+
+            // COPY FROM GLOBAL
+            static_contiguous_copy<float, Warp_Tile, L1_size_instruction> (warp_tile, L1_smem_warp, L1_global_shift_warp);
+            static_contiguous_copy<float, Warp_Tile, L2_size_instruction> (warp_tile, L2_smem_warp, L2_global_shift_warp);
+
+            warp_tile.sync(); 
+
+            // PERFORM TP 
+            forward_kernel_shared_memory<
+            Warp_Tile,
+            L1_mults,
+            L2_mults, 
+            L3_mults, 
+            L1_irrep_length, 
+            L2_irrep_length, 
+            L3_irrep_length
+
+            >(
+                warp_tile, 
+                cg_contraction,
+                L1_smem_warp, 
+                L2_smem_warp, 
+                gemm_L3_smem_warp,
+                gemm_weights_smem_warp, 
+                L3_smem_warp, 
+                weights_smem
+                );
+
+            warp_tile.sync();
+            
+            // WRITE TO GLOBAL
+            static_contiguous_copy<float, Warp_Tile, L3_size_instruction> (warp_tile, L3_global_shift_warp, L3_smem_warp);
+        } 
+    }
+    {% endfor %}   
 }
 
 template<typename Tile>
