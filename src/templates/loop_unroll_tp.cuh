@@ -191,9 +191,12 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
 
             {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 %}
                 #pragma unroll
-                for (int offset = 16; offset > 0; offset /= 2) {
+                for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
+                    if(lane_id >= {{L1[u].mul}}) {
+                        l2_grad[j] = 0.0;
+                    }
                     #pragma unroll
-                    for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
+                    for (int offset = 16; offset > 0; offset /= 2) {
                         l2_grad[j] += __shfl_down_sync(FULL_MASK, l2_grad[j], offset);
                     } 
                 }
