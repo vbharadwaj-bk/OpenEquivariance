@@ -202,7 +202,7 @@ if __name__=='__main__':
         #ManyOneUVWTP
         ]
 
-    directions = ['backward'] 
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=True, benchmark=True) 

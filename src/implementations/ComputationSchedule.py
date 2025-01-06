@@ -226,6 +226,7 @@ class ComputationSchedule:
                 "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
+                "scratch": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
 
             weights_smem = 0
@@ -241,7 +242,7 @@ class ComputationSchedule:
             if include_scratch: 
                 smem["weights"]["size"] = 32 * 32 * weight_itemsize
                 # Max irrep size of 10 -> dim = 21 
-                smem["scratch"] = {"size": (32 * 21) * weight_itemsize, "dtype": self.weight_dtype_cstr}
+                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):

@@ -1,4 +1,5 @@
 {%- from 'macros.jinja' import transpose_load, transpose_store with context %}
+{%- from 'wmm.cuh' import generate_matmul %}
 
 {%- macro generate_segment_kernel_forward(id, segment) %}
 {%- set L1, L2, L3, interactions, problem = segment.L1, segment.L2, segment.L3, segment.interactions, segment.problem %}
@@ -7,8 +8,20 @@
 {%- set L2_irrep_lengths = L2 | map(attribute="ir") | map(attribute="dim") | list %}
 {%- set L3_irrep_lengths = L3 | map(attribute="ir") | map(attribute="dim") | list %}
 
-__device__ __forceinline__ void forward_loop_unroll_{{id}}(const IRREP_T* __restrict__ L1_smem, const IRREP_T* __restrict__ L2_smem, 
-        const WEIGHT_T* __restrict__ weights_smem, IRREP_T* __restrict__ L3_smem, int lane_id) {
+{%- for i, inst in enumerate(problem.instructions) %}
+    {%- set u, v, w, _ = interactions[i] %}
+    {%- if inst.connection_mode == "uvw" %}
+        {{generate_matmul("matmul_fwd" + str(i), L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
+    {%- endif %}
+{%- endfor %}
+
+__device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__ L1_smem, 
+        IRREP_T* __restrict__ L2_smem, 
+        WEIGHT_T* __restrict__ weights, 
+        WEIGHT_T* __restrict__ weights_smem, 
+        IRREP_T* __restrict__ L3_smem, 
+        WEIGHT_T* __restrict__ scratch, 
+        int lane_id) {
     IRREP_T l1_vec[{{L1_irrep_lengths | max}}];
     IRREP_T l2_vec[{{L2_irrep_lengths | max}}];
     IRREP_T l3_vec[{{L3_irrep_lengths | max}}];
@@ -34,7 +47,7 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(const IRREP_T* __rest
             {%- endif %}
 
             for(int k = 0; k < {{L2[v].mul}}; k++) {
-                weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}}];
+                weight = weights_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id];
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;

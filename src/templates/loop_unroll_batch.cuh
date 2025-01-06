@@ -27,12 +27,12 @@ __global__ void forward(
     {{ set_launch_bound_variables(forward_schedule.launch_config) }}
     {%- set tpp = forward_schedule.updated_config %}
     char* smem = s + {{forward_schedule.memory_per_warp}} * warp_loc; 
+    weights += start * {{tpp.weight_numel}};
 
     for(size_t i = start; i < end; i++) {
         IRREP_T* l1 = L1_in + i * {{forward_schedule.L1.dim}} + lane_id;
         IRREP_T* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
         IRREP_T* l3 = L3_out + i * {{forward_schedule.L3.dim}} + lane_id;
-        WEIGHT_T* w = weights + i * {{tpp.weight_numel}};
 
         {%- for i, segment in enumerate(forward_schedule.segments) %} {
             {{ declare_smem_variables(segment, "smem") }}
@@ -40,14 +40,18 @@ __global__ void forward(
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
 
             ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
-            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
+            ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = weights[{{segment.weight_offset}} + j + lane_id];)
 
             __syncwarp();
-            forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
+            forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem, L3_smem, scratch_smem, lane_id);
             __syncwarp();
     
             {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
         } {%- endfor %}
+
+        {%-if not tpp.shared_weights %}
+            weights += {{tpp.weight_numel}};
+        {%- endif %}
     }
 }
 
