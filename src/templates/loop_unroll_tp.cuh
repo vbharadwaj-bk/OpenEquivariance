@@ -12,7 +12,7 @@
     {%- set u, v, w, _ = interactions[i] %}
     {%- if inst.connection_mode == "uvw" %}
         {{generate_matmul("matmul_fwd_%d" % i, L3[w].mul, L3[w].ir.dim, L1[u].mul, 4, True)}}
-        {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L3[w].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False)}}
+        {{generate_matmul("matmul_bwd_A_%d" % i, L1[u].mul, L3[w].ir.dim, L3[w].mul, 4, True, A_CMAJOR=False, accum=False)}}
     {%- endif %}
 {%- endfor %}
 

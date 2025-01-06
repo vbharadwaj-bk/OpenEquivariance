@@ -1,4 +1,4 @@
-{%- macro generate_matmul(name, M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR, A_CMAJOR=True, B_RMAJOR=True) %}
+{%- macro generate_matmul(name, M, N, K, TILES_PER_ROW, OUTPUT_RMAJOR, A_CMAJOR=True, B_RMAJOR=True, accum=True) %}
 
 {%-set TILES_PER_COL = 32 // TILES_PER_ROW %}
 
@@ -63,15 +63,21 @@ __device__ __forceinline__ void {{name}}(const float* __restrict__ A, const floa
         }
     }
 
+    {%- if accum %}
+    {%- set op = "+=" %}
+    {%- else %}
+    {%- set op = "=" %}
+    {%- endif %}
+
     // Store the output
     #pragma unroll
     for(int i = 0; i < rpt; i++) {
         for(int j = 0; j < cpt; j++) {
             if(i + ist < {{M}} && j + jst < {{N}}) {
                 {%- if OUTPUT_RMAJOR %}
-                    C[(i + ist) * {{N}} + j + jst] += tile[i][j];
+                    C[(i + ist) * {{N}} + j + jst] {{op}} tile[i][j];
                 {%- else %}
-                    C[(j + jst) * {{M}} + i + ist] += tile[i][j];
+                    C[(j + jst) * {{M}} + i + ist] {{op}} tile[i][j];
                 {%- endif %}
             }
         } 
