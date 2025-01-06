@@ -9,15 +9,16 @@ from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
+from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 
 '''
 Paper-ready benchmarks; driver.py is used for prototyping / debugging. 
 '''
 CTPP = ChannelwiseTPP
 
-mace_conv = [  
-        ChannelwiseTPP("128x0e+128x1o+128x2e", "1x0e+1x1o+1x2e+1x3o", "128x0e+128x1o+128x2e+128x3o", 
-                "mace-large"),
+mace_conv = [
+    ChannelwiseTPP("128x0e+128x1o+128x2e", "1x0e+1x1o+1x2e+1x3o", "128x0e+128x1o+128x2e+128x3o", 
+    "mace-large"),
 ]
 
 nequip_conv = [
@@ -102,6 +103,57 @@ def benchmark_roofline():
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
 
+def benchmark_fully_connected():
+    FCTPP = FullyConnectedTPProblem
+    implementations = [
+        LoopUnrollTP,
+        #MultiplicityOuterProductTP,
+        E3NNTensorProduct]
+
+    directions = ['forward', 'backward']
+
+    problems = [
+            FCTPP("2x1e", "2x1e", "2x1e"),
+            FCTPP("2x4e", "2x4e", "2x4e"),
+            FCTPP("2x8e", "2x8e", "2x8e"),
+
+            FCTPP("4x1e", "4x1e", "4x1e"),
+            FCTPP("4x4e", "4x4e", "4x4e"),
+            FCTPP("4x8e", "4x8e", "4x8e"),
+
+            FCTPP("8x1e", "8x1e", "8x1e"),
+            FCTPP("8x4e", "8x4e", "8x4e"),
+            FCTPP("8x8e", "8x8e", "8x8e"),
+
+            FCTPP("16x1e", "16x1e", "16x1e"),
+            FCTPP("16x4e", "16x4e", "16x4e"),
+            FCTPP("16x8e", "16x8e", "16x8e"),
+
+            FCTPP("32x1e", "32x1e", "32x1e"),
+            FCTPP("32x4e", "32x4e", "32x4e"), 
+    ]
+
+    for problem in problems:
+        problem.label = f"({str(problem.irreps_in1)}) x {str(problem.irreps_in2)} -> {str(problem.irreps_out)}"
+
+    tests = [TestDefinition(implementation, problem, direction, 
+                correctness=True, benchmark=True) 
+             for problem, direction, implementation
+             in itertools.product(problems, directions, implementations)]
+ 
+    bench_suite = TestBenchmarkSuite(
+        correctness_threshold = 5e-5,
+        num_warmup=100,
+        num_iter=100,
+        correctness_batch_size=1000,
+        bench_batch_size=100000,
+        prng_seed=11111,
+        torch_op=True)
+
+    logger.setLevel(logging.INFO)
+    bench_suite.run(tests)
+
 if __name__=='__main__':
-    benchmark_conv()
+    #benchmark_conv()
     #benchmark_roofline()
+    benchmark_fully_connected()
