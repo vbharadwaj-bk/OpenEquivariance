@@ -99,7 +99,7 @@ def correctness_backward(
         batch_size, 
         prng_seed
     )
-    
+
     ref_tp = reference_implementation(problem)
 
     ref_weights_grad = weights_grad.copy()
@@ -131,6 +131,10 @@ def correctness_backward(
         weights=weights.copy(), 
         weights_grad=test_weights_grad
         )
+
+    #print(ref_weights_grad)
+    #print(test_weights_grad)
+    #print(ref_weights_grad - test_weights_grad)
 
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
 

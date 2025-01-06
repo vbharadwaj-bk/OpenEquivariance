@@ -179,7 +179,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                     matmul_bwd_A_{{k}}(weights_smem, L3_grad_smem + offset, scratch);
                     __syncwarp();
 
-                    {{transpose_load(L3[w].mul, L3[w].ir.dim, 'scratch', '0', 'l3_grad')}}
+                    {{transpose_load(L1[u].mul, L3[w].ir.dim, 'scratch', '0', 'l3_grad')}}
 
                     {%- for i in range(tensor.nnz) %} 
                         {%- set coord1, coord2, coord3, value = tensor.tuples[i] %}
