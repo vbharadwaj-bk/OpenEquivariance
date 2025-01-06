@@ -81,8 +81,10 @@ __global__ void backward(
 
         {%- if not tpp.shared_weights %} 
         WEIGHT_T* w = weights + i * {{tpp.weight_numel}}; 
+        WEIGHT_T* wgrad = weights_grad + i * {{tpp.weight_numel}}; 
         {%- else %}
         WEIGHT_T* w = weights; 
+        WEIGHT_T* wgrad = weights_grad; 
         {%- endif %}
         WEIGHT_T* weights_shft = w + lane_id;
 
@@ -108,7 +110,7 @@ __global__ void backward(
 
             __syncwarp();
             backward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem, L3_grad_smem,
-                    L1_grad_smem, L2_grad_smem, weights_grad, weights_grad_smem + lane_id, scratch_smem, lane_id);
+                    L1_grad_smem, L2_grad_smem, wgrad, weights_grad_smem + lane_id, scratch_smem, lane_id);
             __syncwarp();
 
             IRREP_T* l1_grad_shft = L1_grad + i * {{backward_schedule.L1.dim}} + lane_id;

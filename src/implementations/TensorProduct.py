@@ -285,11 +285,16 @@ class TensorProduct:
                 if not config.shared_weights:
                     shape = (weights_copy.shape[0], shape[0], shape[1])
                     weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
+                else:
+                    raise Exception("Not supported (yet)!")
 
             if inst.connection_mode == "uvw":
                 if direction == "backward":
                     shape = (shape[1], shape[0], shape[2])
                 if config.shared_weights:
                     weights_copy[start:end] = weights[start:end].reshape(shape).transpose(1, 0, 2).flatten()
+                else:
+                    shape = (weights_copy.shape[0], shape[0], shape[1], shape[2])
+                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1, 3).reshape(-1, end - start)
 
         return weights_copy

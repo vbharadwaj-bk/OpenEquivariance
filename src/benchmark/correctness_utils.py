@@ -132,10 +132,6 @@ def correctness_backward(
         weights_grad=test_weights_grad
         )
 
-    #print(ref_weights_grad)
-    #print(test_weights_grad)
-    #print(ref_weights_grad - test_weights_grad)
-
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
 
     for name, to_check, ground_truth, threshold in [
