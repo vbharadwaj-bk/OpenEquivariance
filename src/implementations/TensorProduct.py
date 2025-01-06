@@ -279,11 +279,15 @@ class TensorProduct:
 
         for i, inst in enumerate(self.config.instructions):
             start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
-            if direction == "backward":
-                shape = (shape[1], shape[0])
             if inst.connection_mode == "uvu":
+                if direction == "backward":
+                    shape = (shape[1], shape[0])
                 if not config.shared_weights:
                     shape = (weights_copy.shape[0], shape[0], shape[1])
                     weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
+
+            if inst.connection_mode == "uvw":
+                if config.shared_weights:
+                    weights_copy[start:end] = weights[start:end].reshape(shape).transpose(1, 0, 2).flatten()
 
         return weights_copy

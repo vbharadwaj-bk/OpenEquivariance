@@ -51,12 +51,12 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
                     for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                         l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}] * weight;
                 {%- elif problem.instructions[k].connection_mode == "uvw" %}
-                    ROW_OPERATION({{L3[w].mul * L1[u].mul}}, j, weights_smem[j + lane_id] = weights[j + k * {{L3[0].mul * L1[0].mul}} + lane_id];)
+                    {%- set slice_size = L3[w].mul * L1[u].mul %}
+                    ROW_OPERATION({{slice_size}}, j, weights_smem[j + lane_id] = weights[j + k * {{slice_size}} + lane_id];)
                     #pragma unroll
                     for(int j = 0; j < {{L2[v].ir.dim}}; j++)
                         l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}];
                 {%- endif %}
-
 
                 // ----------------- CORE CALCULATION -----------------
                 {%- for i in range(tensor.nnz) %}

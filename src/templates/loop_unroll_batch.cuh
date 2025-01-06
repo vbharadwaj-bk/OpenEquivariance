@@ -44,7 +44,6 @@ __global__ void forward(
             {{ declare_smem_variables(segment, "smem") }}
             {{ load_ir_segments(segment.L1Map, "l1", "L1_smem", "j") }}
             {{ load_ir_segments(segment.L2Map, "l2", "L2_smem", "j") }}
-
             ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
 
             {% if not forward_schedule.stream_weights%}

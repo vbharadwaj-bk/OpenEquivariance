@@ -205,7 +205,7 @@ if __name__=='__main__':
     directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
-                correctness=False, benchmark=True) 
+                correctness=True, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
@@ -213,7 +213,7 @@ if __name__=='__main__':
         correctness_threshold = 5e-5,
         num_warmup=100,
         num_iter=30,
-        #correctness_batch_size=1,
+        correctness_batch_size=1,
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
