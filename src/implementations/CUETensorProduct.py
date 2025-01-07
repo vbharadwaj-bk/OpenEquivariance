@@ -76,6 +76,8 @@ class CUETensorProduct(TensorProduct):
                 dtype=torch_dtype,
                 math_dtype=torch_dtype
             )
+            self.cue_tp.to('cuda')
+            self.forward = self.cue_tp.__call__
         
         if isinstance(config, FullyConnectedTPProblem):
             e = cue.descriptors.fully_connected_tensor_product(
@@ -86,10 +88,11 @@ class CUETensorProduct(TensorProduct):
 
             assert(config.weight_numel == e.inputs[0].irreps.dim)
             self.cue_tp = cuet.EquivariantTensorProduct(e, layout=cue.ir_mul,
-                    dtype=np_to_torch_dtype[config.irrep_dtype],
                     math_dtype=np_to_torch_dtype[config.irrep_dtype]) 
-        self.cue_tp.to('cuda')
-        self.forward = self.cue_tp.__call__
+
+            self.cue_tp.to('cuda')
+            self.forward = lambda x, y, W: self.cue_tp(W, x, y)
+
         
     @staticmethod
     def name():
