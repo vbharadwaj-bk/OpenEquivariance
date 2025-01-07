@@ -153,6 +153,8 @@ class ComputationSchedule:
             direction,
             irrep_dtype,
             weight_dtype,
+            include_scratch=False,
+            stream_weights=False, 
             schedule_type=2):
         '''
         smem_limit: size of available shared memory in bytes 
@@ -171,6 +173,9 @@ class ComputationSchedule:
 
         self.irrep_dtype_cstr = dtype_to_str_map[irrep_dtype]
         self.weight_dtype_cstr = dtype_to_str_map[weight_dtype]
+
+        # Stream weights on the fly before pre-loading 
+        self.stream_weights = stream_weights 
 
         reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
         reps = [Irreps(), Irreps(), Irreps()]
@@ -193,8 +198,11 @@ class ComputationSchedule:
                     for idx2 in irrep_maps[1, v]:
                         self.new_instructions.append((idx1, idx2, irrep_maps[2, w][i], connection_mode, has_weight, path_weight ** 2))
 
-            else:
-                raise Exception(f"Connection mode {connection_mode} not supported!")
+            elif connection_mode == "uvw":
+                for idx1 in irrep_maps[0, u]:
+                    for idx2 in irrep_maps[1, v]:
+                        for idx3 in irrep_maps[2, w]:
+                            self.new_instructions.append((idx1, idx2, idx3, connection_mode, has_weight, path_weight ** 2))
 
         #self.new_instructions.sort(key=lambda x: (x[2], x[0], x[1]))
 
@@ -215,11 +223,13 @@ class ComputationSchedule:
 
         def calculate_forward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
+            weight_itemsize = np.dtype(weight_dtype).itemsize
             smem = {
                 "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L2": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L3": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
+                "scratch": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
 
             weights_smem = 0
@@ -230,7 +240,12 @@ class ComputationSchedule:
                     if inst.connection_mode == "uvu":
                         weights_smem += np.prod(inst.path_shape)
 
-            smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+            smem["weights"]["size"] = weights_smem * weight_itemsize 
+
+            if include_scratch: 
+                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                # Max irrep size of 10 -> dim = 21 
+                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
@@ -243,6 +258,7 @@ class ComputationSchedule:
 
         def calculate_backward_smem(L1_set, L2_set, L3_set, inst_idxs): 
             irrep_itemsize = np.dtype(irrep_dtype).itemsize
+            weight_itemsize = np.dtype(weight_dtype).itemsize
             smem = {
                 "L1": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L1_grad": {"size": sum([self.L1[el].dim for el in L1_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
@@ -250,7 +266,8 @@ class ComputationSchedule:
                 "L2_grad": {"size": sum([self.L2[el].dim for el in L2_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "L3_grad": {"size": sum([self.L3[el].dim for el in L3_set]) * irrep_itemsize, "dtype": self.irrep_dtype_cstr},
                 "weights": {"size": 0, "dtype": self.weight_dtype_cstr},
-                "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr}
+                "weights_grad": {"size": 0, "dtype": self.weight_dtype_cstr},
+                "scratch": {"size": 0, "dtype": self.weight_dtype_cstr}
             }
 
             weights_smem = 0
@@ -263,6 +280,13 @@ class ComputationSchedule:
 
             smem["weights"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
             smem["weights_grad"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
+
+            if include_scratch: 
+                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                # We can reuse the weight buffer to accumulate the gradient in shared memory 
+                smem["weights_grad"]["size"] = 0 
+                # Max irrep size of 10 -> dim = 21 
+                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):

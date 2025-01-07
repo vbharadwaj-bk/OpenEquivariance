@@ -28,3 +28,5 @@ valid_indices*
 
 vivek-env.sh
 *.xyz
+cutlass
+scratch.txt

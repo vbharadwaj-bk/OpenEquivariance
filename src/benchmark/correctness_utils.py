@@ -46,12 +46,12 @@ def correctness_forward(
         "thresh": correctness_threshold, 
         "batch_size":batch_size
     }
-
-    
+ 
     in1, in2, weights, out = get_random_buffers_forward(problem, batch_size, prng_seed)
 
     # run reference
     ref_tp = reference_implementation(problem)
+
     ref_out = out.copy()
     ref_tp.forward_cpu(
         L1_in=in1.copy(), 
@@ -99,7 +99,7 @@ def correctness_backward(
         batch_size, 
         prng_seed
     )
-    
+
     ref_tp = reference_implementation(problem)
 
     ref_weights_grad = weights_grad.copy()

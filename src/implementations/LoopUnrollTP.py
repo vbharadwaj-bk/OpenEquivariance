@@ -11,10 +11,7 @@ logger = getLogger()
 class LoopUnrollTP(TensorProduct):
     def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)
-        L1, L2, L3 = self.L1, self.L2, self.L3 
-
-        for (mul, ir) in L2:
-            assert(mul == 1)
+        L1, L2, L3 = self.L1, self.L2, self.L3
 
         env = get_jinja_environment()
         template = env.get_template("loop_unroll_batch.cuh")
@@ -22,19 +19,32 @@ class LoopUnrollTP(TensorProduct):
 
         dp = DeviceProp(0)
 
+        if len(config.instructions) == 0:
+            raise ValueError("Tensor product problem has no valid intructions!")
+
+        for inst in config.instructions:
+            assert(inst.connection_mode == config.instructions[0].connection_mode)         
+        assert(config.instructions[0].connection_mode in ["uvu", "uvw"]) 
+        assert(config.irrep_dtype == config.weight_dtype)
+        is_uvw = (config.instructions[0].connection_mode == "uvw")
+
         forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                include_scratch=is_uvw,
+                stream_weights=is_uvw)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
-                weight_dtype = config.weight_dtype)
+                weight_dtype = config.weight_dtype,
+                include_scratch=is_uvw,
+                stream_weights=is_uvw)
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
@@ -50,6 +60,19 @@ class LoopUnrollTP(TensorProduct):
 
         if self.torch_op:
             self.setup_torch_custom_op()
+
+        # Write kernel to scratch.txt
+        with open("scratch.txt", "w") as f:
+            f.write(self.jit_kernel)
+
+    def forward_cpu(self, L1_in, L2_in, L3_out, weights):
+        super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights, "forward"))
+
+    def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad):
+        super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad,
+            self.reorder_weights(weights, "forward"), 
+            weights_grad)
+        weights_grad[:] = self.reorder_weights(weights_grad, "backward")         
 
     @staticmethod
     def name():
