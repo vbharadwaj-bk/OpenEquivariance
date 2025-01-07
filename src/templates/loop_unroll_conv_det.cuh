@@ -112,7 +112,7 @@ __global__ void forward(
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
 
             __syncwarp();
-            forward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_smem, lane_id);
+            forward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem + lane_id, L3_smem, scratch_smem, lane_id);
             __syncwarp();
 
             bool changeRow = (i < end - 1) && (row != rows[i+1]);
@@ -193,14 +193,14 @@ __global__ void backward(
 
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_grad_smem[j + lane_id] = 0.0;)
 
-            __syncwarp();
-            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights_smem + lane_id, L3_grad_smem,
-                    L1_grad_smem, L2_grad_smem, weights_grad_smem + lane_id, lane_id);
-            __syncwarp();
-
             IRREP_T* l1_grad_shft = L1_grad + col * {{backward_schedule.L1.dim}} + lane_id;
             IRREP_T* l2_grad_shft = L2_grad + tperm_idx * {{backward_schedule.L2.dim}} + lane_id;
             WEIGHT_T* weights_grad_shft = weights_grad + tperm_idx * {{backward_schedule.updated_config.weight_numel}} + lane_id;
+
+            __syncwarp();
+            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem + lane_id, L3_grad_smem,
+                    L1_grad_smem, L2_grad_smem, weights_grad_shft, weights_grad_smem + lane_id, scratch_smem, lane_id);
+            __syncwarp();
 
             bool changeRow = (i < end - 1) && (col != cols[i+1]);
 
