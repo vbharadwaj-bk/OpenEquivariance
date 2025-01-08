@@ -155,12 +155,18 @@ class LoopReorderUVWTP(TensorProduct):
         env.globals['len'] = len
         env.globals['product'] = math.prod
         main_template = env.get_template("loop_reorder_uvw_cutlass_tp.cuh")
+
+        subkernel_template = env.get_template("loop_reorder_subkernels.cuh")
         
         # ===========================================================================
         # Memory Analyis for Smem Allocation
         dp = DeviceProp(0)
 
+        logger.debug(msg=f"available smem = {dp.maxSharedMemPerBlock}")
+
         InstructionInfoList = prepare_InstructionInfo_list(config)
+
+        logger.debug(msg=InstructionInfoList)
 
         max_in1_instruction_size = max([II.in1_irrep_length * II.in1_multiplicity for II in InstructionInfoList])
         max_in2_instruction_size = max([II.in2_irrep_length * II.in2_multiplicity for II in InstructionInfoList])
@@ -171,7 +177,6 @@ class LoopReorderUVWTP(TensorProduct):
         # =====================================================================
         # FORWARD MEMORY ANALYSIS 
         forward_thread_blocks_per_SM = 1 
-        forward_threads_per_thread_block = 32
 
         # =====================================================================
 
@@ -205,16 +210,16 @@ class LoopReorderUVWTP(TensorProduct):
 
 
         forward_smem_common['weights'] = max_weight_size * sizeof('float')
-        
+    
         forward_smem_per_warp_total = sum(forward_smem_per_warp.values())
         forwad_smem_common_total = sum(forward_smem_common.values())
         
         logger.debug(f"{forward_smem_per_warp=}")
         logger.debug(f"{forward_smem_common=}")                
 
-        forward_num_warps_that_fit = (dp.maxSharedMemPerBlock - forwad_smem_common_total )  // forward_smem_per_warp_total
+        forward_num_warps_that_fit = max(dp.maxSharedMemPerBlock - forwad_smem_common_total, 0)  // forward_smem_per_warp_total
         assert (forward_num_warps_that_fit > 0)
-        forward_num_warps_sane = 8 
+        forward_num_warps_sane = 16 
 
         forward_num_warps = min(forward_num_warps_that_fit, forward_num_warps_sane)
         logger.debug(f"{forward_num_warps=}") 
@@ -230,43 +235,51 @@ class LoopReorderUVWTP(TensorProduct):
         # =====================================================================
 
         backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = dp.multiprocessorCount * 2
+        backward_launch_config.num_blocks = dp.multiprocessorCount * 1
 
 
         backward_smem_gemm_max_n = dp.warpsize
         backward_smem_gemm_L1L2_scratch = backward_smem_gemm_max_n * max(RepData(config.irreps_out).irrep_lengths) # this has space for the largest output size * 32
         backward_smem_gemm_weights_scratch = backward_smem_gemm_max_n * max(RepData(config.irreps_out).mults) 
 
-        backward_smem_per_warp = {}
-        backward_smem_per_warp['in1']          = (irreps_in1.dim * sizeof('float'))
-        backward_smem_per_warp['in1_grad']     = (irreps_in1.dim * sizeof('float'))
-        backward_smem_per_warp['in2']          = (irreps_in2.dim * sizeof('float'))
-        backward_smem_per_warp['in2_grad']     = (irreps_in2.dim * sizeof('float'))
-        backward_smem_per_warp['out_grad']     = (irreps_out.dim * sizeof('float'))
-        backward_smem_per_warp['gemm_L1L2']    = (backward_smem_gemm_L1L2_scratch * sizeof('float'))
-        backward_smem_per_warp['gemm_weights'] = (backward_smem_gemm_weights_scratch * sizeof('float'))
-        
         backward_smem_gemm_info = {
             'n' : backward_smem_gemm_max_n,
             'L1L2_scratch_elems' : backward_smem_gemm_L1L2_scratch,
             'weight_scratch_elems' : backward_smem_gemm_weights_scratch,
         }
 
-        logger.debug(msg=f"{backward_smem_per_warp=}")
+        backward_smem_per_warp = {}
+        backward_smem_common = {}
 
+        backward_smem_per_warp['in1']          = max_in1_instruction_size * sizeof('float')
+        backward_smem_per_warp['in1_grad']     = max_in1_instruction_size * sizeof('float')
+        backward_smem_per_warp['in2']          = max_in2_instruction_size * sizeof('float')
+        backward_smem_per_warp['in2_grad']     = max_in2_instruction_size * sizeof('float')
+        backward_smem_per_warp['out_grad']     = max_out_instruction_size * sizeof('float')
+        backward_smem_per_warp['gemm_L1L2']    = backward_smem_gemm_L1L2_scratch * sizeof('float')
+        backward_smem_per_warp['gemm_weights'] = backward_smem_gemm_weights_scratch * sizeof('float')
+
+        backward_smem_common['weights'] = max_weight_size * sizeof('float')
+        backward_smem_common['weights_grad'] = max_weight_size * sizeof('float')
+        
         backward_smem_per_warp_total = sum(backward_smem_per_warp.values())
+        backward_smem_common_total = sum(backward_smem_common.values())
 
-        logger.debug(msg=f"{backward_smem_per_warp_total=}")
 
-        backward_num_warps_that_fit = dp.maxSharedMemPerBlock // backward_smem_per_warp_total
-        backward_num_warps_sane_limit = 8
+        logger.debug(msg=f"{backward_smem_per_warp=}")
+        logger.debug(msg=f"{backward_smem_common=}")
+        
+
+        backward_num_warps_that_fit = max(dp.maxSharedMemPerBlock - backward_smem_common_total, 0) // backward_smem_per_warp_total
+        assert(backward_num_warps_that_fit > 0)
+        backward_num_warps_sane_limit = 16        
 
         backward_num_warps = min(backward_num_warps_that_fit, backward_num_warps_sane_limit)
-        logger.info(msg=f"{backward_num_warps=}")
+        logger.debug(msg=f"{backward_num_warps=}")
 
         backward_launch_config.warp_size = dp.warpsize
         backward_launch_config.num_threads = backward_launch_config.warp_size * backward_num_warps
-        backward_launch_config.smem = backward_smem_per_warp_total * backward_num_warps
+        backward_launch_config.smem = (backward_smem_per_warp_total * backward_num_warps) + backward_smem_common_total
 
         logger.debug(f"Backward pass needs {backward_launch_config.smem} bytes of shared memory.")
         
@@ -295,9 +308,20 @@ class LoopReorderUVWTP(TensorProduct):
             backward_config=backward_launch_config
         )
 
+        for i, II in enumerate(InstructionInfoList):
+            kernel_text += subkernel_template.render(
+                kernel_ID = i,
+                II = II,
+            )
+
         self.jit_kernel = kernel_text
         
-        logger.debug(kernel_text)
+        def add_fixed_width_line_numbers(text):
+            lines = text.split('\n')
+            numbered_lines = [f"{i + 1:03}: {line}" for i, line in enumerate(lines)]
+            return '\n'.join(numbered_lines)
+            
+        logger.debug(add_fixed_width_line_numbers(kernel_text))
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
