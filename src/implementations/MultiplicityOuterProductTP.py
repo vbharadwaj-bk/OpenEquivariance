@@ -4,23 +4,13 @@ from src.benchmark.e3nn_lite_utils import calc_weight_offsets
 from src.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
 from src.implementations.TensorProduct import TensorProduct 
 from src.benchmark.logging_utils import getLogger, bcolors 
+from src.templates.jinja_utils import get_jinja_environment, sizeof
 from jinja2 import Environment, FileSystemLoader
 
 from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
 logger = getLogger()
 
-def raise_helper(msg):
-    raise Exception(msg)
-
-def divide(numerator, denominator):
-    return numerator // denominator 
-
-def sizeof(dtype):
-    if dtype in ["float", "int", "unsigned int"]:
-        return 4
-    else:
-        raise Exception("Provided undefined datatype to sizeof!")
 
 class MultiplicityOuterProductTP(TensorProduct):
     def __init__(self, config : TPProblem, torch_op : bool = False):
@@ -39,10 +29,7 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # ==================================================================================
 
-        env = Environment(loader=FileSystemLoader("src/templates"), extensions=['jinja2.ext.do'])
-        env.globals['raise'] = raise_helper 
-        env.globals['divide'] = divide 
-        env.globals['sizeof'] = sizeof
+        env = get_jinja_environment()
         env.globals['range'] = range
         env.globals['enumerate'] = enumerate 
         env.globals['len'] = len
