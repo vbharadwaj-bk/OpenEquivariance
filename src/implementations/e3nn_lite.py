@@ -500,14 +500,14 @@ class TPProblem:
         """Simple representation, definitely incomplete"""
         result = ""
         result += f"{self.__class__.__name__}"
-        result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}"
+        result += f"({self.irreps_in1} x {self.irreps_in2}) -> {self.irreps_out}"
         return result
 
     def __repr__(self) -> str:
         """More complete, yet maybe incomplete representation"""
         result = ""
         result += f"{self.__class__.__name__}"
-        result += f"({self.irreps_in1.simplify()} x {self.irreps_in2.simplify()}) -> {self.irreps_out.simplify()}\n"
+        result += f"({self.irreps_in1} x {self.irreps_in2}) -> {self.irreps_out}\n"
         result += f"{self.irrep_normalization = }\n"
         result += f"{self.path_normalization = }\n"
         result += f"{self.internal_weights = }\n"
