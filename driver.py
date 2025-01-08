@@ -30,7 +30,7 @@ def debug( test : TestDefinition) -> None:
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
-    batch_size = 1
+    batch_size = 10
     # prng_seed = 12345
     prng_seed = random.randint(100, 100000)
 
@@ -196,10 +196,12 @@ if __name__=='__main__':
     ]
 
     basic_multi_interaction_problems = [
-        FCTPP("2x1e + 1x0e", "2x1e", "4x1e"),
-        FCTPP("2x1e", "2x1e + 1x0e", "4x1e"),
-        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"),
-        FCTPP("32x1e + 32x0e", "32x1e + 32x0e", "32x1e + 32x0e"),
+        FCTPP("2x1e + 1x0e", "2x1e",        "4x1e"       ),
+        FCTPP("1x0e + 2x1e", "2x1e",        "4x1e"       ),
+        FCTPP("2x1e",        "2x1e + 1x0e", "4x1e"       ),
+        FCTPP("2x1e",        "2x1e",        "4x1e + 3x0e"),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"       ),
+        FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 3x0e"),
     ]
 
     conv_problems = [  
@@ -217,10 +219,10 @@ if __name__=='__main__':
     #    problem.weight_dtype = np.float64
 
     problems = list(itertools.chain(
-        basic_fully_connected_problems,
-        increasing_multiplicty_fully_connected_problems,
-        full_size_uvw_case,
-        cutlass_troubleshooting,
+        # basic_fully_connected_problems,
+        # increasing_multiplicty_fully_connected_problems,
+        # full_size_uvw_case,
+        # cutlass_troubleshooting,
         basic_multi_interaction_problems,
         #conv_problems,
     ))
@@ -234,8 +236,8 @@ if __name__=='__main__':
         ]
     
     directions : list[Direction] = [
-        'forward', 
-        # 'backward',
+        # 'forward', 
+        'backward',
         ] 
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
@@ -251,5 +253,5 @@ if __name__=='__main__':
     )
 
     logger.setLevel(logging.DEBUG)
-    bench_suite.run(tests)
-    # debug(tests[4])
+    # bench_suite.run(tests)
+    debug(tests[0])
