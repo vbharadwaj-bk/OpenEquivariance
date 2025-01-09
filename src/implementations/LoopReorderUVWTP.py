@@ -145,12 +145,6 @@ def prepare_InstructionInfo_list(problem : TPProblem) -> list[InstructionInfo]:
         )
     return infolist
 
-def partition_InstructionInfo_list_by_max_size(input_II_list : list[InstructionInfo], max_size : int) -> list[InstructionInfo]:
-    output_II_list = []
-    return input_II_list
-
-
-
 def partition_InstructionInfo_list_by_max_size_along_dimension(input_II_list : list[InstructionInfo], max_size : int, dimension : Dimension) -> list[InstructionInfo]: 
     assert dimension in get_args(Dimension)
     output_II_list = []
@@ -160,79 +154,119 @@ def partition_InstructionInfo_list_by_max_size_along_dimension(input_II_list : l
         assert isinstance(extent, int)
 
         if extent > max_size:
-            
+            # hunk is the max_sized bit 
+            # rest is the rest of it   
+
             irrep_offsets : dict[Dimension, int]= {
                 'in1' : II.in1_multiplicity, 
                 'in2' : II.in2_multiplicity, 
                 'out' : II.out_multiplicity, 
             }
-            new_irrep_offsets = irrep_offsets.copy()
-            old_irrep_offsets = irrep_offsets.copy()
+            hunk_irrep_offsets = irrep_offsets.copy()
+            rest_irrep_offsets = irrep_offsets.copy()
             
-            new_irrep_offsets[dimension] += max_size
+            rest_irrep_offsets[dimension] += max_size
 
             weight_offsets : dict[Dimension, int]= {
                 'in1' : II.weight_in1_offset,
                 'in2' : II.weight_in2_offset,
                 'out' : II.weight_out_offset, 
             }
-            new_weight_offsets = irrep_offsets.copy()
-            old_weight_offsets = irrep_offsets.copy() 
+            hunk_weight_offsets = irrep_offsets.copy()
+            rest_weight_offsets = irrep_offsets.copy() 
 
-            new_weight_offsets[dimension] += max_size
+            rest_weight_offsets[dimension] += max_size
 
             multiplicities : dict[Dimension, int] = {
                 'in1' : II.in1_multiplicity,
                 'in2' : II.in2_multiplicity, 
                 'out' : II.out_multiplicity, 
             }
-            new_multiplicities = multiplicities.copy()
-            old_multiplicities = multiplicities.copy()
+            hunk_multiplicities = multiplicities.copy()
+            rest_multiplicities = multiplicities.copy()
 
-            new_multiplicities[dimension]  = max_size
-            old_multiplicities[dimension] -= max_size 
+            hunk_multiplicities[dimension]  = max_size
+            rest_multiplicities[dimension] -= max_size 
 
-            new_II = InstructionInfo(
+            rest_II = InstructionInfo(
                 # Irrep Indices 
                 in1_index=II.in1_index, # This won't acutally be accurate with the partition, but it will correspond to the original blocks
                 in2_index=II.in2_index,
                 out_index=II.out_index, 
                 # Offsets
-                in1_offset=new_irrep_offsets['in1'],
-                in2_offset=new_irrep_offsets['in2'],
-                out_offset=new_ireep_offsets['out'], 
-                weight_offset=weight_offsets[ins_index],
+                in1_offset=rest_irrep_offsets['in1'],
+                in2_offset=rest_irrep_offsets['in2'],
+                out_offset=rest_irrep_offsets['out'], 
+                weight_offset=II.weight_offset,
                 # Orders
-                in1_l=L1.ls[ins.i_in1],
-                in2_l=L2.ls[ins.i_in2],
-                out_l=L3.ls[ins.i_out],
+                in1_l=II.in1_l,
+                in2_l=II.in2_l,
+                out_l=II.out_l,
                 # Multiplicites
-                in1_multiplicity=L1.mults[ins.i_in1],
-                in2_multiplicity=L2.mults[ins.i_in2],
-                out_multiplicity=L3.mults[ins.i_out],
+                in1_multiplicity=rest_multiplicities['in1'],
+                in2_multiplicity=rest_multiplicities['in2'],
+                out_multiplicity=rest_multiplicities['out'],
                 # Irrep Length 
-                in1_irrep_length=L1.irrep_lengths[ins.i_in1],
-                in2_irrep_length=L2.irrep_lengths[ins.i_in2],
-                out_irrep_length=L3.irrep_lengths[ins.i_out],
+                in1_irrep_length=II.in1_irrep_length,
+                in2_irrep_length=II.in2_irrep_length,
+                out_irrep_length=II.out_irrep_length,
                 # Tensor Info 
-                tensor=CGTensor(L1.ls[ins.i_in1], L2.ls[ins.i_in2], L3.ls[ins.i_out]),
-                path_weight=ins.path_weight,
+                tensor=II.tensor,
+                path_weight=II.path_weight,
                 # Legacy Info 
                 connection_mode=II.connection_mode,
                 has_weight=II.has_weight,
-                path_shape=ins.path_shape,
+                path_shape=(rest_multiplicities['in1'], rest_multiplicities['in2'], rest_multiplicities['out']),
                 # Weight Sub Partitioning Info
                 weight_in1_extent=II.weight_in1_extent,
                 weight_in2_extent=II.weight_in2_extent,
                 weight_out_extent=II.weight_out_extent,
-                weight_in1_offset=0, 
-                weight_in2_offset=0, 
-                weight_out_offset=0, 
+                weight_in1_offset=rest_weight_offsets['in1'], 
+                weight_in2_offset=rest_weight_offsets['in2'], 
+                weight_out_offset=rest_weight_offsets['out'], 
             )
-            pass
 
-         
-            
+            hunk_II = InstructionInfo(
+                # Irrep Indices 
+                in1_index=II.in1_index, # This won't acutally be accurate with the partition, but it will correspond to the original blocks
+                in2_index=II.in2_index,
+                out_index=II.out_index, 
+                # Offsets
+                in1_offset=hunk_irrep_offsets['in1'],
+                in2_offset=hunk_irrep_offsets['in2'],
+                out_offset=hunk_irrep_offsets['out'], 
+                weight_offset=II.weight_offset,
+                # Orders
+                in1_l=II.in1_l,
+                in2_l=II.in2_l,
+                out_l=II.out_l,
+                # Multiplicites
+                in1_multiplicity=hunk_multiplicities['in1'],
+                in2_multiplicity=hunk_multiplicities['in2'],
+                out_multiplicity=hunk_multiplicities['out'],
+                # Irrep Length 
+                in1_irrep_length=II.in1_irrep_length,
+                in2_irrep_length=II.in2_irrep_length,
+                out_irrep_length=II.out_irrep_length,
+                # Tensor Info 
+                tensor=II.tensor,
+                path_weight=II.path_weight,
+                # Legacy Info 
+                connection_mode=II.connection_mode,
+                has_weight=II.has_weight,
+                path_shape=(hunk_multiplicities['in1'], hunk_multiplicities['in2'], hunk_multiplicities['out']),
+                # Weight Sub Partitioning Info
+                weight_in1_extent=II.weight_in1_extent,
+                weight_in2_extent=II.weight_in2_extent,
+                weight_out_extent=II.weight_out_extent,
+                weight_in1_offset=hunk_weight_offsets['in1'], 
+                weight_in2_offset=hunk_weight_offsets['in2'], 
+                weight_out_offset=hunk_weight_offsets['out'], 
+            )
+            output_II_list.append(hunk_II)
+            input_II_list.append(rest_II)   
+        else: 
+            output_II_list.append(II)      
     return output_II_list
 
 
@@ -274,7 +308,13 @@ class LoopReorderUVWTP(TensorProduct):
 
         InstructionInfoList = prepare_InstructionInfo_list(config)
 
-        logger.debug(msg=InstructionInfoList)
+        logger.debug(msg=f"original II list{InstructionInfoList}")
+
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 8, 'in1')
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 8, 'in2')
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 8, 'out')
+
+        logger.debug(msg=f"partitioned II list{InstructionInfoList}")
 
         max_in1_instruction_size = max([II.in1_irrep_length * II.in1_multiplicity for II in InstructionInfoList])
         max_in2_instruction_size = max([II.in2_irrep_length * II.in2_multiplicity for II in InstructionInfoList])

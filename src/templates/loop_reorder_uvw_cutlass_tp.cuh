@@ -25,6 +25,35 @@ template<typename T, typename Group>
 __device__ __forceinline__ void dynamic_contiguous_copy(Group, T*, T*, int); 
 template<typename T, typename Group>
 __device__ __forceinline__ void dynamic_contiguous_set (Group, T*, T , int);
+template<
+    typename T, 
+    typename Group, 
+    int in1_extent, 
+    int in2_extent, 
+    int out_extent, 
+    int in1_offset, 
+    int in2_offset, 
+    int out_offset,
+    int in1_multiplicity, 
+    int in2_multiplicity, 
+    int out_multiplicity
+    >
+__device__ __forceinline__ void weight_view_condensing_copy(Group g, T* dst, T* src);
+template<
+    typename T, 
+    typename Group, 
+    int in1_extent, 
+    int in2_extent, 
+    int out_extent, 
+    int in1_offset, 
+    int in2_offset, 
+    int out_offset,
+    int in1_multiplicity, 
+    int in2_multiplicity, 
+    int out_multiplicity
+    >
+__device__ __forceinline__ void weight_view_expanding_global_atomic(Group g, T* dst, T* src);
+
 template<typename Tensor>
 __device__ __forceinline__ void print_tensor_contents(Tensor t); 
 
@@ -198,6 +227,14 @@ __global__ void backward(
         constexpr int L2_size_instruction = L2_mults * L2_irrep_length;
         constexpr int L3_size_instruction = L3_mults * L3_irrep_length;   
 
+        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
+        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
+        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
+
+        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
+        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
+        constexpr int out_weight_offset = {{II.weight_out_offset}};
+
         constexpr int weights_size_instruction = {{product(II.path_shape)}}; //L1_mults * L2_mults * L3_mults; 
         
         block.sync(); 
@@ -211,10 +248,28 @@ __global__ void backward(
         float* weights_shift_instruction = weights + {{II.weight_offset}};
         float* weights_grad_shift_instruction = weights_grad + {{II.weight_offset}}; 
 
-        dynamic_contiguous_copy<float, cg::thread_block>(block, weights_smem, weights_shift_instruction, weights_size_instruction);  
+        // dynamic_contiguous_copy<float, cg::thread_block>(block, weights_smem, weights_shift_instruction, weights_size_instruction);  
+
+        if (warp_loc == 0){ 
+            weight_view_condensing_copy<
+                float,
+                Warp_Tile,
+                in1_weight_extent,
+                in2_weight_extent,
+                out_weight_extent, 
+                in1_weight_offset,
+                in2_weight_offset,
+                out_weight_extent,
+                L1_mults,
+                L2_mults,
+                L3_mults
+            >(warp_tile, weights_smem, weights_shift_instruction);
+        }
+        block.sync(); 
+
         dynamic_contiguous_set<float, cg::thread_block>(block, weights_grad_smem, 0.0f, weights_size_instruction);  
 
-
+        block.sync();
         // GRID STRIDE LOOP
         for(
             int batch_index = (blockIdx.x * warps_per_block) + warp_loc; 
@@ -264,8 +319,23 @@ __global__ void backward(
         block.sync(); 
 
         // global atomics 
-        for(int weight_copy_index = block.thread_rank(); weight_copy_index < weights_size_instruction; weight_copy_index += block.size()){
-            atomicAdd(&weights_grad_shift_instruction[weight_copy_index], weights_grad_smem[weight_copy_index]); 
+        // for(int weight_copy_index = block.thread_rank(); weight_copy_index < weights_size_instruction; weight_copy_index += block.size()){
+        //     atomicAdd(&weights_grad_shift_instruction[weight_copy_index], weights_grad_smem[weight_copy_index]); 
+        // }
+        if (warp_loc == 0){
+        weight_view_expanding_global_atomic<
+            float,
+            Warp_Tile, 
+            in1_weight_extent,
+            in2_weight_extent,
+            out_weight_extent, 
+            in1_weight_offset,
+            in2_weight_offset,
+            out_weight_extent,
+            L1_mults,
+            L2_mults,
+            L3_mults
+         >(warp_tile, weights_grad_shift_instruction, weights_grad_smem); 
         }
 
         block.sync();
@@ -274,6 +344,95 @@ __global__ void backward(
 }
 
 // UTILITY FUNCTIONS HERE
+
+template<
+    typename T, 
+    typename Group, 
+    int in1_extent, 
+    int in2_extent, 
+    int out_extent, 
+    int in1_offset, 
+    int in2_offset, 
+    int out_offset,
+    int in1_multiplicity, 
+    int in2_multiplicity, 
+    int out_multiplicity
+    >
+__device__ __forceinline__ void weight_view_condensing_copy(Group g, T* dst, T* src){
+    static_assert(in1_extent > 0);
+    static_assert(in2_extent > 0);
+    static_assert(out_extent > 0);
+    static_assert(in1_multiplicity > 0);
+    static_assert(in2_multiplicity > 0);
+    static_assert(out_multiplicity > 0);
+    static_assert(out_multiplicity <= g.size()); 
+
+    bool active = g.thread_rank() < out_multiplicity; 
+    int out_index = g.thread_rank();
+    #pragma unroll 
+    for(int in1_index = 0; in1_index < in1_multiplicity; in1_index++){
+    #pragma unroll 
+    for(int in2_index = 0; in2_index < in2_multiplicity; in2_index++){
+          if (active){
+            int src_weight_index = (
+                    ((in1_index + in1_offset) * (in2_extent * out_extent)) 
+                + ((in2_index + in2_offset) * (out_extent)) 
+                + (out_index + out_offset)); 
+            int dst_weight_index = (
+                  ((in1_index) * (in2_multiplicity * out_multiplicity))  
+                + ((in2_index) * (out_multiplicity)) 
+                + ((out_index))
+                );
+            dst[dst_weight_index] = src[src_weight_index]; 
+        }
+    }
+    }
+}
+
+template<
+    typename T, 
+    typename Group, 
+    int in1_extent, 
+    int in2_extent, 
+    int out_extent, 
+    int in1_offset, 
+    int in2_offset, 
+    int out_offset,
+    int in1_multiplicity, 
+    int in2_multiplicity, 
+    int out_multiplicity
+    >
+__device__ __forceinline__ void weight_view_expanding_global_atomic(Group g, T* dst, T* src){
+    static_assert(in1_extent > 0);
+    static_assert(in2_extent > 0);
+    static_assert(out_extent > 0);
+    static_assert(in1_multiplicity > 0);
+    static_assert(in2_multiplicity > 0);
+    static_assert(out_multiplicity > 0);
+    static_assert(out_multiplicity <= g.size()); 
+
+    bool active = g.thread_rank() < out_multiplicity; 
+    int out_index = g.thread_rank();
+    #pragma unroll 
+    for(int in1_index = 0; in1_index < in1_multiplicity; in1_index++){
+    #pragma unroll 
+    for(int in2_index = 0; in2_index < in2_multiplicity; in2_index++){
+          if (active){
+            int dst_weight_index = (
+                    ((in1_index + in1_offset) * (in2_extent * out_extent)) 
+                + ((in2_index + in2_offset) * (out_extent)) 
+                + (out_index + out_offset)); 
+            int src_weight_index = (
+                  ((in1_index) * (in2_multiplicity * out_multiplicity))  
+                + ((in2_index) * (out_multiplicity)) 
+                + ((out_index))
+                );
+            atomicAdd(&dst[dst_weight_index], src[src_weight_index]); 
+        }
+    }
+    }
+}
+
 
 template<typename T, typename Group, int Num_Elements> 
 __device__ __forceinline__ void static_contiguous_copy(Group g, T* dst, T* src){
