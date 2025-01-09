@@ -1,5 +1,5 @@
-import math
-from typing import NamedTuple
+import math, logging, pathlib
+from typing import NamedTuple, Literal, get_args
 
 import numpy as np
 
@@ -81,6 +81,15 @@ class InstructionInfo(NamedTuple):
     connection_mode: str
     has_weight: bool
     path_shape: tuple
+    # Weight Sub Partitioning Info
+    weight_in1_extent : int
+    weight_in2_extent : int 
+    weight_out_extent : int 
+    weight_in1_offset : int
+    weight_in2_offset : int 
+    weight_out_offset : int 
+
+Dimension = Literal['in1', 'in2', 'out']
 
 def prepare_InstructionInfo_list(problem : TPProblem) -> list[InstructionInfo]:
     """
@@ -104,7 +113,7 @@ def prepare_InstructionInfo_list(problem : TPProblem) -> list[InstructionInfo]:
                 # Offsets
                 in1_offset=L1.offsets[ins.i_in1],
                 in2_offset=L2.offsets[ins.i_in2],
-                out_offset=L3.offsets[ins.i_out],
+                out_offset=L3.offsets[ins.i_out], 
                 weight_offset=weight_offsets[ins_index],
                 # Orders
                 in1_l=L1.ls[ins.i_in1],
@@ -125,9 +134,108 @@ def prepare_InstructionInfo_list(problem : TPProblem) -> list[InstructionInfo]:
                 connection_mode=ins.connection_mode,
                 has_weight=ins.has_weight,
                 path_shape=ins.path_shape,
+                # Weight Sub Partitioning Info
+                weight_in1_extent=L1.mults[ins.i_in1],
+                weight_in2_extent=L2.mults[ins.i_in2],
+                weight_out_extent=L3.mults[ins.i_out],
+                weight_in1_offset=0, 
+                weight_in2_offset=0, 
+                weight_out_offset=0, 
             )
         )
     return infolist
+
+def partition_InstructionInfo_list_by_max_size(input_II_list : list[InstructionInfo], max_size : int) -> list[InstructionInfo]:
+    output_II_list = []
+    return input_II_list
+
+
+
+def partition_InstructionInfo_list_by_max_size_along_dimension(input_II_list : list[InstructionInfo], max_size : int, dimension : Dimension) -> list[InstructionInfo]: 
+    assert dimension in get_args(Dimension)
+    output_II_list = []
+    while input_II_list:
+        II = input_II_list.pop()
+        extent = getattr(II,f"{dimension}_multiplicity")
+        assert isinstance(extent, int)
+
+        if extent > max_size:
+            
+            irrep_offsets : dict[Dimension, int]= {
+                'in1' : II.in1_multiplicity, 
+                'in2' : II.in2_multiplicity, 
+                'out' : II.out_multiplicity, 
+            }
+            new_irrep_offsets = irrep_offsets.copy()
+            old_irrep_offsets = irrep_offsets.copy()
+            
+            new_irrep_offsets[dimension] += max_size
+
+            weight_offsets : dict[Dimension, int]= {
+                'in1' : II.weight_in1_offset,
+                'in2' : II.weight_in2_offset,
+                'out' : II.weight_out_offset, 
+            }
+            new_weight_offsets = irrep_offsets.copy()
+            old_weight_offsets = irrep_offsets.copy() 
+
+            new_weight_offsets[dimension] += max_size
+
+            multiplicities : dict[Dimension, int] = {
+                'in1' : II.in1_multiplicity,
+                'in2' : II.in2_multiplicity, 
+                'out' : II.out_multiplicity, 
+            }
+            new_multiplicities = multiplicities.copy()
+            old_multiplicities = multiplicities.copy()
+
+            new_multiplicities[dimension]  = max_size
+            old_multiplicities[dimension] -= max_size 
+
+            new_II = InstructionInfo(
+                # Irrep Indices 
+                in1_index=II.in1_index, # This won't acutally be accurate with the partition, but it will correspond to the original blocks
+                in2_index=II.in2_index,
+                out_index=II.out_index, 
+                # Offsets
+                in1_offset=new_irrep_offsets['in1'],
+                in2_offset=new_irrep_offsets['in2'],
+                out_offset=new_ireep_offsets['out'], 
+                weight_offset=weight_offsets[ins_index],
+                # Orders
+                in1_l=L1.ls[ins.i_in1],
+                in2_l=L2.ls[ins.i_in2],
+                out_l=L3.ls[ins.i_out],
+                # Multiplicites
+                in1_multiplicity=L1.mults[ins.i_in1],
+                in2_multiplicity=L2.mults[ins.i_in2],
+                out_multiplicity=L3.mults[ins.i_out],
+                # Irrep Length 
+                in1_irrep_length=L1.irrep_lengths[ins.i_in1],
+                in2_irrep_length=L2.irrep_lengths[ins.i_in2],
+                out_irrep_length=L3.irrep_lengths[ins.i_out],
+                # Tensor Info 
+                tensor=CGTensor(L1.ls[ins.i_in1], L2.ls[ins.i_in2], L3.ls[ins.i_out]),
+                path_weight=ins.path_weight,
+                # Legacy Info 
+                connection_mode=II.connection_mode,
+                has_weight=II.has_weight,
+                path_shape=ins.path_shape,
+                # Weight Sub Partitioning Info
+                weight_in1_extent=II.weight_in1_extent,
+                weight_in2_extent=II.weight_in2_extent,
+                weight_out_extent=II.weight_out_extent,
+                weight_in1_offset=0, 
+                weight_in2_offset=0, 
+                weight_out_offset=0, 
+            )
+            pass
+
+         
+            
+    return output_II_list
+
+
 
 class LoopReorderUVWTP(TensorProduct):
     def __init__(self, config : TPProblem, torch_op : bool = False):
@@ -321,7 +429,11 @@ class LoopReorderUVWTP(TensorProduct):
             numbered_lines = [f"{i + 1:03}: {line}" for i, line in enumerate(lines)]
             return '\n'.join(numbered_lines)
             
-        logger.debug(add_fixed_width_line_numbers(kernel_text))
+        if logger.isEnabledFor(logging.DEBUG):
+            logs_path = pathlib.Path('logs/')
+            logs_path.mkdir(parents=True, exist_ok=True)
+            with open(logs_path / "kernel_text.txt", 'w') as f:
+                f.write(kernel_text)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)

@@ -257,8 +257,8 @@ __global__ void backward(
             warp_tile.sync();
             
             // WRITE TO GLOBAL
-            static_contiguous_copy<float, Warp_Tile, {{L1.rep_len}}>(warp_tile, L1_grad_global_shift_warp, L1_grad_shared_shift_warp);
-            static_contiguous_copy<float, Warp_Tile, {{L2.rep_len}}>(warp_tile, L2_grad_global_shift_warp, L2_grad_shared_shift_warp);
+            static_contiguous_copy<float, Warp_Tile, L1_size_instruction>(warp_tile, L1_grad_global_shift_warp, L1_grad_shared_shift_warp);
+            static_contiguous_copy<float, Warp_Tile, L2_size_instruction>(warp_tile, L2_grad_global_shift_warp, L2_grad_shared_shift_warp);
         }
 
         block.sync(); 
