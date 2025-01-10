@@ -1,4 +1,4 @@
-import sys
+import sys, json, time, pathlib
 sys.path.append('mace_dev')
 
 import argparse
@@ -50,7 +50,7 @@ def create_model(hidden_irreps, max_ell, cueq_config=None):
     }
     return modules.ScaleShiftMACE(**model_config)
 
-def benchmark_model(model, batch, num_iterations=100, warmup=100):
+def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, output_folder=None):
     def run_inference():
         out = model(batch,training=True)
         torch.cuda.synchronize()
@@ -70,7 +70,13 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100):
     warm_up_measurement = timer.timeit(num_iterations)
     measurement = timer.timeit(num_iterations)
 
-    #print(run_inference())
+    print(type(measurement))
+
+    with open(output_folder / f"{label}.json", "w") as f:
+        json.dump({
+            "time_ms_mean": measurement.mean * 1000, 
+            "label": label
+        }, f, indent=4) 
 
     return measurement
 
@@ -121,6 +127,10 @@ def main():
     batch = next(iter(data_loader)).to(device)
     batch_dict = batch.to_dict()
 
+    millis_since_epoch = round(time.time() * 1000)
+    output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+    output_folder.mkdir(parents=True)
+
     print("\nBenchmarking Configuration:")
     print(f"Number of atoms: {len(atoms_list[0])}")
     print(f"Number of edges: {batch['edge_index'].shape[1]}")
@@ -132,21 +142,21 @@ def main():
     # Test without CUET
     model_e3nn = create_model(hidden_irreps, args.max_ell).to(device)
     #model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
-    measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters)
-    print(f"E3NN Measurement:\n{measurement_e3nn}")
+    #measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label="e3nn", output_folder=output_folder)
+    #print(f"E3NN Measurement:\n{measurement_e3nn}")
 
     model_fast_tp = load_fast_tp(model_e3nn, device)  
-    measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters)
+    measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label="fast_tp", output_folder=output_folder)
     print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
-    print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
+    #print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
 
     # Test with CUET if available
-    if CUET_AVAILABLE and args.device == "cuda":
-        model_cueq = run_e3nn_to_cueq(model_e3nn)
-        model_cueq = model_cueq.to(device)
-        measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters)
-        print(f"\nCUET Measurement:\n{measurement_cueq}")
-        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
+    #if CUET_AVAILABLE and args.device == "cuda":
+    #    model_cueq = run_e3nn_to_cueq(model_e3nn)
+    #    model_cueq = model_cueq.to(device)
+        #measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label="cueq", output_folder=output_folder)
+        #print(f"\nCUET Measurement:\n{measurement_cueq}")
+        #print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
 
 if __name__ == "__main__":
     main()

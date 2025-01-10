@@ -30,3 +30,4 @@ vivek-env.sh
 *.xyz
 cutlass
 scratch.txt
+compiled_kernels
