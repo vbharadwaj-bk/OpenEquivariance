@@ -25,6 +25,37 @@ try:
 except ImportError:
     CUET_AVAILABLE = False
 
+def analyze_trace(trace_file):
+    trace = None
+    with open(trace_file, "r") as f:
+        trace = json.load(f)
+
+    total = 0
+    cgtp_fwd_bwd = 0
+    reduce_by_key = 0
+    other_kernels = 0
+
+    for event in trace["traceEvents"]:
+        if "args" in event and "stream" in event["args"]:
+            total += event["dur"]
+
+            if "forward" in event["name"] \
+                or "backward" in event["name"] \
+                or "TensorProductUniform1dKernel" in event["name"]:
+                cgtp_fwd_bwd += event["dur"]
+
+            elif "_scatter_gather_elementwise_kernel" in event["name"]:
+                reduce_by_key += event["dur"]
+            else:
+                other_kernels += event["dur"]
+
+    return { 
+        "total_cuda_ms": total / 1000.,
+        "cgtp_fwd_bwd_ms": cgtp_fwd_bwd / 1000.,
+        "reduce_by_key_ms": reduce_by_key / 1000.,
+        "other_kernels_ms": other_kernels / 1000.
+    }
+
 def create_model(hidden_irreps, max_ell, cueq_config=None):
     table = tools.AtomicNumberTable([8, 82, 53, 55])
     model_config = {
@@ -75,13 +106,14 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
         with record_function("model_inference"):
             run_inference() 
 
-    #prof.key_averages().table(sort_by="cuda_time_total", row_limit=10)
-    prof.export_chrome_trace(str(output_folder / f"{label}_trace.json"))
+    trace_file = str(output_folder / f"{label}_trace.json")
+    prof.export_chrome_trace(trace_file)
 
     with open(output_folder / f"{label}.json", "w") as f:
         json.dump({
             "time_ms_mean": measurement.mean * 1000, 
-            "label": label
+            "label": label,
+            "cuda_time_profile": analyze_trace(trace_file)
         }, f, indent=4) 
 
     return measurement
@@ -111,58 +143,65 @@ def main():
     parser.add_argument("--max_ell", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--hidden_irreps", type=str, default="128x0e + 128x1o + 128x2e")
+    parser.add_argument("--output_folder", type=str, default=None)
     args = parser.parse_args()
-    torch.set_default_dtype(torch.float64)
-    device = torch.device(args.device)
-    hidden_irreps = o3.Irreps(args.hidden_irreps)
 
-    # Create dataset
-    atoms_list = ase.io.read(args.xyz_file, index=":")
-    #table = tools.AtomicNumberTable(list(set(np.concatenate([atoms.numbers for atoms in atoms_list]))))
-    table = tools.AtomicNumberTable([6, 82, 53, 55])
-    data_loader = torch_geometric.dataloader.DataLoader(
-        dataset=[data.AtomicData.from_config(
-            data.config_from_atoms(atoms),
-            z_table=table,
-            cutoff=6.0
-        ) for atoms in atoms_list],
-        batch_size=min(len(atoms_list), args.batch_size),
-        shuffle=False,
-        drop_last=False,
-    )
-    batch = next(iter(data_loader)).to(device)
-    batch_dict = batch.to_dict()
+    for dtype in [torch.float64]:
+        torch.set_default_dtype(dtype)
+        device = torch.device(args.device)
+        hidden_irreps = o3.Irreps(args.hidden_irreps)
 
-    millis_since_epoch = round(time.time() * 1000)
-    output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
-    output_folder.mkdir(parents=True)
+        # Create dataset
+        atoms_list = ase.io.read(args.xyz_file, index=":")
+        #table = tools.AtomicNumberTable(list(set(np.concatenate([atoms.numbers for atoms in atoms_list]))))
+        table = tools.AtomicNumberTable([6, 82, 53, 55])
+        data_loader = torch_geometric.dataloader.DataLoader(
+            dataset=[data.AtomicData.from_config(
+                data.config_from_atoms(atoms),
+                z_table=table,
+                cutoff=6.0
+            ) for atoms in atoms_list],
+            batch_size=min(len(atoms_list), args.batch_size),
+            shuffle=False,
+            drop_last=False,
+        )
+        batch = next(iter(data_loader)).to(device)
+        batch_dict = batch.to_dict()
 
-    print("\nBenchmarking Configuration:")
-    print(f"Number of atoms: {len(atoms_list[0])}")
-    print(f"Number of edges: {batch['edge_index'].shape[1]}")
-    print(f"Batch size: {min(len(atoms_list), args.batch_size)}")
-    print(f"Device: {args.device}")
-    print(f"Hidden irreps: {hidden_irreps}")
-    print(f"Number of iterations: {args.num_iters}\n")
+        if output_folder is None:
+            millis_since_epoch = round(time.time() * 1000)
+            output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+            output_folder.mkdir(parents=True)
+        else:
+            output_folder = pathlib.Path(args.output_folder)
+            output_folder.mkdir(parents=True, exist_ok=True)
 
-    # Test without CUET
-    model_e3nn = create_model(hidden_irreps, args.max_ell).to(device)
-    #model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
-    #measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label="e3nn", output_folder=output_folder)
-    #print(f"E3NN Measurement:\n{measurement_e3nn}")
+        print("\nBenchmarking Configuration:")
+        print(f"Number of atoms: {len(atoms_list[0])}")
+        print(f"Number of edges: {batch['edge_index'].shape[1]}")
+        print(f"Batch size: {min(len(atoms_list), args.batch_size)}")
+        print(f"Device: {args.device}")
+        print(f"Hidden irreps: {hidden_irreps}")
+        print(f"Number of iterations: {args.num_iters}\n")
 
-    model_fast_tp = load_fast_tp(model_e3nn, device)  
-    #measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label="fast_tp", output_folder=output_folder)
-    #print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
-    #print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
+        # Test without CUET
+        model_e3nn = create_model(hidden_irreps, args.max_ell).to(device)
+        model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
+        measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label="e3nn", output_folder=output_folder)
+        print(f"E3NN Measurement:\n{measurement_e3nn}")
 
-    # Test with CUET if available
-    if CUET_AVAILABLE and args.device == "cuda":
-        model_cueq = run_e3nn_to_cueq(model_e3nn)
-        model_cueq = model_cueq.to(device)
-        measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label="cueq", output_folder=output_folder)
-        print(f"\nCUET Measurement:\n{measurement_cueq}")
-        #print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
+        model_fast_tp = load_fast_tp(model_e3nn, device)  
+        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label="fast_tp", output_folder=output_folder)
+        print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
+        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
+
+        # Test with CUET if available
+        if CUET_AVAILABLE and args.device == "cuda":
+            model_cueq = run_e3nn_to_cueq(model_e3nn)
+            model_cueq = model_cueq.to(device)
+            measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label="cueq", output_folder=output_folder)
+            print(f"\nCUET Measurement:\n{measurement_cueq}")
+            print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
 
 if __name__ == "__main__":
     main()
