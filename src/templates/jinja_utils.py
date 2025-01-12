@@ -1,4 +1,8 @@
+import numpy as np
 from jinja2 import Environment, PackageLoader, FileSystemLoader 
+
+from src.implementations.TensorProduct import TensorProduct
+from src.implementations.e3nn_lite import Irreps
 
 def raise_helper(msg):
     raise Exception(msg)
@@ -17,4 +21,7 @@ def get_jinja_environment():
     env.globals['raise'] = raise_helper 
     env.globals['divide'] = divide 
     env.globals['sizeof'] = sizeof 
+    env.globals['range'] = range
+    env.globals['enumerate'] = enumerate 
+    env.globals['len'] = len
     return env

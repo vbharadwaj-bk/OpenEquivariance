@@ -350,8 +350,8 @@ __device__ __forceinline__ void backward_kernel_shared_memory_instruction_{{kern
     float* __restrict__ L2_shared_shift_interaction,
     float* __restrict__ L2_grad_shared_shift_interaction, 
     float* __restrict__ L3_grad_shared_shift_interaction,
-    float* __restrict__ weights_global_shift_interaction,     // global
-    float* __restrict__ weights_grad_global_shift_interaction, // global 
+    float* __restrict__ weights_smem_shift_interaction,     
+    float* __restrict__ weights_grad_smem_shift_interaction,  
     float* __restrict__ gemm_L1L2_multipurpose_shared_warp, 
     float* __restrict__ gemm_weights_multipurpose_shared_warp
     )
@@ -377,8 +377,6 @@ __device__ __forceinline__ void backward_kernel_shared_memory_instruction_{{kern
 
     {% set num_scratch_reg = 1 %}
     float scratch[{{num_scratch_reg}}];
-
-
 
     // dynamic_contiguous_set<float,Tile>(tile, L1_grad_shared_shift_interaction, 0.0f, L1_size_instruction);
     // dynamic_contiguous_set<float,Tile>(tile, L2_grad_shared_shift_interaction, 0.0f, L2_size_instruction); 
@@ -523,7 +521,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory_instruction_{{kern
                     // cute::print("weight_index : "); cute::print(weight_index); cute::print("\n"); 
                     // cute::print("local_weight_grad : "); cute::print(local_weight_grad); cute::print("\n"); 
                     // DEVICE-WIDE ATOMIC ADD WEIGHT_GRAD 
-                    atomicAdd(&weights_grad_global_shift_interaction[weight_index], local_weight_grad); 
+                    atomicAdd_block(&weights_grad_smem_shift_interaction[weight_index], local_weight_grad); 
                 }
             }
 
@@ -553,7 +551,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory_instruction_{{kern
             for (int L1L2_copy_index = 0; L1L2_copy_index < n; L1L2_copy_index ++){
                 if(tile.thread_rank() < L3_mults){
                     int weight_index = ((L1_L2_warp_start_index + L1L2_copy_index) * L3_mults) + tile.thread_rank();  
-                    tensor_weights_smem(L1L2_copy_index, tile.thread_rank()) = weights_global_shift_interaction[weight_index];
+                    tensor_weights_smem(L1L2_copy_index, tile.thread_rank()) = weights_smem_shift_interaction[weight_index];
                 }
             }
 

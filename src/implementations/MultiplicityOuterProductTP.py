@@ -1,8 +1,11 @@
+import logging, pathlib
 import numpy as np
 
 from src.benchmark.e3nn_lite_utils import calc_weight_offsets
-from src.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
+from src.benchmark.e3nn_lite_utils import CGTensor, RepData
+from src.implementations.e3nn_lite import TPProblem, Instruction
 from src.implementations.TensorProduct import TensorProduct 
+from src.implementations.InstructionInfo import prepare_InstructionInfo_list, partition_InstructionInfo_list_by_max_size_along_dimension, pretty_format_InstructionInfoList
 from src.benchmark.logging_utils import getLogger, bcolors 
 from src.templates.jinja_utils import get_jinja_environment, sizeof
 from jinja2 import Environment, FileSystemLoader
@@ -11,7 +14,6 @@ from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
 logger = getLogger()
 
-
 class MultiplicityOuterProductTP(TensorProduct):
     def __init__(self, config : TPProblem, torch_op : bool = False):
         super().__init__(config, torch_op)
@@ -19,9 +21,9 @@ class MultiplicityOuterProductTP(TensorProduct):
         for ins in config.instructions: # type : Instruction
             assert isinstance(ins, Instruction)
             assert ins.connection_mode == 'uvw'
-            assert ins.path_shape[0] <= 32
-            assert ins.path_shape[1] <= 32
-            assert ins.path_shape[2] <= 32
+            # assert ins.path_shape[0] <= 32
+            # assert ins.path_shape[1] <= 32
+            # assert ins.path_shape[2] <= 32
 
         irreps_in1 = config.irreps_in1
         irreps_in2 = config.irreps_in2
@@ -30,49 +32,31 @@ class MultiplicityOuterProductTP(TensorProduct):
         # ==================================================================================
 
         env = get_jinja_environment()
-        env.globals['range'] = range
-        env.globals['enumerate'] = enumerate 
-        env.globals['len'] = len
         main_template = env.get_template("mop_tp.cuh")
         # forward_subkernel_template = env.get_template("subkernel_forward_thread.cu.jinja2")
         # backward_subkernel_template = env.get_template("subkernel_backward_thread.cu.jinja2")
         
         # =====================================================================
-        # Updated to work with TensorProductProblem
-    
-        class RepData:
-            def __init__(self, irreps : Irreps):
-                assert isinstance(irreps, Irreps)
-                self.rep_len = irreps.dim
-                self.irrep_lengths = [mul_irrep.ir.dim for mul_irrep in irreps]
-                self.mults = [mul_irrep.mul for mul_irrep in irreps]
-
-                offset = 0
-                self.offsets = []
-                for mul_irrep in irreps: 
-                    self.offsets.append(offset)
-                    offset += mul_irrep.dim
-
-        # =====================================================================
-        # Strictly Copied from Loop Unroll TP
-
-        class CGTensor:
-            def __init__(self, l1, l2, l3):
-                tensor = load_cg_tensor(l1, l2, l3)
-                coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
-                float_values = tensor[np.nonzero(tensor)].astype(np.float32).copy()
-                values = [str(float.hex(float(val))) + "f" for val in float_values]
-
-                self.tuples = [(coord1[i], coord2[i], coord3[i], values[i]) for i in range(len(values))]
-                self.nnz = len(values)
-
-        # =====================================================================
         # FORWARD MEMORY ANALYSIS 
         forward_thread_blocks_per_SM = 2  
         
-
         # =====================================================================
         dp = DeviceProp(0)
+
+        InstructionInfoList = prepare_InstructionInfo_list(config)
+
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 32, 'in1')
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 32, 'in2')
+        InstructionInfoList = partition_InstructionInfo_list_by_max_size_along_dimension(InstructionInfoList, 32, 'out')
+
+        logger.debug(msg="Initial II list")
+        logger.debug(msg=pretty_format_InstructionInfoList(InstructionInfoList))
+
+        max_in1_instruction_size = max([II.in1_irrep_length * II.in1_multiplicity for II in InstructionInfoList])
+        max_in2_instruction_size = max([II.in2_irrep_length * II.in2_multiplicity for II in InstructionInfoList])
+        max_out_instruction_size = max([II.out_irrep_length * II.out_multiplicity for II in InstructionInfoList])
+
+        # =====================================================================
 
         forward_launch_config = KernelLaunchConfig()
         forward_launch_config.num_blocks = dp.multiprocessorCount * forward_thread_blocks_per_SM
@@ -165,7 +149,6 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         self.forward_config = forward_launch_config
         self.backward_config = backward_launch_config 
-        load_cg_tensor = self.load_cg_tensor
 
         # =====================================================================
         # weights_offsets
@@ -192,6 +175,10 @@ class MultiplicityOuterProductTP(TensorProduct):
             L1=RepData(config.irreps_in1), 
             L2=RepData(config.irreps_in2), 
             L3=RepData(config.irreps_out),
+            InstructionInfoList=InstructionInfoList,
+            max_in1_instruction_size=max_in1_instruction_size,
+            max_in2_instruction_size=max_in2_instruction_size,
+            max_out_instruction_size=max_out_instruction_size,
             weight_numel=config.weight_numel,
             weight_offsets=weight_offsets,
             instructions=instructions,
@@ -204,16 +191,15 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         self.jit_kernel = kernel_text
         
-        def add_fixed_width_line_numbers(text):
-            lines = text.split('\n')
-            numbered_lines = [f"{i + 1:03}: {line}" for i, line in enumerate(lines)]
-            return '\n'.join(numbered_lines)
-            
-        logger.debug(add_fixed_width_line_numbers(kernel_text))
+        if logger.isEnabledFor(logging.DEBUG):
+            logs_path = pathlib.Path('logs/')
+            logs_path.mkdir(parents=True, exist_ok=True)
+            with open(logs_path / "kernel_text.txt", 'w') as f:
+                f.write(kernel_text)
 
-        logger.info("Starting NVRTC")
+        logger.debug("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel, self.forward_config, self.backward_config)
-        logger.info("Kernel compiled!")
+        logger.debug("Kernel compiled!")
 
 
     @classmethod

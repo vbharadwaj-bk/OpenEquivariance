@@ -7,7 +7,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
 from src.benchmark.logging_utils import *
 
 from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
-from src.implementations.LoopUnrollTP import LoopUnrollTP
+from src.implementations.ManyOneUVWTP import ManyOneUVWTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 from src.implementations.LoopReorderUVWTP import LoopReorderUVWTP
@@ -46,7 +46,10 @@ if __name__ == '__main__':
     #         # FCTPP("8x8e + 8x8e + 8x8e + 8x8e", "31x8e", "32x8e"),
     #     ]
 
-    problems = e3nn_docs_tetris
+    problems =  list(itertools.chain(
+        e3nn_docs_tetris,
+        # e3nn_torch_tetris,
+    ))
 
     directions : list[Direction] = [
         'forward',
