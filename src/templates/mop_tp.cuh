@@ -98,7 +98,11 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
         
         cute::Tensor tensor_full_weights = cute::make_tensor(cute::make_gmem_ptr(weights_interaction_shift),layout_full_weights);
 
-        cute::Tensor tensor_instruction_relevant_weights = tensor_full_weights(in1_weight_offset, cute::_, in1_weight_offset + L1_mults, )
+        auto in1_slice = cute::make_coord(cute::Int<in1_weight_offset>{}, cute::Int<in1_weight_offset + L1_mults>{});  
+        auto in2_slice = cute::make_coord(cute::Int<in2_weight_offset>{}, cute::Int<in2_weight_offset + L2_mults>{});
+        auto out_slice = cute::make_coord(cute::Int<out_weight_offset>{}, cute::Int<out_weight_offset + L3_mults>{});
+
+        // cute::Tensor tensor_instruction_relevant_weights = tensor_full_weights(in1_slice, in2_slice, out_slice);
         // CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{});  
 
         // SMEM TENSORS 

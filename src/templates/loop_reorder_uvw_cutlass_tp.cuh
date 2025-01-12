@@ -251,14 +251,6 @@ __global__ void backward(
         constexpr int L2_size_instruction = L2_mults * L2_irrep_length;
         constexpr int L3_size_instruction = L3_mults * L3_irrep_length;   
 
-        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
-        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
-        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
-
-        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
-        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
-        constexpr int out_weight_offset = {{II.weight_out_offset}};
-
         constexpr int weights_size_instruction = L1_mults * L2_mults * L3_mults;
         
         block.sync(); 
