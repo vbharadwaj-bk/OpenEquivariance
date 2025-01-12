@@ -148,6 +148,12 @@ def main():
 
     output_folder = args.output_folder
 
+    if output_folder is None:
+        millis_since_epoch = round(time.time() * 1000)
+        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+    else:
+        output_folder = pathlib.Path(output_folder)
+
     for dtype_str, dtype in [   ("f32", torch.float32),
                                 ("f64", torch.float64)]:
         torch.set_default_dtype(dtype)
@@ -171,12 +177,6 @@ def main():
         batch = next(iter(data_loader)).to(device)
         batch_dict = batch.to_dict()
 
-        if output_folder is None:
-            millis_since_epoch = round(time.time() * 1000)
-            output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
-        else:
-            output_folder = pathlib.Path(args.output_folder)
-
         output_folder.mkdir(parents=True, exist_ok=True)
 
         traces_folder = output_folder / "traces"
@@ -197,13 +197,13 @@ def main():
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
         model_fast_tp = load_fast_tp(model_e3nn, device)  
-        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label=f"fast_tp_{dtype_str}", output_folder=output_folder)
+        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
         print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
         print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
 
         model_cueq = run_e3nn_to_cueq(model_e3nn)
         model_cueq = model_cueq.to(device)
-        measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label=f"cueq_{dtype_str}", output_folder=output_folder)
+        measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label=f"cuE_{dtype_str}", output_folder=output_folder)
         print(f"\nCUET Measurement:\n{measurement_cueq}")
         print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
 
