@@ -30,7 +30,7 @@ def debug( test : TestDefinition) -> None:
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 
-    batch_size = 10
+    batch_size = 1
     # prng_seed = 12345
     prng_seed = random.randint(100, 100000)
 
@@ -110,7 +110,8 @@ def debug( test : TestDefinition) -> None:
             weights=weights.copy(),
             weights_grad=ref_weights_grad, 
         )
-
+        print('weights')
+        print(weights)
 
         for name, ground_truth, test_result in [
             ("weight_grad", ref_weights_grad, test_weights_grad),
@@ -152,6 +153,23 @@ if __name__=='__main__':
         FCTPP("32x1e", "32x1e", "32x1e"),
     ]
 
+    full_size_uvw_case = [
+        FCTPP("32x1e", "32x1e", "32x1e"),
+        FCTPP("32x2e", "32x2e", "32x2e"),
+        FCTPP("32x3e", "32x3e", "32x3e"),
+        FCTPP("32x4e", "32x4e", "32x4e"),
+        FCTPP("32x5e", "32x5e", "32x5e"),
+    ]
+
+    oversize_tests = [
+        FCTPP("64x1e", "32x1e", "32x1e"),
+        FCTPP("32x1e", "64x1e", "32x1e"),
+        FCTPP("64x1e", "64x1e", "32x1e"),
+        FCTPP("32x1e", "32x1e", "64x1e"),
+        FCTPP("64x1e", "64x1e", "64x1e"),
+        
+    ]
+
     cutlass_troubleshooting = [
         FCTPP("16x1e", "16x1e", "16x1e"),
         FCTPP("15x1e", "16x1e", "16x1e"), 
@@ -187,22 +205,16 @@ if __name__=='__main__':
         FCTPP(" 1x1e", " 1x2e", " 8x3e"),
     ]
 
-    full_size_uvw_case = [
-        FCTPP("32x1e", "32x1e", "32x1e"),
-        FCTPP("32x2e", "32x2e", "32x2e"),
-        FCTPP("32x3e", "32x3e", "32x3e"),
-        FCTPP("32x4e", "32x4e", "32x4e"),
-        FCTPP("32x5e", "32x5e", "32x5e"),
-    ]
-
     basic_multi_interaction_problems = [
         FCTPP("2x1e + 1x0e", "2x1e",        "4x1e"       ),
-        FCTPP("1x0e + 2x1e", "2x1e",        "4x1e"       ),
+        FCTPP("4x0e + 1x1e", "2x1e",        "4x1e"       ),
         FCTPP("2x1e",        "2x1e + 1x0e", "4x1e"       ),
         FCTPP("2x1e",        "2x1e",        "4x1e + 3x0e"),
         FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e"       ),
         FCTPP("2x1e + 1x0e", "2x1e + 1x0e", "4x1e + 3x0e"),
     ]
+
+    
 
     conv_problems = [  
         #FCTPP("32x2e", "32x1e", "32x2e"),
@@ -222,8 +234,9 @@ if __name__=='__main__':
         # basic_fully_connected_problems,
         # increasing_multiplicty_fully_connected_problems,
         # full_size_uvw_case,
+        oversize_tests
         # cutlass_troubleshooting,
-        basic_multi_interaction_problems,
+        # basic_multi_interaction_problems,
         #conv_problems,
     ))
  
@@ -231,12 +244,12 @@ if __name__=='__main__':
         #E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
-        LoopReorderUVWTP,
-        # MultiplicityOuterProductTP,
+        # LoopReorderUVWTP,
+        MultiplicityOuterProductTP,
         ]
     
     directions : list[Direction] = [
-        # 'forward', 
+        'forward', 
         'backward',
         ] 
 
@@ -252,6 +265,6 @@ if __name__=='__main__':
         prng_seed=11111
     )
 
-    logger.setLevel(logging.DEBUG)
-    # bench_suite.run(tests)
-    debug(tests[0])
+    logger.setLevel(logging.INFO)
+    bench_suite.run(tests)
+    # debug(tests[0])
