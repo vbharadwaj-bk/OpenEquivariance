@@ -19,9 +19,10 @@ class LoopUnrollConv(Convolution):
 
         dp = DeviceProp(0)
 
-        schedule_type = 2
+        forward_schedule_type = 3
+        backward_schedule_type = 2
         if deterministic:
-            schedule_type = 3
+            backward_schedule_type = 3
             template = env.get_template("loop_unroll_conv_det.cuh")
 
         forward_schedule = ComputationSchedule(self.config, 
@@ -30,7 +31,7 @@ class LoopUnrollConv(Convolution):
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=schedule_type)
+                schedule_type=forward_schedule_type)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=6,
@@ -38,7 +39,7 @@ class LoopUnrollConv(Convolution):
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                schedule_type=schedule_type)
+                schedule_type=backward_schedule_type)
 
         if not deterministic:
             for segment in forward_schedule.segments:

@@ -233,7 +233,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
             {%- endif %}
 
             {%- if problem.instructions[k].connection_mode != "uvw" %}
-                weights_grad_smem[{{weight_start}} + k * {{L1[u].mul}}] = weight_grad; 
+                weights_grad_smem[{{weight_start}} + k * {{L1[u].mul}} + lane_id] = weight_grad;
             {%- endif %}
         }
 
