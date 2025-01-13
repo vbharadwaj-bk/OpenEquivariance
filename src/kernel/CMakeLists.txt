@@ -1,4 +1,4 @@
-find_package(pybind11)
+find_package(pybind11 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 
 add_library(espmm SHARED 
