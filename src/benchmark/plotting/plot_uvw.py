@@ -25,9 +25,11 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
     
     benchmarks, metadata = load_benchmarks(BENCHMARK_FOLDER, latest_experiment_path.name)
 
-    configs = metadata['config_strs']
+    configs = metadata['config_labels']
+    # config_labels = metadata['config_labels']
     implementations = metadata['implementations']
     directions = metadata['directions']
+
 
     sort_impls_by_display_order(implementations)
 
@@ -43,7 +45,7 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
         for config in configs: 
             data[direction][config] = {}
             for impl in implementations:
-                exp = filter(benchmarks, {"config_str": config, 
+                exp = filter(benchmarks, {"config_label": config, 
                                             "direction": direction, 
                                             "implementation_name": impl}, match_one=True)
                 
@@ -67,9 +69,9 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
     xtick_labels = axs[1].get_xticklabels()
 
     for tick in xtick_labels:
-        text = tick.get_text()
-        modified_text = text[text.index('('):]
-        tick.set_text(modified_text)
+        # text = tick.get_text()
+        # modified_text = text[text.index('('):]
+        # tick.set_text(modified_text)
         tick.set_fontsize(8)
 
     axs[1].set_xticklabels(xtick_labels)
