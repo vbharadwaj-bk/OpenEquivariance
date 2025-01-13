@@ -88,7 +88,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         forward_smem_per_warp_total = sum(forward_smem_per_warp.values())
 
         forward_num_warps_that_fit = dp.maxSharedMemPerBlock // forward_smem_per_warp_total
-        forward_num_warps_sane = 8 
+        forward_num_warps_sane = 16 
 
         forward_num_warps = min(forward_num_warps_that_fit, forward_num_warps_sane)
 
@@ -102,7 +102,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         # =====================================================================
 
         backward_launch_config = KernelLaunchConfig()
-        backward_launch_config.num_blocks = dp.multiprocessorCount * 2
+        backward_launch_config.num_blocks = dp.multiprocessorCount * 1 
 
 
         backward_smem_gemm_max_n = dp.warpsize
@@ -131,7 +131,7 @@ class MultiplicityOuterProductTP(TensorProduct):
         logger.debug(msg=f"{backward_smem_per_warp_total=}")
 
         backward_num_warps_that_fit = dp.maxSharedMemPerBlock // backward_smem_per_warp_total
-        backward_num_warps_sane_limit = 8
+        backward_num_warps_sane_limit = 16
 
         backward_num_warps = min(backward_num_warps_that_fit, backward_num_warps_sane_limit)
         logger.info(msg=f"{backward_num_warps=}")
