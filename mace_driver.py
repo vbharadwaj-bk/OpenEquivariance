@@ -116,6 +116,8 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
             "cuda_time_profile": analyze_trace(trace_file)
         }, f, indent=4) 
 
+    print(run_inference())
+
     return measurement
 
 def load_fast_tp(source_model, device):
