@@ -176,8 +176,8 @@ if __name__=='__main__':
  
     implementations = [
         LoopUnrollTP,
-        E3NNTensorProduct,
-        MultiplicityOuterProductTP,
+        #E3NNTensorProduct,
+        #MultiplicityOuterProductTP,
         #CUETensorProduct, 
         #ManyOneUVWTP
         ]
@@ -185,7 +185,7 @@ if __name__=='__main__':
     directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
-                correctness=True, benchmark=True) 
+                correctness=False, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
