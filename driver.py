@@ -197,7 +197,7 @@ if __name__=='__main__':
         bench_batch_size=50000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
-        torch_op=True
+        torch_op=False
     )
 
     logger.setLevel(logging.INFO)

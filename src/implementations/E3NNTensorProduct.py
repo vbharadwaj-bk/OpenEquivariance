@@ -3,7 +3,6 @@ from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 
 from src.benchmark.logging_utils import getLogger
-from e3nn.util.jit import compile
 
 logger = getLogger()
 
