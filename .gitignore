@@ -15,6 +15,7 @@ data/*
 experimental/*
 MACE_models/*
 third_party/*
+logs/*
 
 # bash scripts
 get_gpu_node.sh
