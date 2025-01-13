@@ -110,6 +110,14 @@ __global__ void forward(
         constexpr int L2_irrep_length = {{II.in2_irrep_length}};
         constexpr int L3_irrep_length = {{II.out_irrep_length}}; 
 
+        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
+        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
+        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
+
+        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
+        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
+        constexpr int out_weight_offset = {{II.weight_out_offset}};
+
         constexpr int L1_size_instruction = L1_mults * L1_irrep_length;
         constexpr int L2_size_instruction = L2_mults * L2_irrep_length;
         constexpr int L3_size_instruction = L3_mults * L3_irrep_length;   
@@ -122,13 +130,7 @@ __global__ void forward(
         float* L2_global_shift_instruction = L2_in  + {{II.in2_offset}}; 
         float* L3_global_shift_instruction = L3_out + {{II.out_offset}}; 
 
-        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
-        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
-        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
 
-        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
-        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
-        constexpr int out_weight_offset = {{II.weight_out_offset}};
 
         float* weights_shift_instruction = weights + {{II.weight_offset}};
 
@@ -250,6 +252,14 @@ __global__ void backward(
         constexpr int L1_size_instruction = L1_mults * L1_irrep_length;
         constexpr int L2_size_instruction = L2_mults * L2_irrep_length;
         constexpr int L3_size_instruction = L3_mults * L3_irrep_length;   
+
+        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
+        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
+        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
+
+        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
+        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
+        constexpr int out_weight_offset = {{II.weight_out_offset}};
 
         constexpr int weights_size_instruction = L1_mults * L2_mults * L3_mults;
         

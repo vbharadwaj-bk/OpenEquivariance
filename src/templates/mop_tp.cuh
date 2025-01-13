@@ -94,15 +94,10 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
 
         // auto shape_MNK = cute::make_shape(gemm_M, gemm_N, gemm_K); 
         
-        cute::Layout layout_full_weights = cute::make_layout(cute::make_shape(cute::Int<in1_weight_extent>{}, cute::Int<in2_weight_extent>{}, cute::Int<out_weight_extent>{}), cute::LayoutLeft{}); // This is the entire weights chunk
+        cute::Layout layout_full_weights = cute::make_layout(cute::make_shape(cute::Int<in1_weight_extent>{}, cute::Int<in2_weight_extent>{}, cute::Int<out_weight_extent>{}), cute::LayoutRight{}); // This is the entire weights chunk
         
-        cute::Tensor tensor_full_weights = cute::make_tensor(cute::make_gmem_ptr(weights_interaction_shift),layout_full_weights);
+        cute::Tensor tensor_full_weights = cute::make_tensor(cute::make_gmem_ptr(weights_interaction_shift), layout_full_weights);
 
-        auto in1_slice = cute::make_coord(cute::Int<in1_weight_offset>{}, cute::Int<in1_weight_offset + L1_mults>{});  
-        auto in2_slice = cute::make_coord(cute::Int<in2_weight_offset>{}, cute::Int<in2_weight_offset + L2_mults>{});
-        auto out_slice = cute::make_coord(cute::Int<out_weight_offset>{}, cute::Int<out_weight_offset + L3_mults>{});
-
-        // cute::Tensor tensor_instruction_relevant_weights = tensor_full_weights(in1_slice, in2_slice, out_slice);
         // CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{});  
 
         // SMEM TENSORS 
@@ -215,7 +210,8 @@ __device__ __forceinline__ void forward_kernel_shared_memory(
             // Strided reads
             #pragma unroll
             for(int L3_mult_index = 0; L3_mult_index < L3_mults; L3_mult_index++){
-                tensor_B_smem(L3_mult_index, tile.thread_rank()) = active_for_tensor_product ? weights_mult1_mult2_shift[(tile.thread_rank() * L3_mults) + L3_mult_index] : 0.0f; 
+                // tensor_B_smem(L3_mult_index, tile.thread_rank()) = active_for_tensor_product ? weights_mult1_mult2_shift[(tile.thread_rank() * L3_mults) + L3_mult_index] : 0.0f; 
+                tensor_B_smem(L3_mult_index, tile.thread_rank()) = active_for_tensor_product ? tensor_full_weights(L1_mult_index + in1_weight_offset, L2_mult_index + in2_weight_offset,  L3_mult_index + out_weight_offset) : 0.0f; 
             }
 
             // N threads perform a tensor product 
@@ -516,6 +512,14 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         constexpr int L2_irrep_length = {{II.in2_irrep_length}};
         constexpr int L3_irrep_length = {{II.out_irrep_length}}; 
 
+        constexpr int in1_weight_extent = {{II.weight_in1_extent}}; 
+        constexpr int in2_weight_extent = {{II.weight_in2_extent}};
+        constexpr int out_weight_extent = {{II.weight_out_extent}}; 
+
+        constexpr int in1_weight_offset = {{II.weight_in1_offset}};
+        constexpr int in2_weight_offset = {{II.weight_in2_offset}};
+        constexpr int out_weight_offset = {{II.weight_out_offset}};
+
         // Defintion of GEMM dimensions
         // I am not using M,N,K becuase they will be used in different orientations
         
@@ -538,6 +542,11 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
         // A = (I,M) : L3_grad
         // B = (T,M) : weights.transpose (flipped for cutlass conventions)
         // C = (I,T) : L1L2_grad
+
+        cute::Layout layout_full_weights = cute::make_layout(cute::make_shape(cute::Int<in1_weight_extent>{}, cute::Int<in2_weight_extent>{}, cute::Int<out_weight_extent>{}), cute::LayoutRight{}); // This is the entire weights chunk
+        
+        cute::Tensor tensor_full_weights      = cute::make_tensor(cute::make_gmem_ptr(weights_global_shift_interaction),      layout_full_weights);
+        cute::Tensor tensor_grad_full_weights = cute::make_tensor(cute::make_gmem_ptr(weights_grad_global_shift_interaction), layout_full_weights);
         
         // Layouts
         // Gemm 1
@@ -656,7 +665,7 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
                     // cute::print("weight_index : "); cute::print(weight_index); cute::print("\n"); 
                     // cute::print("local_weight_grad : "); cute::print(local_weight_grad); cute::print("\n"); 
                     // DEVICE-WIDE ATOMIC ADD WEIGHT_GRAD 
-                    atomicAdd(&weights_grad_global_shift_interaction[weight_index], local_weight_grad); 
+                    atomicAdd(&tensor_grad_full_weights(L1_mult_index + in1_weight_offset, L2_mult_index + in2_weight_offset, weight_L3_copy_index + out_weight_offset), local_weight_grad); 
                 }
             }
 
@@ -685,8 +694,10 @@ __device__ __forceinline__ void backward_kernel_shared_memory(
             // copy weights into tensor
             for (int L1L2_copy_index = 0; L1L2_copy_index < n; L1L2_copy_index ++){
                 if(tile.thread_rank() < L3_mults){
-                    int weight_index = ((L1_L2_warp_start_index + L1L2_copy_index) * L3_mults) + tile.thread_rank();  
-                    tensor_weights_smem(L1L2_copy_index, tile.thread_rank()) = weights_global_shift_interaction[weight_index];
+                    int L1_L2_thread_copy_index = (L1_L2_warp_start_index + L1L2_copy_index);
+                    int L1_mult_copy_index = L1_L2_thread_copy_index / L2_mults; 
+                    int L2_mult_copy_index = L1_L2_thread_copy_index % L2_mults; 
+                    tensor_weights_smem(L1L2_copy_index, tile.thread_rank()) = tensor_full_weights(L1_mult_copy_index + in1_weight_offset, L2_mult_copy_index + in2_weight_offset, tile.thread_rank() + out_weight_offset);
                 }
             }
 
