@@ -121,7 +121,7 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
 def load_fast_tp(source_model, device):
     from mace.tools.scripts_utils import extract_config_mace_model
     config = extract_config_mace_model(source_model)
-    config["fast_tp_config"] = {"enabled": True, "conv_fusion": True}
+    config["fast_tp_config"] = {"enabled": True, "conv_fusion": "deterministic"}
     target_model = source_model.__class__(**config).to(device)
 
     source_dict = source_model.state_dict()

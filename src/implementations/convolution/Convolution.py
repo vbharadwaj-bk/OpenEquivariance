@@ -105,9 +105,6 @@ class Convolution:
     def name():
         raise NotImplementedError()
 
-    def __call__(self, L1_in, L2_in, weights, src, dst): 
-        return self.forward(L1_in, L2_in, weights, src, dst)
-
     def forward_cpu(self, 
             L1_in, L2_in, weights, L3_out,
             graph):
@@ -621,6 +618,7 @@ class Convolution:
                 return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None
 
             backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward) 
+
         else:
             @torch.library.custom_op(f"fast_tp::conv_forward{self.conv_id}", mutates_args=(), device_types="cuda")
             def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
@@ -694,4 +692,4 @@ class Convolution:
 
                 return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None, None
 
-            backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward) 
+            backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
