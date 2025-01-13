@@ -22,7 +22,6 @@ if __name__ == '__main__':
 
     problems =  list(itertools.chain(
         e3nn_torch_tetris_polynomial,
-        # e3nn_torch_tetris,
     ))
 
     directions : list[Direction] = [
@@ -33,8 +32,8 @@ if __name__ == '__main__':
     implementations = [
             E3NNTensorProduct,
             # CUETensorProduct, 
-            # MultiplicityOuterProductTP,
-            LoopReorderUVWTP,
+            MultiplicityOuterProductTP,
+            # LoopReorderUVWTP,
         ]
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -48,5 +47,5 @@ if __name__ == '__main__':
             prng_seed=11111
         )
     
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     bench_suite.run(tests)
