@@ -234,9 +234,9 @@ if __name__=='__main__':
         # basic_fully_connected_problems,
         # increasing_multiplicty_fully_connected_problems,
         # full_size_uvw_case,
-        oversize_tests
+        oversize_tests,
         # cutlass_troubleshooting,
-        # basic_multi_interaction_problems,
+        basic_multi_interaction_problems,
         #conv_problems,
     ))
  
@@ -245,11 +245,11 @@ if __name__=='__main__':
         #CUETensorProduct, 
         #LoopUnrollTP,
         LoopReorderUVWTP,
-        # MultiplicityOuterProductTP,
+        MultiplicityOuterProductTP,
         ]
     
     directions : list[Direction] = [
-        # 'forward', 
+        'forward', 
         'backward',
         ] 
 
