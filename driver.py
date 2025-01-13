@@ -142,7 +142,7 @@ if __name__=='__main__':
         FCTPP("2x1e", "1x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "1x1e"),
         FCTPP("2x1e", "2x1e", "2x1e"),
-        FCTPP("2x1e", "2x1e", "4x1e") 
+        FCTPP("2x1e", "2x1e", "4x1e"), 
     ]
 
     increasing_multiplicty_fully_connected_problems = [
@@ -244,12 +244,12 @@ if __name__=='__main__':
         #E3NNTensorProduct,
         #CUETensorProduct, 
         #LoopUnrollTP,
-        # LoopReorderUVWTP,
-        MultiplicityOuterProductTP,
+        LoopReorderUVWTP,
+        # MultiplicityOuterProductTP,
         ]
     
     directions : list[Direction] = [
-        'forward', 
+        # 'forward', 
         'backward',
         ] 
 
