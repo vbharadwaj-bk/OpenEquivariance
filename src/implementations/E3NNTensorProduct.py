@@ -12,8 +12,11 @@ class E3NNTensorProduct(TensorProduct):
         assert(self.torch_op)
 
         global torch
+        global e3nn
         import torch
         import e3nn 
+        e3nn.set_optimization_defaults(jit_script_fx=False)
+
         assert(config.irrep_dtype == config.weight_dtype)
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float64)
@@ -32,7 +35,7 @@ class E3NNTensorProduct(TensorProduct):
                     shared_weights=config.shared_weights).to(device='cuda')
 
         logger.info("Torch compiling e3nn TP...")
-        self.e3nn_tp = compile(self.e3nn_tp) 
+        self.e3nn_tp = compile(self.e3nn_tp)
         logger.info("e3nn TP torch compiled.")
 
         if config.irrep_dtype == np.float64:
@@ -83,3 +86,32 @@ class E3NNTensorProduct(TensorProduct):
     @staticmethod
     def name():
         return "E3NNTensorProduct"
+
+class E3NNTensorProductCompiled(E3NNTensorProduct):
+    def __init__(self, config : TPProblem, torch_op=True):
+        super().__init__(config, torch_op=torch_op)
+
+        logger.info("Torch compiling e3nn TP...")
+
+        auto_tuning_path = 'compiled_kernels' 
+        pathlib.Path(auto_tuning_path).mkdir(exist_ok=True) 
+        os.environ['TORCHINDUCTOR_CACHE_DIR']= auto_tuning_path
+        os.environ['TRITON_CACHE_DIR'] = auto_tuning_path
+        torch._inductor.config.coordinate_descent_tuning = False
+        torch._inductor.config.triton.unique_kernel_names = False
+
+        self.e3nn_tp = torch.compile(self.e3nn_tp, 
+            fullgraph=True,
+            options={
+                'max_autotune': True,
+                'triton.cudagraphs': True,
+            })
+
+        #self.e3nn_tp = torch.compile(self.e3nn_tp, fullgraph=True)
+        logger.info("e3nn TP torch compiled.")
+
+        self.forward = self.e3nn_tp.__call__ 
+
+    @staticmethod
+    def name():
+        return "E3NNTensorProductCompiled"

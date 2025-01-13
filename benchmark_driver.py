@@ -51,8 +51,8 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    implementations = [ E3NNTensorProduct, 
-                        CUETensorProduct, 
+    implementations = [ E3NNTensorProductCompiled,
+                        CUETensorProduct,
                         LoopUnrollTP
                         ]
     directions = ['forward', 'backward']
@@ -74,7 +74,8 @@ def benchmark_conv():
     # CUE tensor product cannot handle backwards pass for all input configs 
     tests = [test for test in tests 
             if test.direction == 'forward' 
-            or test.implementation != CUETensorProduct]
+            or test.implementation != CUETensorProduct
+            or 'mace' in test.problem.label]
 
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
@@ -160,6 +161,6 @@ def benchmark_fully_connected():
     bench_suite.run(tests)
 
 if __name__=='__main__':
-    #benchmark_conv()
+    benchmark_conv()
     #benchmark_roofline()
-    benchmark_fully_connected()
+    #benchmark_fully_connected()
