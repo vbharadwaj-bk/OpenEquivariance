@@ -1,15 +1,16 @@
 import numpy as np
+import tempfile, json
 
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
 from src.benchmark.tpp_creation_utils import *
+from build.kernel_wrapper import *
 
 logger = getLogger()
 
 class CUETensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=True):
-        assert(torch_op)
         super().__init__(config, torch_op=torch_op)
 
         global torch
@@ -93,7 +94,64 @@ class CUETensorProduct(TensorProduct):
             self.cue_tp.to('cuda')
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
-        
+    def analyze_trace(self, trace_file):
+        trace = None
+        with open(trace_file, "r") as f:
+            trace = json.load(f)
+
+        tp_time = 0.0
+        total = 0.0
+
+        for event in trace["traceEvents"]:
+            if "args" in event and "stream" in event["args"]:
+                event_time_ms = event["dur"] / 1000
+                total += event_time_ms 
+
+                if "TensorProductUniform1dKernel" in event["name"]:
+                    tp_time += event_time_ms 
+
+        logger.info("Total time: %f ms, TP time: %f ms", total, tp_time)
+        return tp_time 
+
+    def benchmark_forward(
+            self, 
+            num_warmup : int, 
+            num_iter : int, 
+            L1_in : np.ndarray, 
+            L2_in : np.ndarray, 
+            L3_buffer : np.ndarray, 
+            weights : np.ndarray) -> np.ndarray:
+        '''
+        When we don't want to include torch overhead, we use the Pytorch profiler
+        to extract the device time that the kernel takes.
+        '''
+        if self.torch_op:
+            return super().benchmark_forward(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights)
+        else:
+            from torch.profiler import profile, record_function, ProfilerActivity
+            time_millis = np.zeros(num_iter, dtype=np.float32)
+            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
+
+            timer = GPUTimer()
+
+            for i in range(num_warmup):
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+            trace_file = tempfile.NamedTemporaryFile().name
+
+            for i in range(num_iter):
+                timer.clear_L2_cache()
+                with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+                    with record_function("cue_forward"):
+                        torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+                prof.export_chrome_trace(trace_file)
+                time_millis[i] = self.analyze_trace(trace_file)
+
+            return time_millis
+ 
     @staticmethod
     def name():
         return "CUETensorProduct"
