@@ -77,7 +77,7 @@ class TestBenchmarkSuite:
         test_details = {}
         for test_ID, test in enumerate(test_list):
             test_details[test_ID] = {
-                'implementation' : test.implementation,
+                'implementation' : test.implementation.name(),
                 'problem' : repr(test.problem),
                 'direction' : test.direction, 
                 'correctness' : test.correctness,
