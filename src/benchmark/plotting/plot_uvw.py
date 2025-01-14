@@ -6,7 +6,7 @@ from plotting_utils import (
     BENCHMARK_FOLDER,
     FIGURES_FOLDER, 
     Project, 
-    impl_to_project_map, 
+    impl_to_project_func, 
     project_to_color_map,
     sort_impls_by_display_order,
     get_latest_experiment_path,
@@ -31,7 +31,7 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
 
     sort_impls_by_display_order(implementations)
 
-    labelmap = impl_to_project_map
+    labelmap  = impl_to_project_func
     colormap = project_to_color_map
 
     def calculate_tp_per_sec(exp):
@@ -47,7 +47,7 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
                                             "direction": direction, 
                                             "implementation_name": impl}, match_one=True)
                 
-                data[direction][config][labelmap[impl]] = calculate_tp_per_sec(exp)
+                data[direction][config][labelmap(impl)] = calculate_tp_per_sec(exp)
 
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams.update({'font.size': 11})

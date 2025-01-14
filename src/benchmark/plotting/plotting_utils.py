@@ -11,13 +11,14 @@ Project = Literal[
     'ours'
 ]
 
-impl_to_project_map : dict[str, Project] = defaultdict(
-    lambda: 'ours', 
-    { 
-    'E3NNTensorProduct' : 'e3nn',
-    'CUETensorProduct' : 'cuE',
-    }
-)
+def impl_to_project_func(s : str) -> Project:
+    if 'E3NN' in s:
+        return 'e3nn'
+    elif 'CUE' in s:
+        return 'cuE'
+    else:
+        return 'ours'
+
 
 project_to_color_map : dict[Project, str] = {
     'e3nn' : 'lightblue',
