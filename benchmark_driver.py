@@ -4,7 +4,7 @@ import itertools, typing
 
 from src.benchmark.logging_utils import *
 
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiled, E3NNTensorProductCompiledLite
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
@@ -33,7 +33,7 @@ nequip_conv = [
     ('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
             'nequip-revmd17-benzene'),
     ('32x0o + 32x0e + 32x1o + 32x1e', '0e + 1o', '32x0o + 32x0e + 32x1o + 32x1e', 
-            'nequip-waterA'),
+            'nequip-water'),
     #CTPP('32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e', '0e + 1o + 2e + 3o', '32x0o + 32x0e + 32x1o + 32x1e + 32x2o + 32x2e + 32x3o + 32x3e',
     #        'nequip-waterB')
 ]
@@ -63,8 +63,8 @@ def benchmark_conv():
         problems.append(problem32)
 
         problem64 = CTPP(*config)
-        problem.irrep_dtype = np.float64
-        problem.weight_dtype = np.float64
+        problem64.irrep_dtype = np.float64
+        problem64.weight_dtype = np.float64
         problems.append(problem64)
  
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -77,6 +77,18 @@ def benchmark_conv():
             or test.implementation != CUETensorProduct
             or 'mace' in test.problem.label]
 
+    # Handle the float64 Benzene case specially
+    # since we run out of memory with torch compile
+    tests = [test for test in tests
+            if 'benzene' not in test.problem.label
+            or test.implementation != E3NNTensorProductCompiled
+            or test.problem.irrep_dtype != np.float64]
+
+    tests.extend([TestDefinition(E3NNTensorProduct, 
+        CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
+                'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=False, benchmark=True) 
+                for direction in ['forward', 'backward']])
+    
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_iter=5,
@@ -88,7 +100,10 @@ def benchmark_conv():
     bench_suite.run(tests)
 
 def benchmark_roofline():
-    implementations = [LoopUnrollTP, CUETensorProduct]
+    implementations =   [E3NNTensorProductCompiled, 
+                        LoopUnrollTP, 
+                        CUETensorProduct
+                        ]
     directions = ['forward', 'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 

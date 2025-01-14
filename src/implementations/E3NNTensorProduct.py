@@ -1,8 +1,8 @@
 import numpy as np
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
-
 from src.benchmark.logging_utils import getLogger
+import pathlib, os
 
 logger = getLogger()
 
@@ -33,10 +33,6 @@ class E3NNTensorProduct(TensorProduct):
                     path_normalization=config.path_normalization,
                     internal_weights=config.internal_weights,
                     shared_weights=config.shared_weights).to(device='cuda')
-
-        logger.info("Torch compiling e3nn TP...")
-        self.e3nn_tp = compile(self.e3nn_tp)
-        logger.info("e3nn TP torch compiled.")
 
         if config.irrep_dtype == np.float64:
             torch.set_default_dtype(torch.float32)  # Reset to default
@@ -107,7 +103,22 @@ class E3NNTensorProductCompiled(E3NNTensorProduct):
                 'triton.cudagraphs': True,
             })
 
-        #self.e3nn_tp = torch.compile(self.e3nn_tp, fullgraph=True)
+        logger.info("e3nn TP torch compiled.")
+
+        self.forward = self.e3nn_tp.__call__ 
+
+    @staticmethod
+    def name():
+        return "E3NNTensorProductCompiled"
+
+
+class E3NNTensorProductCompiledLite(E3NNTensorProduct):
+    def __init__(self, config : TPProblem, torch_op=True):
+        super().__init__(config, torch_op=torch_op)
+
+        logger.info("Torch compiling e3nn TP...")
+        self.e3nn_tp = torch.compile(self.e3nn_tp, 
+            fullgraph=True)
         logger.info("e3nn TP torch compiled.")
 
         self.forward = self.e3nn_tp.__call__ 
