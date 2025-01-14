@@ -125,9 +125,6 @@ class E3NNTensorProductCompiledMaxAutotuneCUDAGraphs(E3NNTensorProductCompiled):
         os.environ['TORCHINDUCTOR_CACHE_DIR'] = str(TORCH_COMPILE_AUTOTUNING_DIR)
         os.environ['TRITON_CACHE_DIR'] = str(TORCH_COMPILE_AUTOTUNING_DIR)
 
-        torch._inductor.config.coordinate_descent_tuning = False
-        torch._inductor.config.triton.unique_kernel_names = False
-
         torch_compile_kwargs = {
             'fullgraph':True,
             'backend': 'inductor',
