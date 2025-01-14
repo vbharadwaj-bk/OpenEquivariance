@@ -22,6 +22,9 @@ dependencies:
   # pytorch and e3nn stuff
   - pip 
   - pytorch 
+  - pytorch-cuda=12.4
+  - torchaudio
+  - torchvision
   - pip:
     - e3nn 
     - e3nn_jax
