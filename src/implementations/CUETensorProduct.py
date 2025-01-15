@@ -6,6 +6,7 @@ from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
 from src.benchmark.tpp_creation_utils import *
 from build.kernel_wrapper import *
+from src.benchmark.e3nn_lite_utils import count_cg_non_zero
 
 logger = getLogger()
 
@@ -18,6 +19,9 @@ class CUETensorProduct(TensorProduct):
         import cuequivariance as cue
         import cuequivariance_torch as cuet
         import e3nn.o3 as o3
+
+        # To-do: abstract and place into the TensorProduct class
+        self.is_uvw = (config.instructions[0].connection_mode == "uvw")
 
         supported_tpp_types = [
             ChannelwiseTPP,
@@ -95,6 +99,11 @@ class CUETensorProduct(TensorProduct):
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
     def analyze_trace(self, trace_file):
+        '''
+        Need to update this function for the uvw case.
+        '''
+        assert not self.is_uvw 
+
         trace = None
         with open(trace_file, "r") as f:
             trace = json.load(f)
@@ -110,7 +119,6 @@ class CUETensorProduct(TensorProduct):
                 if "TensorProductUniform1dKernel" in event["name"]:
                     tp_time += event_time_ms 
 
-        logger.info("Total time: %f ms, TP time: %f ms", total, tp_time)
         return tp_time 
 
     def benchmark_forward(
@@ -151,7 +159,38 @@ class CUETensorProduct(TensorProduct):
                 time_millis[i] = self.analyze_trace(trace_file)
 
             return time_millis
- 
+
+    # Copied over from loop unroller to match arithmetic intensity on roofline plots 
+    def calculate_flops_forward(self, batch_size : int) -> dict:
+        if self.is_uvw:
+            return super().calculate_flops_forward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'CG_decomposition': 0, 'linear_combination': 0, 'outer_products': 0}
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+                flop_count["linear_combination"] += (2 * l3 + 1) * np.prod(ins.path_shape) if ins.has_weight else 0
+
+            flop_count["CG_decomposition"] *= 3 * batch_size
+            flop_count["linear_combination"] *= batch_size    # Weights do not require FMA here
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
+
+    def calculate_flops_backward(self, batch_size : int) -> dict:
+        if self.is_uvw:
+            return super().calculate_flops_backward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'backward': 0} 
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["backward"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+
+            flop_count["backward"] *= 9 * batch_size
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
+
     @staticmethod
     def name():
         return "CUETensorProduct"

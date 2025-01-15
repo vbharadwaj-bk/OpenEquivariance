@@ -42,11 +42,11 @@ nequip_conv = [
 roofline_configs = [
     SingleInstruction(L1, L2, L3, cm, f"[{i+1}]#{L1} x {L2} -> {L3} ({cm})")
     for i, (L1, L2, L3, cm) in enumerate([
-        ("32x1e", "1x1e", "32x1e", "uvu"), 
-        ("32x2e", "1x1e", "32x2e", "uvu"),
-        ("32x3e", "1x3e", "32x3e", "uvu"),
-        ("32x5e", "1x5e", "32x3e", "uvu"),
-        ("32x5e", "1x3e", "32x5e", "uvu") 
+        ("128x1e", "1x1e", "128x1e", "uvu"), 
+        ("128x2e", "1x1e", "128x2e", "uvu"),
+        ("128x3e", "1x3e", "128x3e", "uvu"),
+        ("128x5e", "1x5e", "128x3e", "uvu"),
+        ("128x5e", "1x3e", "128x5e", "uvu") 
     ])
 ]
 
@@ -100,7 +100,7 @@ def benchmark_conv():
     bench_suite.run(tests)
 
 def benchmark_roofline():
-    implementations =   [#LoopUnrollTP, 
+    implementations =   [LoopUnrollTP, 
                         CUETensorProduct
                         ]
     directions = ['forward', 'backward']

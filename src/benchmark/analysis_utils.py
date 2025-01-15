@@ -242,7 +242,7 @@ def roofline_plot(draw_bounds, cpu_roofs, mem_bottlenecks, AI_v, datapoints, com
         AI = point["AI"]
         if isinstance(AI, str):
             AI = AI_v[AI]
-        ax.scatter(AI, point["throughput"], label=point["label"], marker=point["marker"], zorder=100, c=point["color"])
+        ax.scatter(AI, point["throughput"], label=point["label"], marker=point["marker"], zorder=100, c=point["color"], s=point["markersize"])
 
     # Set axes limits and layout
     ax.set_xlim(xmin, xmax)

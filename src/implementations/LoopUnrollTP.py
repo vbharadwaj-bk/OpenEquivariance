@@ -26,7 +26,7 @@ class LoopUnrollTP(TensorProduct):
             assert(inst.connection_mode == config.instructions[0].connection_mode)         
         assert(config.instructions[0].connection_mode in ["uvu", "uvw"]) 
         assert(config.irrep_dtype == config.weight_dtype)
-        is_uvw = (config.instructions[0].connection_mode == "uvw")
+        self.is_uvw = (config.instructions[0].connection_mode == "uvw")
 
         forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
@@ -34,8 +34,8 @@ class LoopUnrollTP(TensorProduct):
                 direction = "forward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                include_scratch=is_uvw,
-                stream_weights=is_uvw)
+                include_scratch=self.is_uvw,
+                stream_weights=self.is_uvw)
 
         backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
@@ -43,8 +43,8 @@ class LoopUnrollTP(TensorProduct):
                 direction = "backward",
                 irrep_dtype = config.irrep_dtype,
                 weight_dtype = config.weight_dtype,
-                include_scratch=is_uvw,
-                stream_weights=is_uvw)
+                include_scratch=self.is_uvw,
+                stream_weights=self.is_uvw)
 
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
@@ -79,25 +79,31 @@ class LoopUnrollTP(TensorProduct):
         return "LoopUnrollTP"
  
     def calculate_flops_forward(self, batch_size : int) -> dict:
-        tpp = self.config
-        flop_count = {'CG_decomposition': 0, 'linear_combination': 0, 'outer_products': 0}
-        for ins in tpp.instructions: 
-            l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
-            flop_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
-            flop_count["linear_combination"] += (2 * l3 + 1) * np.prod(ins.path_shape) if ins.has_weight else 0
+        if self.is_uvw:
+            return super().calculate_flops_forward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'CG_decomposition': 0, 'linear_combination': 0, 'outer_products': 0}
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+                flop_count["linear_combination"] += (2 * l3 + 1) * np.prod(ins.path_shape) if ins.has_weight else 0
 
-        flop_count["CG_decomposition"] *= 3 * batch_size
-        flop_count["linear_combination"] *= batch_size    # Weights do not require FMA here
-        flop_count["total"] = sum(flop_count.values())
-        return flop_count
+            flop_count["CG_decomposition"] *= 3 * batch_size
+            flop_count["linear_combination"] *= batch_size    # Weights do not require FMA here
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
 
     def calculate_flops_backward(self, batch_size : int) -> dict:
-        tpp = self.config
-        flop_count = {'backward': 0} 
-        for ins in tpp.instructions: 
-            l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
-            flop_count["backward"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+        if self.is_uvw:
+            return super().calculate_flops_backward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'backward': 0} 
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["backward"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
 
-        flop_count["backward"] *= 9 * batch_size
-        flop_count["total"] = sum(flop_count.values())
-        return flop_count
+            flop_count["backward"] *= 9 * batch_size
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
