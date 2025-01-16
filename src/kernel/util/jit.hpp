@@ -28,7 +28,7 @@ private:
    nvrtcProgram prog;
 
    bool compiled = false;
-   char* ptx = nullptr;
+   char* code = nullptr;
 
    CUdevice dev;
    CUlibrary library;

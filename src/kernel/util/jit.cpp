@@ -108,12 +108,12 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     }
     
     // Prepare compilation options
+    // TODO: Need to change arch flag to dynamically query, fails otherwise! 
     std::vector<const char*> opts = {
         "--std=c++17", 
         "--device-as-default-execution-space",
         "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/",
         "-arch=sm_80",
-        "--ptxas-options=-v",
         "--split-compile=0",
         "--use_fast_math"
     };    
@@ -141,14 +141,13 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
     // =========================================================
     // Step 3: Get PTX, initialize device, context, and module 
 
-    size_t ptxSize;
-    NVRTC_SAFE_CALL(nvrtcGetPTXSize(prog, &ptxSize));
-
-    ptx = new char[ptxSize];
-    NVRTC_SAFE_CALL(nvrtcGetPTX(prog, ptx));
+    size_t codeSize;
+    NVRTC_SAFE_CALL(nvrtcGetCUBINSize(prog, &codeSize));
+    code = new char[codeSize];
+    NVRTC_SAFE_CALL(nvrtcGetCUBIN(prog, code));
 
     CUDA_SAFE_CALL(cuInit(0));
-    CUDA_SAFE_CALL(cuLibraryLoadData(&library, ptx, 0, 0, 0, 0, 0, 0));
+    CUDA_SAFE_CALL(cuLibraryLoadData(&library, code, 0, 0, 0, 0, 0, 0));
 
     for (size_t i = 0; i < kernel_names.size(); i++) {
         const char *name;
@@ -203,7 +202,7 @@ void JITKernel::execute(int kernel_id, uint32_t num_blocks, uint32_t num_threads
 JITKernel::~JITKernel() {
     if(compiled) {
         CUDA_SAFE_CALL(cuLibraryUnload(library));
-        delete[] ptx;
+        delete[] code;
     }
     NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
 }
