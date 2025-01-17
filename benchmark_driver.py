@@ -103,7 +103,7 @@ def benchmark_conv():
     
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
-        num_warmup=100
+        num_warmup=100,
         num_iter=100,
         bench_batch_size=50000,
         prng_seed=11111
@@ -129,7 +129,7 @@ def benchmark_roofline():
 
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
-        num_warmup=100
+        num_warmup=100,
         num_iter=100,
         bench_batch_size=200000,
         prng_seed=11111,
