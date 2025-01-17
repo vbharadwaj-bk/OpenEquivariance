@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from build.kernel_wrapper import DeviceProp
 from src.implementations.TensorProduct import TensorProduct
 
-from src.benchmark.logging_utils import *
+from src.benchmark.logging_utils import getLogger
 from build.kernel_wrapper import *
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.correctness_utils import correctness_forward, correctness_backward
 from src.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
+
+logger = getLogger()
 
 Direction = Literal['forward', 'backward']
 
@@ -107,9 +109,14 @@ class TestBenchmarkSuite:
 
             logger.info(f'Starting Test ID: {test_ID}')
             logger.info(f'Config: {str(tpp)}')
+            logger.info(f'Irrep dtype: {tpp.irrep_dtype.__name__}')
+            logger.info(f'Weight dype: {tpp.weight_dtype.__name__}')
+            if(tpp.label):
+                logger.info(f'Label: {tpp.label}')
             logger.info(f'Implementation Name: {impl.name()}')
             logger.info(f'Test Direction: {test.direction}')
             logger.info(f"Torch Overhead Included: {self.torch_op}")
+
 
             result = {
                 "config_str" : str(tpp),
