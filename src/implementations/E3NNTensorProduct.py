@@ -85,9 +85,10 @@ class E3NNTensorProduct(TensorProduct):
         L2_grad[:] = torch_L2_in.grad.numpy(force=True)
         weights_grad[:] = torch_weights.grad.numpy(force=True)
 
-    @staticmethod
-    def name():
-        return "E3NNTensorProduct"
+    @classmethod
+    def name(cls):
+        return cls.__name__
+
 
 class E3NNTensorProductCompiled(E3NNTensorProduct):
     def __init__(self, config : TPProblem, torch_compile_kwargs : dict, torch_op : bool = True, ):
@@ -101,7 +102,6 @@ class E3NNTensorProductCompiled(E3NNTensorProduct):
         logger.debug('e3nn TP torch compiled')
 
         self.forward = self.e3nn_tp.__call__
-
  
 class E3NNTensorProductCompiledCUDAGraphs(E3NNTensorProductCompiled):
     def __init__(self, config : TPProblem, torch_op=True):
@@ -120,10 +120,6 @@ class E3NNTensorProductCompiledCUDAGraphs(E3NNTensorProductCompiled):
             },
         }
         super().__init__(config, torch_compile_kwargs, torch_op=torch_op)
-
-    @staticmethod
-    def name():
-        return "E3NNTensorProductCompiled"
 
 class E3NNTensorProductCompiledMaxAutotuneCUDAGraphs(E3NNTensorProductCompiled):
     def __init__(self, config : TPProblem, torch_op=True):
@@ -145,7 +141,3 @@ class E3NNTensorProductCompiledMaxAutotuneCUDAGraphs(E3NNTensorProductCompiled):
             },
         }
         super().__init__(config, torch_compile_kwargs, torch_op=torch_op)
-
-    @staticmethod
-    def name():
-        return "E3NNTensorProductCompiled"
