@@ -10,7 +10,7 @@ from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorP
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem
+from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem, SingleInstruction
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
 from src.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
 
@@ -103,7 +103,8 @@ def benchmark_conv():
     
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
-        num_iter=5,
+        num_warmup=100
+        num_iter=100,
         bench_batch_size=50000,
         prng_seed=11111
     )
@@ -128,7 +129,8 @@ def benchmark_roofline():
 
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
-        num_iter=5,
+        num_warmup=100
+        num_iter=100,
         bench_batch_size=200000,
         prng_seed=11111,
         torch_op=False
@@ -145,7 +147,6 @@ if __name__=='__main__':
     if dp.name != paper_benchmark_gpu:
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
-    benchmark_conv()
+    #benchmark_conv()
     #benchmark_roofline()
-    #benchmark_fully_connected()
-    #run_paper_uvw_benchmark()
+    run_paper_uvw_benchmark()

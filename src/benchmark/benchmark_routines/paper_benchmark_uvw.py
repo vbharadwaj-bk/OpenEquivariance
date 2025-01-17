@@ -51,8 +51,8 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
 
     bench_suite = TestBenchmarkSuite(
             correctness_threshold = 5e-5,
-            num_warmup=20,
-            num_iter=50,
+            num_warmup=100,
+            num_iter=100,
             bench_batch_size=50_000,
             prng_seed=11111
         )
