@@ -95,7 +95,6 @@ class E3NNTensorProductCompiled(E3NNTensorProduct):
         super().__init__(config, torch_op = torch_op)
         self.torch_compile_kwargs = torch_compile_kwargs
        
-
         logger.debug('Torch compiling e3nn TP')
         logger.debug(msg=f'{torch_compile_kwargs}')
         self.e3nn_tp = torch.compile(self.e3nn_tp, 
@@ -106,6 +105,11 @@ class E3NNTensorProductCompiled(E3NNTensorProduct):
     
 class E3NNTensorProductCompiledCUDAGraphs(E3NNTensorProductCompiled):
     def __init__(self, config : TPProblem, torch_op=True):
+        
+        global torch
+        import torch
+        
+        torch._dynamo.config.cache_size_limit = 64
         
         torch_compile_kwargs = {
             'fullgraph':True,
