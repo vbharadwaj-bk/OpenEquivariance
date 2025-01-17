@@ -3,12 +3,12 @@ import sys
 import os
 import logging
 import copy
+import pathlib
 import numpy as np
 
 sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
 
 from src.benchmark.logging_utils import getLogger
-
 from src.implementations.E3NNTensorProduct import E3NNTensorProductCompiledCUDAGraphs
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.implementations.LoopUnrollTP import LoopUnrollTP
@@ -18,7 +18,8 @@ from src.benchmark.benchmark_configs import e3nn_torch_tetris_polynomial, diffdo
 
 logger = getLogger()
 
-if __name__ == '__main__':
+def run_paper_uvw_benchmark() -> pathlib.Path:
+
     FCTPP = FullyConnectedTPProblem
 
     problems =  list(itertools.chain(
@@ -57,4 +58,7 @@ if __name__ == '__main__':
         )
     
     logger.setLevel(logging.INFO)
-    bench_suite.run(tests)
+    return bench_suite.run(tests)
+
+if __name__ == '__main__':
+    run_paper_uvw_benchmark()
