@@ -2,12 +2,14 @@ import itertools
 import sys
 import os
 import logging
+import copy
+import numpy as np
 
 sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
 
 from src.benchmark.logging_utils import getLogger
 
-from src.implementations.E3NNTensorProduct import E3NNTensorProductCompiledMaxAutotuneCUDAGraphs
+from src.implementations.E3NNTensorProduct import E3NNTensorProductCompiledCUDAGraphs
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
@@ -29,10 +31,17 @@ if __name__ == '__main__':
         'backward',
     ]
 
+    float64_problems = copy.deepcopy(problems)
+    for problem in float64_problems: 
+        problem.irrep_dtype = np.float64
+        problem.weight_dtype = np.float64
+    
+    problems += float64_problems
+
     implementations = [
-            E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
-            CUETensorProduct, 
-            LoopUnrollTP,
+        E3NNTensorProductCompiledCUDAGraphs,
+        CUETensorProduct,  
+        LoopUnrollTP,
         ]
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -41,8 +50,9 @@ if __name__ == '__main__':
 
     bench_suite = TestBenchmarkSuite(
             correctness_threshold = 5e-5,
-            num_iter=5,
-            bench_batch_size=500_000,
+            num_warmup=20,
+            num_iter=50,
+            bench_batch_size=50_000,
             prng_seed=11111
         )
     
