@@ -1,20 +1,27 @@
+import itertools
+import logging 
+
 import numpy as np
 import numpy.linalg as la
-import itertools, typing
 
-from src.benchmark.logging_utils import *
-
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct 
+from src.benchmark.logging_utils import getLogger
+from build.kernel_wrapper import DeviceProp
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from src.benchmark.tpp_creation_utils import *
+from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
 
 '''
 Paper-ready benchmarks; driver.py is used for prototyping / debugging. 
 '''
+
+logger = getLogger()
+
 CTPP = ChannelwiseTPP
+FCTPP = FullyConnectedTPProblem
 
 mace_conv = [
     ChannelwiseTPP("128x0e+128x1o+128x2e", "1x0e+1x1o+1x2e+1x3o", "128x0e+128x1o+128x2e+128x3o", 
@@ -49,11 +56,16 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    implementations = [ E3NNTensorProduct, 
-                        CUETensorProduct, 
-                        LoopUnrollTP
-                        ]
-    directions = ['forward', 'backward']
+    implementations = [ 
+        E3NNTensorProduct, 
+        CUETensorProduct, 
+        LoopUnrollTP,
+        ]
+    
+    directions = [
+        'forward', 
+        'backward',
+        ]
 
     problems = mace_conv + nequip_conv
     
@@ -104,13 +116,16 @@ def benchmark_roofline():
     bench_suite.run(tests)
 
 def benchmark_fully_connected():
-    FCTPP = FullyConnectedTPProblem
+    
     implementations = [
         LoopUnrollTP,
-        #MultiplicityOuterProductTP,
-        E3NNTensorProduct]
+        E3NNTensorProduct,
+        ]
 
-    directions = ['forward', 'backward']
+    directions : list[Direction] = [
+        'forward', 
+        'backward',
+        ]
 
     problems = [
             FCTPP("2x1e", "2x1e", "2x1e"),
@@ -154,6 +169,13 @@ def benchmark_fully_connected():
     bench_suite.run(tests)
 
 if __name__=='__main__':
-    #benchmark_conv()
-    #benchmark_roofline()
+    dp = DeviceProp(0)
+
+    paper_benchmark_gpu = "NVIDIA A100-SXM4-80GB"
+    if dp.name != paper_benchmark_gpu:
+        logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
+
+    benchmark_conv()
+    benchmark_roofline()
     benchmark_fully_connected()
+    run_paper_uvw_benchmark()
