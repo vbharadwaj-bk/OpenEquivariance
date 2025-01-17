@@ -106,7 +106,7 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
         with record_function("model_inference"):
             run_inference() 
 
-    trace_file = str(output_folder / f"{label}_trace.json")
+    trace_file = str(output_folder / f"traces/{label}_trace.json")
     prof.export_chrome_trace(trace_file)
 
     with open(output_folder / f"{label}.json", "w") as f:
@@ -116,12 +116,14 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
             "cuda_time_profile": analyze_trace(trace_file)
         }, f, indent=4) 
 
+    print(run_inference())
+
     return measurement
 
 def load_fast_tp(source_model, device):
     from mace.tools.scripts_utils import extract_config_mace_model
     config = extract_config_mace_model(source_model)
-    config["fast_tp_config"] = {"enabled": True, "conv_fusion": True}
+    config["fast_tp_config"] = {"enabled": True, "conv_fusion": "deterministic"}
     target_model = source_model.__class__(**config).to(device)
 
     source_dict = source_model.state_dict()
@@ -146,7 +148,16 @@ def main():
     parser.add_argument("--output_folder", type=str, default=None)
     args = parser.parse_args()
 
-    for dtype in [torch.float64]:
+    output_folder = args.output_folder
+
+    if output_folder is None:
+        millis_since_epoch = round(time.time() * 1000)
+        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+    else:
+        output_folder = pathlib.Path(output_folder)
+
+    for dtype_str, dtype in [   ("f32", torch.float32),
+                                ("f64", torch.float64)]:
         torch.set_default_dtype(dtype)
         device = torch.device(args.device)
         hidden_irreps = o3.Irreps(args.hidden_irreps)
@@ -168,13 +179,10 @@ def main():
         batch = next(iter(data_loader)).to(device)
         batch_dict = batch.to_dict()
 
-        if output_folder is None:
-            millis_since_epoch = round(time.time() * 1000)
-            output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
-            output_folder.mkdir(parents=True)
-        else:
-            output_folder = pathlib.Path(args.output_folder)
-            output_folder.mkdir(parents=True, exist_ok=True)
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        traces_folder = output_folder / "traces"
+        traces_folder.mkdir(parents=True, exist_ok=True) 
 
         print("\nBenchmarking Configuration:")
         print(f"Number of atoms: {len(atoms_list[0])}")
@@ -186,22 +194,20 @@ def main():
 
         # Test without CUET
         model_e3nn = create_model(hidden_irreps, args.max_ell).to(device)
-        model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
-        measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label="e3nn", output_folder=output_folder)
+        #model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
+        measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
         model_fast_tp = load_fast_tp(model_e3nn, device)  
-        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label="fast_tp", output_folder=output_folder)
+        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
         print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
         print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
 
-        # Test with CUET if available
-        if CUET_AVAILABLE and args.device == "cuda":
-            model_cueq = run_e3nn_to_cueq(model_e3nn)
-            model_cueq = model_cueq.to(device)
-            measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label="cueq", output_folder=output_folder)
-            print(f"\nCUET Measurement:\n{measurement_cueq}")
-            print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
+        model_cueq = run_e3nn_to_cueq(model_e3nn)
+        model_cueq = model_cueq.to(device)
+        measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label=f"cuE_{dtype_str}", output_folder=output_folder)
+        print(f"\nCUET Measurement:\n{measurement_cueq}")
+        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
 
 if __name__ == "__main__":
     main()

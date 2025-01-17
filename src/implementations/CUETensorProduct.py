@@ -1,15 +1,17 @@
 import numpy as np
+import tempfile, json
 
 from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
 from src.benchmark.tpp_creation_utils import *
+from build.kernel_wrapper import *
+from src.benchmark.e3nn_lite_utils import count_cg_non_zero
 
 logger = getLogger()
 
 class CUETensorProduct(TensorProduct):
     def __init__(self, config : TPProblem, torch_op=True):
-        assert(torch_op)
         super().__init__(config, torch_op=torch_op)
 
         global torch
@@ -17,6 +19,9 @@ class CUETensorProduct(TensorProduct):
         import cuequivariance as cue
         import cuequivariance_torch as cuet
         import e3nn.o3 as o3
+
+        # To-do: abstract and place into the TensorProduct class
+        self.is_uvw = (config.instructions[0].connection_mode == "uvw")
 
         supported_tpp_types = [
             ChannelwiseTPP,
@@ -93,7 +98,99 @@ class CUETensorProduct(TensorProduct):
             self.cue_tp.to('cuda')
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
-        
+    def analyze_trace(self, trace_file):
+        '''
+        Need to update this function for the uvw case.
+        '''
+        assert not self.is_uvw 
+
+        trace = None
+        with open(trace_file, "r") as f:
+            trace = json.load(f)
+
+        tp_time = 0.0
+        total = 0.0
+
+        for event in trace["traceEvents"]:
+            if "args" in event and "stream" in event["args"]:
+                event_time_ms = event["dur"] / 1000
+                total += event_time_ms 
+
+                if "TensorProductUniform1dKernel" in event["name"]:
+                    tp_time += event_time_ms 
+
+        return tp_time 
+
+    def benchmark_forward(
+            self, 
+            num_warmup : int, 
+            num_iter : int, 
+            L1_in : np.ndarray, 
+            L2_in : np.ndarray, 
+            L3_buffer : np.ndarray, 
+            weights : np.ndarray) -> np.ndarray:
+        '''
+        When we don't want to include torch overhead, we use the Pytorch profiler
+        to extract the device time that the kernel takes.
+        '''
+        if self.torch_op:
+            return super().benchmark_forward(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights)
+        else:
+            from torch.profiler import profile, record_function, ProfilerActivity
+            time_millis = np.zeros(num_iter, dtype=np.float32)
+            torch_L1_in = torch.tensor(L1_in).to(device='cuda').detach()
+            torch_L2_in = torch.tensor(L2_in).to(device='cuda').detach()
+            torch_weights = torch.tensor(weights).to(device='cuda').detach()
+
+            timer = GPUTimer()
+
+            for i in range(num_warmup):
+                torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+            trace_file = tempfile.NamedTemporaryFile().name
+
+            for i in range(num_iter):
+                timer.clear_L2_cache()
+                with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+                    with record_function("cue_forward"):
+                        torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+                prof.export_chrome_trace(trace_file)
+                time_millis[i] = self.analyze_trace(trace_file)
+
+            return time_millis
+
+    # Copied over from loop unroller to match arithmetic intensity on roofline plots 
+    def calculate_flops_forward(self, batch_size : int) -> dict:
+        if self.is_uvw:
+            return super().calculate_flops_forward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'CG_decomposition': 0, 'linear_combination': 0, 'outer_products': 0}
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+                flop_count["linear_combination"] += (2 * l3 + 1) * np.prod(ins.path_shape) if ins.has_weight else 0
+
+            flop_count["CG_decomposition"] *= 3 * batch_size
+            flop_count["linear_combination"] *= batch_size    # Weights do not require FMA here
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
+
+    def calculate_flops_backward(self, batch_size : int) -> dict:
+        if self.is_uvw:
+            return super().calculate_flops_backward(batch_size)
+        else:
+            tpp = self.config
+            flop_count = {'backward': 0} 
+            for ins in tpp.instructions: 
+                l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
+                flop_count["backward"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
+
+            flop_count["backward"] *= 9 * batch_size
+            flop_count["total"] = sum(flop_count.values())
+            return flop_count
+
     @staticmethod
     def name():
         return "CUETensorProduct"

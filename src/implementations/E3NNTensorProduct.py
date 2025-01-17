@@ -89,7 +89,7 @@ class E3NNTensorProduct(TensorProduct):
     def name(cls):
         return cls.__name__
 
-    
+
 class E3NNTensorProductCompiled(E3NNTensorProduct):
     def __init__(self, config : TPProblem, torch_compile_kwargs : dict, torch_op : bool = True, ):
         super().__init__(config, torch_op = torch_op)
@@ -102,7 +102,7 @@ class E3NNTensorProductCompiled(E3NNTensorProduct):
         logger.debug('e3nn TP torch compiled')
 
         self.forward = self.e3nn_tp.__call__
-    
+ 
 class E3NNTensorProductCompiledCUDAGraphs(E3NNTensorProductCompiled):
     def __init__(self, config : TPProblem, torch_op=True):
         
@@ -136,7 +136,6 @@ class E3NNTensorProductCompiledMaxAutotuneCUDAGraphs(E3NNTensorProductCompiled):
             {   
             'max_autotune':True,
             'triton.cudagraphs':True,
-            'triton.autotune_at_compile_time':True,
             'triton.unique_kernel_names':False,
             'coordinate_descent_tuning':False,
             },

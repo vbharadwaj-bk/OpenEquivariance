@@ -90,7 +90,7 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
     
     for bar_group in data:
         bars = data[bar_group]
-        xticks.append(coord + len(bars) * bar_width / 2.0)
+        xticks.append(coord)
         
         for i, bar_label in enumerate(bars):
             is_first_label = False
@@ -107,19 +107,20 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
                     hatch_keys[bar_label] = None
 
 
-            rects = None    
+            rects = None
+            offset = bar_width * len(bars) / 2.0
             if is_first_label:      
-                rects = ax.bar(coord + bar_width * (i + 0.5), bars[bar_label], label=bar_label, width=bar_width, 
+                rects = ax.bar(coord - offset + bar_width * (i + 0.5), bars[bar_label], label=bar_label, width=bar_width, 
                         color=color_keys[bar_label], edgecolor=edgecolor, linewidth=edgewidth, hatch=hatch_keys[bar_label])
             else:
-                rects = ax.bar(coord + bar_width * (i + 0.5), bars[bar_label], width=bar_width, 
+                rects = ax.bar(coord - offset + bar_width * (i + 0.5), bars[bar_label], width=bar_width, 
                         color=color_keys[bar_label],
                         edgecolor=edgecolor, linewidth=edgewidth, hatch=hatch_keys[bar_label])
 
             if bar_height_fontsize > 0:
                 ax.bar_label(rects, padding=3, fontsize=bar_height_fontsize) 
 
-        coord += len(bars) * bar_width + group_spacing
+        coord += group_spacing
 
     if xticklabel: 
         if rotate_xlabels:
@@ -128,6 +129,8 @@ def grouped_barchart(data: dict, ax, bar_width=1.0, group_spacing=3.0,
             ax.set_xticks(xticks, labels=xtick_labels)
     else: 
         ax.set_xticks(xticks) 
+
+
 
 def barchart(xlabels, heights, ax, bar_width=1.0, spacing=3.0, rotate_xlabels=True, colormap=None, data_label="_", 
         edgecolor='k', edgewidth=1.0, bar_height_fontsize=10):
@@ -239,7 +242,7 @@ def roofline_plot(draw_bounds, cpu_roofs, mem_bottlenecks, AI_v, datapoints, com
         AI = point["AI"]
         if isinstance(AI, str):
             AI = AI_v[AI]
-        ax.scatter(AI, point["throughput"], label=point["label"], marker=point["marker"], zorder=100, c=point["color"])
+        ax.scatter(AI, point["throughput"], label=point["label"], marker=point["marker"], zorder=100, c=point["color"], s=point["markersize"])
 
     # Set axes limits and layout
     ax.set_xlim(xmin, xmax)

@@ -10,7 +10,8 @@ dependencies:
   # Core Function
   - numpy
   - jinja2 
-  - pybind11 
+  - pybind11
+  - cmake 
 
   # Reordering CG coefficients
   - pandas

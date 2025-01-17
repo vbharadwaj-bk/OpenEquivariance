@@ -127,6 +127,7 @@ class TensorProduct:
                 self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
 
             for i in range(num_iter):
+                timer.clear_L2_cache()
                 timer.start()
                 self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
                 time_millis[i] = timer.stop_clock_get_elapsed() 
@@ -186,6 +187,7 @@ class TensorProduct:
                         L3_d.data_ptr())
 
             for i in range(num_iter):
+                timer.clear_L2_cache()
                 timer.start()
                 self.internal.backward(
                         batch,

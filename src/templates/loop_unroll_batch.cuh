@@ -110,7 +110,7 @@ __global__ void backward(
 
             __syncwarp();
             backward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem, L3_grad_smem,
-                    L1_grad_smem, L2_grad_smem, wgrad, weights_grad_smem + lane_id, scratch_smem, lane_id);
+                    L1_grad_smem, L2_grad_smem, wgrad, weights_grad_smem, scratch_smem, lane_id);
             __syncwarp();
 
             IRREP_T* l1_grad_shft = L1_grad + i * {{backward_schedule.L1.dim}} + lane_id;

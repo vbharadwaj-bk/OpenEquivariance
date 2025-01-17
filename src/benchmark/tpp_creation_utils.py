@@ -1,3 +1,5 @@
+import numpy as np
+
 from typing import Iterator, Optional
 from src.implementations.e3nn_lite import Irrep, Irreps, TPProblem
 
@@ -122,7 +124,9 @@ class ChannelwiseTPP(TPProblem):
         irreps_in1: Irreps,
         irreps_in2: Irreps,
         irreps_out: Irreps,
-        label: Optional[str] = None):
+        label: Optional[str] = None,
+        irrep_dtype=np.float32,
+        weight_dtype=np.float32):
 
         trainable = True
         irreps1 = Irreps(irreps_in1)
@@ -152,7 +156,9 @@ class ChannelwiseTPP(TPProblem):
         super().__init__(irreps1, irreps2, irreps_out, instructions,
             internal_weights=False,
             shared_weights=False,
-            label=label)
+            label=label,
+            irrep_dtype=irrep_dtype,
+            weight_dtype=weight_dtype)
 
 class SingleInstruction(TPProblem):
     def __init__(

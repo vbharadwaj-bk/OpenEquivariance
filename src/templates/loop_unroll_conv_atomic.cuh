@@ -71,7 +71,7 @@ __global__ void forward(
             ROW_OPERATION({{segment.problem.weight_numel}}, j, weights_smem[j + lane_id] = w[{{segment.weight_offset}} + j + lane_id];)
 
             __syncwarp();
-            forward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem + lane_id, L3_smem, scratch_smem, lane_id);
+            forward_loop_unroll_{{i}}(L1_smem, L2_smem, w, weights_smem, L3_smem, scratch_smem, lane_id);
             __syncwarp();
 
             {{ store_ir_segments(segment.L3Map, "l3", "L3_smem", "j") }}
@@ -129,8 +129,8 @@ __global__ void backward(
             WEIGHT_T* weights_grad_shft = weights_grad + i * {{backward_schedule.updated_config.weight_numel}} + lane_id;
 
             __syncwarp();
-            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem + lane_id, L3_grad_smem,
-                    L1_grad_smem, L2_grad_smem, weights_grad_shft, weights_grad_smem + lane_id, scratch_smem, lane_id);
+            backward_loop_unroll_{{i}}(L1_smem, L2_smem, weights, weights_smem, L3_grad_smem,
+                    L1_grad_smem, L2_grad_smem, weights_grad_shft, weights_grad_smem, scratch_smem, lane_id);
             __syncwarp();
 
             {{ store_ir_segments(segment.L1Map, "l1_grad_shft", "L1_grad_smem", "j") }}
