@@ -2,16 +2,17 @@
 
 {%-set TILES_PER_COL = 32 // TILES_PER_ROW %}
 
-__device__ __forceinline__ void {{name}}(const float* __restrict__ A, const float* __restrict__ B, float* C) {    
+template<typename T> 
+__device__ __forceinline__ void {{name}}(const T* __restrict__ A, const T* __restrict__ B, T* C) {    
     int t_idx = threadIdx.x + blockIdx.x * blockDim.x;
     int lane_id = t_idx % 32;
 
     int const rpt = {{(M + TILES_PER_COL - 1) // TILES_PER_COL}};
     int const cpt = {{(N + TILES_PER_ROW - 1) // TILES_PER_ROW}};
 
-    float row[cpt];
-    float col[rpt];
-    float tile[rpt][cpt];
+    T row[cpt];
+    T col[rpt];
+    T tile[rpt][cpt];
 
     int TI_idx = lane_id / {{TILES_PER_ROW}}; 
     int TJ_idx = lane_id % {{TILES_PER_ROW}};
