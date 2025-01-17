@@ -2,14 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os, json, pathlib, sys
 
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams.update({'font.size': 11})
-
 from plotting_utils import (
     BENCHMARK_FOLDER,
     FIGURES_FOLDER, 
     Project, 
-    impl_to_project_map, 
+    impl_to_project_func, 
     project_to_color_map,
     project_to_display_order_map,
     get_latest_experiment_path,
@@ -19,7 +16,10 @@ from plotting_utils import (
     )
 
 sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
-from src.benchmark.analysis_utils import *
+from src.benchmark.analysis_utils import load_benchmarks, grouped_barchart, filter
+
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams.update({'font.size': 11})
 
 def plot_uvu_benchmark(experiment_path : pathlib.Path) -> None: 
     benchmarks, metadata = load_benchmarks(BENCHMARK_FOLDER, experiment_path.name)
@@ -31,7 +31,7 @@ def plot_uvu_benchmark(experiment_path : pathlib.Path) -> None:
         "LoopUnrollTP"
         ]
 
-    labelmap = impl_to_project_map
+    labelmap = impl_to_project_func
     colormap = project_to_color_map
 
 
@@ -44,7 +44,7 @@ def plot_uvu_benchmark(experiment_path : pathlib.Path) -> None:
                     exp = filter(benchmarks, {"config_label": config_label, 
                                             "direction": direction, 
                                             "implementation_name": impl}, match_one=True)
-                    data[direction][config_label][labelmap[impl]] = calculate_tp_per_sec(exp)
+                    data[direction][config_label][labelmap(impl)] = calculate_tp_per_sec(exp)
         
     fig, axs = plt.subplots(ncols=1, nrows=2, figsize=(5.0, 7.0))
     axs[0].set_title("Node-Edge Tensor Products, No Fusion")

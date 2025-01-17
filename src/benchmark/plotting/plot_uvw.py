@@ -1,12 +1,16 @@
+import os
+import pathlib
+import sys
+
 import numpy as np
 import matplotlib.pyplot as plt
-import os, json, pathlib, sys, re
+
 
 from plotting_utils import (
     BENCHMARK_FOLDER,
     FIGURES_FOLDER, 
     Project, 
-    impl_to_project_map, 
+    impl_to_project_func, 
     project_to_color_map,
     sort_impls_by_display_order,
     get_latest_experiment_path,
@@ -25,61 +29,70 @@ def plot_uvw_benchmark(experiment_path : pathlib.Path) -> None:
     
     benchmarks, metadata = load_benchmarks(BENCHMARK_FOLDER, latest_experiment_path.name)
 
-    configs = metadata['config_strs']
+    configs = metadata['config_labels']
+    # config_labels = metadata['config_labels']
     implementations = metadata['implementations']
     directions = metadata['directions']
 
-    sort_impls_by_display_order(implementations)
+    # sort_impls_by_display_order(implementations)
 
-    labelmap = impl_to_project_map
+    labelfunc = impl_to_project_func
     colormap = project_to_color_map
 
-    def calculate_tp_per_sec(exp):
-        return exp["benchmark results"]["batch_size"] / (np.mean(exp["benchmark results"]["time_millis"]) * 0.001)
-
-    data = {"forward": {}, "backward": {}}
-    for direction in directions:
-        data[direction] = {}
-        for config in configs: 
-            data[direction][config] = {}
+    dataf32 = {"forward": {}, "backward": {}}
+    for i, desc in enumerate(configs):
+        for direction in ["forward", "backward"]:
+            dataf32[direction][desc] = {}
             for impl in implementations:
-                exp = filter(benchmarks, {"config_str": config, 
+                if True: # direction == "forward" or impl != "CUETensorProduct" or 'mace' in desc:
+                    f32_benches = [b for b in benchmarks if b["benchmark results"]["rep_dtype"] == "<class 'numpy.float32'>"]
+                    exp = filter(f32_benches, {"config_label": desc, 
                                             "direction": direction, 
-                                            "implementation_name": impl}, match_one=True)
-                
-                data[direction][config][labelmap[impl]] = calculate_tp_per_sec(exp)
+                                            "implementation_name": impl
+                                            }, match_one=True)
+                    dataf32[direction][desc][labelfunc(impl)] = calculate_tp_per_sec(exp)
+
+    dataf64 = {"forward": {}, "backward": {}}
+    for i, desc in enumerate(configs):
+        for direction in ["forward", "backward"]:
+            dataf64[direction][desc] = {}
+            for impl in implementations:
+                if True: # direction == "forward" or impl != "CUETensorProduct" or 'mace' in desc:
+                    f64_benches = [b for b in benchmarks if b["benchmark results"]["rep_dtype"] == "<class 'numpy.float64'>"]
+                    exp = filter(f64_benches, {"config_label": desc, 
+                                            "direction": direction, 
+                                            "implementation_name": impl
+                                            }, match_one=True)
+                    dataf64[direction][desc][labelfunc(impl)] = calculate_tp_per_sec(exp)               
 
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams.update({'font.size': 11})
-
-    
         
-    fig, axs = plt.subplots(ncols=1, nrows=2, figsize=(5.0, 7.0))
-    axs[0].set_title("Node Update Tensor Products")
+    fig = plt.figure(figsize=(7, 7))
+    gs = fig.add_gridspec(2, 2)
+    axs = gs.subplots(sharex=True, sharey='row')
+
+    grouped_barchart(dataf32["forward"], axs[0][0], bar_height_fontsize=0, xticklabel=False, colormap=colormap, group_spacing=6.0)
+    grouped_barchart(dataf32["backward"], axs[1][0], bar_height_fontsize=0,xticklabel=True, colormap=colormap, group_spacing=6.0)
+
+    grouped_barchart(dataf64["forward"], axs[0][1], bar_height_fontsize=0, xticklabel=False, colormap=colormap, group_spacing=6.0)
+    grouped_barchart(dataf64["backward"], axs[1][1], bar_height_fontsize=0,xticklabel=True, colormap=colormap, group_spacing=6.0)
+
+    for i in range(2):
+        for j in range(2):
+            set_grid(axs[i][j])
+
     fig.supylabel("Throughput (# tensor products / s)", x=0.03, y=0.56)
-    grouped_barchart(data["forward"], axs[0], bar_height_fontsize=0, xticklabel=False, colormap=colormap)
-    grouped_barchart(data["backward"], axs[1], bar_height_fontsize=0, xticklabel=True, colormap=colormap)
 
-    set_grid(axs[0])
-    set_grid(axs[1])
-    axs[0].xaxis.set_ticklabels([])
+    axs[0][0].set_ylabel("Forward")
+    axs[1][0].set_ylabel("Backward")
 
-    xtick_labels = axs[1].get_xticklabels()
+    axs[1][0].set_xlabel("float32")
+    axs[1][1].set_xlabel("float64")
 
-    for tick in xtick_labels:
-        text = tick.get_text()
-        modified_text = text[text.index('('):]
-        tick.set_text(modified_text)
-        tick.set_fontsize(8)
-
-    axs[1].set_xticklabels(xtick_labels)
-
-    axs[0].set_ylabel("Forward")
-    axs[1].set_ylabel("Backward")
-
-    handles, labels = axs[0].get_legend_handles_labels()
+    handles, labels = axs[0][1].get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-    axs[0].legend(*zip(*unique))
+    axs[0][1].legend(*zip(*unique))
 
     fig.show()
     fig.tight_layout()
