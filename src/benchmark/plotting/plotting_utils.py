@@ -1,6 +1,6 @@
 import pathlib
 from typing import Literal
-from collections import defaultdict
+import numpy as np
 
 BENCHMARK_FOLDER    =pathlib.Path(__file__).parent.parent.parent.parent / "outputs" 
 FIGURES_FOLDER      =pathlib.Path(__file__).parent.parent.parent.parent / "figures"
@@ -11,13 +11,14 @@ Project = Literal[
     'ours'
 ]
 
-impl_to_project_map : dict[str, Project] = defaultdict(
-    lambda: 'ours', 
-    { 
-    'E3NNTensorProduct' : 'e3nn',
-    'CUETensorProduct' : 'cuE',
-    }
-)
+def impl_to_project_func(s : str) -> Project:
+    if 'E3NN' in s:
+        return 'e3nn'
+    elif 'CUE' in s:
+        return 'cuE'
+    else:
+        return 'ours'
+
 
 project_to_color_map : dict[Project, str] = {
     'e3nn' : 'lightblue',
@@ -39,7 +40,7 @@ def calculate_tp_per_sec(exp):
     return exp["benchmark results"]["batch_size"] / (np.mean(exp["benchmark results"]["time_millis"]) * 0.001)
 
 def sort_impls_by_display_order(implementations : list[str]) -> None :
-    implementations.sort(key=lambda x : project_to_display_order_map[impl_to_project_map[x]])  
+    implementations.sort(key=lambda x : project_to_display_order_map[impl_to_project_func(x)])  
 
 def get_latest_experiment_path() -> pathlib.Path:
     latest_experiment = max(

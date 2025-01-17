@@ -1,20 +1,27 @@
+import itertools
+import logging 
+
 import numpy as np
 import numpy.linalg as la
-import itertools, typing
 
-from src.benchmark.logging_utils import *
-
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiled, E3NNTensorProductCompiledLite
+from src.benchmark.logging_utils import getLogger
+from build.kernel_wrapper import DeviceProp
+from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from src.benchmark.tpp_creation_utils import *
+from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from src.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
 
 '''
 Paper-ready benchmarks; driver.py is used for prototyping / debugging. 
 '''
+
+logger = getLogger()
+
 CTPP = ChannelwiseTPP
+FCTPP = FullyConnectedTPProblem
 
 mace_conv = [
     ("128x0e+128x1o+128x2e", "1x0e+1x1o+1x2e+1x3o", "128x0e+128x1o+128x2e+128x3o", 
@@ -51,11 +58,16 @@ roofline_configs = [
 ]
 
 def benchmark_conv():
-    implementations = [ E3NNTensorProductCompiled,
-                        CUETensorProduct,
-                        LoopUnrollTP
-                        ]
-    directions = ['forward', 'backward']
+    implementations = [ 
+        E3NNTensorProductCompiledMaxAutotuneCUDAGraphs, 
+        CUETensorProduct, 
+        LoopUnrollTP,
+        ]
+    
+    directions = [
+        'forward', 
+        'backward',
+        ]
 
     problems = []
     for config in mace_conv + nequip_conv:
@@ -81,7 +93,7 @@ def benchmark_conv():
     # since we run out of memory with torch compile
     tests = [test for test in tests
             if 'benzene' not in test.problem.label
-            or test.implementation != E3NNTensorProductCompiled
+            or test.implementation != E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
             or test.problem.irrep_dtype != np.float64]
 
     tests.extend([TestDefinition(E3NNTensorProduct, 
@@ -127,6 +139,13 @@ def benchmark_roofline():
 
 
 if __name__=='__main__':
-    #benchmark_conv()
-    benchmark_roofline()
+    dp = DeviceProp(0)
+
+    paper_benchmark_gpu = "NVIDIA A100-SXM4-80GB"
+    if dp.name != paper_benchmark_gpu:
+        logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
+
+    benchmark_conv()
+    #benchmark_roofline()
     #benchmark_fully_connected()
+    #run_paper_uvw_benchmark()

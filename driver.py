@@ -1,4 +1,4 @@
-import itertools, typing
+import itertools, typing, os 
 
 import numpy as np
 import numpy.linalg as la
@@ -13,7 +13,11 @@ from src.benchmark.tpp_creation_utils import *
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.NumpyTensorProduct import NumpyTensorProduct
 from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+from src.implementations.E3NNTensorProduct import (
+    E3NNTensorProduct, 
+    E3NNTensorProductCompiledCUDAGraphs, 
+    E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
+    )
 from src.implementations.CUETensorProduct import CUETensorProduct
 import src.implementations.warp_matmul as warp_matmul 
 
@@ -115,6 +119,8 @@ if __name__=='__main__':
     #warp_matmul.test_simple_kernel()
     #exit(1)
 
+    
+
     FCTPP = FullyConnectedTPProblem
     ChannelTPP = ChannelwiseTPP 
     basic_fully_connected_problems = [
@@ -178,10 +184,10 @@ if __name__=='__main__':
 
     problems = list(itertools.chain(
         # basic_fully_connected_problems,
-        #increasing_multiplicity_fully_connected_problems,
+        # increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
-        # basic_multi_interaction_problems,
-        conv_problems,
+        basic_multi_interaction_problems,
+        # conv_problems,
     ))
  
     implementations = [
@@ -203,15 +209,15 @@ if __name__=='__main__':
         correctness_threshold = 5e-5,
         num_warmup=100,
         num_iter=30,
-        correctness_batch_size=1000,
-        bench_batch_size=50000,
+        correctness_batch_size=1_000,
+        bench_batch_size=50_000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,
         torch_op=False
     )
 
-    logger.setLevel(logging.INFO)
-    bench_suite.run(tests)
+    logger.setLevel(logging.DEBUG)
+    bench_suite.run([tests[0]])
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
 
     #from src.benchmark.correctness_utils import correctness_double_backward

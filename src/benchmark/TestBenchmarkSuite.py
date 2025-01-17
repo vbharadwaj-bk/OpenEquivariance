@@ -1,20 +1,26 @@
-import json, os, time, pathlib
+import json
+import os
+import time
+import pathlib
 
-from typing import NamedTuple, Optional, Iterable, Literal, Any, get_args
+from typing import NamedTuple, Optional, Literal, Any, get_args
 from dataclasses import dataclass
 
+from build.kernel_wrapper import DeviceProp
 from src.implementations.TensorProduct import TensorProduct
 
-from src.benchmark.logging_utils import *
+from src.benchmark.logging_utils import getLogger
 from build.kernel_wrapper import *
-from src.implementations.e3nn_lite import *
+from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.correctness_utils import correctness_forward, correctness_backward
 from src.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
+
+logger = getLogger()
 
 Direction = Literal['forward', 'backward']
 
 class TestDefinition(NamedTuple):
-    implementation : TensorProduct
+    implementation : type[TensorProduct]
     problem : TPProblem
     direction : Direction
     correctness : bool = True
@@ -56,20 +62,29 @@ class TestBenchmarkSuite:
         directions = list(dict.fromkeys(directions))
         did_correctness = any(corectnesses)
         did_benchmark = any(benchmarks)
+        
+        dp = DeviceProp(0)
 
         metadata = {
-                "config_strs" : config_strs,
-                "config_reprs": config_reprs, 
-                "config_labels" : config_labels,
-                "implementations" : implementation_names,
-                "directions" : directions,
-                "did_correctness" :  did_correctness, 
-                "did_benchmark" : did_benchmark
+                'config_strs' : config_strs,
+                'config_reprs': config_reprs, 
+                'config_labels' : config_labels,
+                'implementations' : implementation_names,
+                'directions' : directions,
+                'did_correctness' :  did_correctness, 
+                'did_benchmark' : did_benchmark,
+                'gpu_name' : dp.name,
             }
         
         test_details = {}
         for test_ID, test in enumerate(test_list):
-            test_details[test_ID] = repr(test.problem)
+            test_details[test_ID] = {
+                'implementation' : test.implementation.name(),
+                'problem' : repr(test.problem),
+                'direction' : test.direction, 
+                'correctness' : test.correctness,
+                'benchmark' : test.benchmark,
+                }
         
         metadata['test details'] = test_details
 
@@ -94,9 +109,14 @@ class TestBenchmarkSuite:
 
             logger.info(f'Starting Test ID: {test_ID}')
             logger.info(f'Config: {str(tpp)}')
+            logger.info(f'Irrep dtype: {tpp.irrep_dtype.__name__}')
+            logger.info(f'Weight dype: {tpp.weight_dtype.__name__}')
+            if(tpp.label):
+                logger.info(f'Label: {tpp.label}')
             logger.info(f'Implementation Name: {impl.name()}')
             logger.info(f'Test Direction: {test.direction}')
             logger.info(f"Torch Overhead Included: {self.torch_op}")
+
 
             result = {
                 "config_str" : str(tpp),

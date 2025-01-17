@@ -14,6 +14,7 @@ figures/*
 data/*
 experimental/*
 MACE_models/*
+triton_autotuning/*
 
 # bash scripts
 get_gpu_node.sh
@@ -28,6 +29,5 @@ valid_indices*
 
 vivek-env.sh
 *.xyz
-cutlass
 scratch.txt
-compiled_kernels
+triton_autotuning
