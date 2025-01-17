@@ -22,7 +22,7 @@ dependencies:
   # pytorch and e3nn stuff
   - pip 
   - pytorch 
-  - pytorch-cuda=12.4
+  - pytorch-cuda=12.1
   - torchaudio
   - torchvision
   - pip:
