@@ -1,4 +1,0 @@
-numpy
-pybind11
-Jinja2
-PyYAML

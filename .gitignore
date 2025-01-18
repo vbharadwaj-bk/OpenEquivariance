@@ -31,3 +31,4 @@ vivek-env.sh
 *.xyz
 scratch.txt
 triton_autotuning
+paper_benchmarks

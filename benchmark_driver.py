@@ -53,7 +53,10 @@ roofline_configs = [
         ("128x2e", "1x1e", "128x2e", "uvu"),
         ("128x3e", "1x3e", "128x3e", "uvu"),
         ("128x5e", "1x5e", "128x3e", "uvu"),
-        ("128x5e", "1x3e", "128x5e", "uvu") 
+        ("128x5e", "1x3e", "128x5e", "uvu"),
+        ("128x6e", "1x3e", "128x6e", "uvu"),
+        ("128x7e", "1x4e", "128x7e", "uvu"),
+        ("128x7e", "1x7e", "128x7e", "uvu"),
     ])
 ]
 
@@ -148,5 +151,5 @@ if __name__=='__main__':
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
     #benchmark_conv()
-    #benchmark_roofline()
-    run_paper_uvw_benchmark()
+    benchmark_roofline()
+    #run_paper_uvw_benchmark()
