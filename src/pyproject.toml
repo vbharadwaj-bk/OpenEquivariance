@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "src"
+version = "0.1.0"
+authors = [
+  { name="Example Author", email="author@example.com" },
+]
+description = "A small example package"
+requires-python = ">=3.8"
+
+[tool.setuptools.packages.find]
+include = ["*"]

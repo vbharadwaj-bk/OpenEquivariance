@@ -17,4 +17,4 @@ set_target_properties(kernel_wrapper PROPERTIES CXX_VISIBILITY_PRESET "hidden"
                                          CUDA_VISIBILITY_PRESET "hidden"
                                          PREFIX "")
 
-install(TARGETS kernel_wrapper DESTINATION ../src)
+install(TARGETS kernel_wrapper DESTINATION .)

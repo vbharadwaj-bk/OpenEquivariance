@@ -33,4 +33,4 @@ target_include_directories(espmm PUBLIC
 set_target_properties(espmm PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(espmm PUBLIC CUDA::cudart CUDA::cuda_driver CUDA::nvrtc)
 
-install(TARGETS espmm)
+install(TARGETS espmm DESTINATION .)

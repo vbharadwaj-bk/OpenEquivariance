@@ -1,0 +1,46 @@
+{% set version = "0.1.0" %}
+
+package:
+  name: src 
+  version: {{ version }}
+
+source:
+  path: ../src
+  
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - python
+    - cuda-toolkit
+    - pybind11
+    - cmake
+    - make
+  host:
+    - python
+    - pybind11
+  run:
+    - python
+    - Jinja2
+    - numpy
+    - cuda-toolkit
+
+build:
+  number: 0
+  noarch: python
+  script: |
+    rm -rf build; mkdir build; pushd build 
+
+    cmake .. -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
+    make -j4
+    cmake --install . --prefix ..
+    rm -rf build;
+
+    popd;
+
+    $PYTHON -m pip install . -vv
+
+about:
+  home: https://github.com/vbharadwaj-bk/equivariant_spmm
+  license: MIT
+  summary: 'Accelerated GPU kernels for equivariant deep neural networks.'
