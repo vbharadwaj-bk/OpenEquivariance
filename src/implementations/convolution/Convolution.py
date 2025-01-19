@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.linalg as la
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 from src.benchmark.random_buffer_utils import * 
 from src.implementations.TensorProduct import *
 

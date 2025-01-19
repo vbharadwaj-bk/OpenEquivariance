@@ -7,7 +7,7 @@
 __pycache__
 
 # working folders
-build/*
+build
 outputs/*
 visualization/*
 figures/*

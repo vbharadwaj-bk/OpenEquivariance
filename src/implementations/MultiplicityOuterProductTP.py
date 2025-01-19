@@ -6,7 +6,7 @@ from src.implementations.TensorProduct import TensorProduct
 from src.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, FileSystemLoader
 
-from build.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
+from src.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
 logger = getLogger()
 

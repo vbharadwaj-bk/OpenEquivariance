@@ -6,11 +6,11 @@ import pathlib
 from typing import NamedTuple, Optional, Literal, Any, get_args
 from dataclasses import dataclass
 
-from build.kernel_wrapper import DeviceProp
+from src.kernel_wrapper import DeviceProp
 from src.implementations.TensorProduct import TensorProduct
 
 from src.benchmark.logging_utils import getLogger
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 from src.implementations.e3nn_lite import TPProblem
 from src.benchmark.correctness_utils import correctness_forward, correctness_backward
 from src.benchmark.benchmark_utils import benchmark_forward, benchmark_backward

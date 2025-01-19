@@ -5,7 +5,7 @@ from src.implementations.TensorProduct import TensorProduct
 from src.implementations.e3nn_lite import *
 from src.benchmark.logging_utils import getLogger
 from src.benchmark.tpp_creation_utils import *
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 from src.benchmark.e3nn_lite_utils import count_cg_non_zero
 
 logger = getLogger()

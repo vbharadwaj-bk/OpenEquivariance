@@ -6,7 +6,7 @@ import numpy.linalg as la
 from src.benchmark.logging_utils import *
 from src.implementations.e3nn_lite import *
 from src.benchmark.e3nn_lite_utils import *
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *
@@ -186,8 +186,8 @@ if __name__=='__main__':
         # basic_fully_connected_problems,
         # increasing_multiplicity_fully_connected_problems,
         # full_size_uvw_case,
-        basic_multi_interaction_problems,
-        # conv_problems,
+        #basic_multi_interaction_problems,
+        conv_problems,
     ))
  
     implementations = [
@@ -216,7 +216,7 @@ if __name__=='__main__':
         torch_op=False
     )
 
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     bench_suite.run([tests[0]])
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
 

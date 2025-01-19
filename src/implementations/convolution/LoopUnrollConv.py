@@ -2,7 +2,7 @@ from src.implementations.convolution.Convolution import *
 from src.implementations.ComputationSchedule import ComputationSchedule
 from src.implementations.LoopUnrollTP import *
 from src.templates.jinja_utils import *
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 
 class LoopUnrollConv(Convolution):
     def __init__(self, config, idx_dtype=np.int64, 

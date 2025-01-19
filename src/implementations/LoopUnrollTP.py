@@ -1,5 +1,5 @@
 import numpy as np
-from build.kernel_wrapper import *
+from src.kernel_wrapper import *
 from src.templates.jinja_utils import *
 from src.implementations.ComputationSchedule import ComputationSchedule 
 
