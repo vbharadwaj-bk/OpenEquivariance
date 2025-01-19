@@ -46,7 +46,7 @@ We highly recommend that you use
 You can build the package `conda-build` or
 `conda mambabuild`, or run `cmake` and `pip` directly if you prefer. 
 
-### Build via conda or mambabuild for production
+### Build via conda or mambabuild for production (recommended)
 1. **Setup**: Create a new conda environment, or activate an existing one.
 You must install either `boa` or `conda-build`; we 
 use `boa` for its speed. 
@@ -55,7 +55,8 @@ use `boa` for its speed.
     shell> conda activate 
     ``` 
 
-2. **Install**: Clone our repo, build, and install the package: 
+2. **Install**: Use the instructions
+below: 
     ```bash
     (my_env) shell> git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
     (my_env) shell> conda mambabuild equivariant_spmm 
@@ -70,4 +71,28 @@ use `boa` for its speed.
 ### Build for development
 You can also run `cmake` and create a local
 `pip` installation, which can be useful
-for development. 
+for development. We still recommend
+you do this inside a `conda` environment,
+but you can specify custom paths to
+CUDA toolkit, etc. if you'd like. 
+
+1. **Setup**: Create an environment with Jinja2, cmake, and pybind11: 
+    ```bash
+    shell> conda create --name my_env python=3.11 cmake Jinja2 pybind11
+    shell> conda activate 
+    ``` 
+
+2. **Editable Install**: Build the C++ extension and install the package via `pip`: 
+    ```bash
+    (my_env) shell> cd src 
+    (my_env) shell> sh recipe/build.sh 
+    (my_env) shell> pip install -e . -vv 
+    ``` 
+
+### Build to replicate our benchmarks 
+You'll need `e3nn`, `cuEquivariance`,
+`cuEquivariance-torch`, and
+`cuEquivariance-ops-torch-cu11` or 
+`cuEquivariance-ops-torch-cu12` 
+installed in your environment
+to compare against our baselines.
