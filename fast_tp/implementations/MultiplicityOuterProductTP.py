@@ -4,7 +4,7 @@ from fast_tp.benchmark.e3nn_lite_utils import calc_weight_offsets
 from fast_tp.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
 from fast_tp.implementations.TensorProduct import TensorProduct 
 from fast_tp.benchmark.logging_utils import getLogger, bcolors 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, PackageLoader
 
 from fast_tp.extlib.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
@@ -39,7 +39,7 @@ class MultiplicityOuterProductTP(TensorProduct):
 
         # ==================================================================================
 
-        env = Environment(loader=FileSystemLoader("fast_tp/templates"), extensions=['jinja2.ext.do'])
+        env = Environment(loader=PackageLoader("fast_tp"), extensions=['jinja2.ext.do'])
         env.globals['raise'] = raise_helper 
         env.globals['divide'] = divide 
         env.globals['sizeof'] = sizeof

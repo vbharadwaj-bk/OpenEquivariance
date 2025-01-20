@@ -1,4 +1,4 @@
-from jinja2 import Environment, PackageLoader, FileSystemLoader 
+from jinja2 import Environment, PackageLoader 
 
 def raise_helper(msg):
     raise Exception(msg)
@@ -13,7 +13,7 @@ def sizeof(dtype):
         raise Exception("Provided undefined datatype to sizeof!")
 
 def get_jinja_environment():
-    env = Environment(loader=FileSystemLoader("fast_tp/templates"), extensions=['jinja2.ext.do'])
+    env = Environment(loader=PackageLoader("fast_tp"), extensions=['jinja2.ext.do'])
     env.globals['raise'] = raise_helper 
     env.globals['divide'] = divide 
     env.globals['sizeof'] = sizeof 

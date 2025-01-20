@@ -1,1 +1,3 @@
 include fast_tp/extlib/*.so
+include fast_tp/templates/*.cuh
+include fast_tp/templates/*.jinja
