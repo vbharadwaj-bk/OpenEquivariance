@@ -72,7 +72,7 @@ use `boa` for its speed.
     ```bash
     git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
     conda mambabuild ./equivariant_spmm 
-    mamba install --use-local src 
+    mamba install --use-local fast_tp 
     ```
 
     Use `build` and `conda` in place of `mambabuild` and `mamba`, 
