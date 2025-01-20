@@ -6,7 +6,7 @@ for its common use cases in equivariant graph neural networks
 (e.g. [Nequip](https://github.com/mir-group/nequip) or
 [MACE](https://github.com/ACEsuit/mace)). 
 
-We can provide an order of magnitude acceleration over e3nn
+We provide up to an order of magnitude acceleration over e3nn
 and up to ~2x speedup over 
 [NVIDIA cuEquivariance](https://github.com/NVIDIA/cuEquivariance),
 which has a closed-source kernel package. We also offer fused
@@ -15,12 +15,12 @@ significantly.
 
 We currently support NVIDIA GPUs; HIP support for AMD is planned! 
 
-## Show me an example 
-Here's a tensor product that appears in MACE, implemented in
-e3nn: 
+## Show me some examples
+Here's a CG tensor product implemented by e3nn: 
 
 ```python
-To fill 
+from e3nn import o3.TensorProduct 
+tp = o3.TensorProduct()
 ```
 
 And here's our code:
@@ -41,13 +41,13 @@ the weights and irreps. We recommend reading the [e3nn documentation and API
 reference](https://docs.e3nn.org/en/latest/) first, then use our kernels 
 as drop-in replacements. We support most "uvu" and "uvw" tensor products; 
 see [this section](#tensor-products-we-support) for an up-to-date list of supported
-configurations. 
+configurations.
 
-**Important**: For many configurations, our codes return results identical to
+**Important**: For many configurations, our kernels return results identical to
 e3nn up to floating point roundoff (in particular, all "uvu" problems with
 multiplicity 1 for all irreps in the second input). For other configurations 
-(e.g. "uvw"), we return identical results up to a well-defined reordering
-of the weights relative to e3nn. 
+(e.g. any "uvw" connection modes), we return identical 
+results up to a well-defined reordering of the weights relative to e3nn. 
 
 ## Installation 
 We provide several options to build our package and replicate
@@ -64,12 +64,13 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
 1. **Setup**: Create an environment (or activate an existing one) with 
   our core dependencies: 
     ```bash
-    shell> conda create -c conda-forge --name my_env python=3.11 pybind11 cmake nvidia::cuda-toolkit
-    shell> conda activate 
+    conda create -c conda-forge --name my_env python=3.11 pybind11 cmake nvidia::cuda-toolkit
+    conda activate 
     ``` 
 
 2. **Install**: Build our package and install via `pip`: 
     ```bash
+    git clone https://github.com/vbharadwaj-bk/equivariant_spmm/tree/release 
     cd equivariant_spmm
     sh dev_build.sh 
     pip install . # Use pip install -e . for an editable install 
@@ -91,8 +92,8 @@ encounter problems with the workflow above.
     You must install either `boa` or `conda-build`; we 
     use `boa` for its speed. 
     ```bash
-    shell> conda create --name my_env python=3.11 conda-forge::boa mamba
-    shell> conda activate my_env 
+    conda create --name my_env python=3.11 conda-forge::boa mamba
+    conda activate my_env 
     ``` 
 
 2. **Install**: Clone, build, and install in three steps:
@@ -138,5 +139,6 @@ We do not yet support:
 
 - Mixing different instruction types in the same tensor product. 
 - Instruction types besides "uvu" and "uvw".
+- Shared weights for "uvu" tensor products.
 
-If you have a use case for any of the unsupported features above, let us know. 
+If you have a use case for any of the unsupported features above, let us know.
