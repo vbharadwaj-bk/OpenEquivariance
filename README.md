@@ -2,7 +2,7 @@
 
 [[Examples]](#show-me-some-examples) [[Installation]](#installation)
 [[Supported Tensor Products]](#tensor-products-we-accelerate)
-[[Citation and Acknowledgements]](#acknowledgements)
+[[Citation and Acknowledgements]](#citation-and-acknowledgements)
 
 This repository a kernel generator for the Clebsch-Gordon tensor product, 
 a key kernel in equivariant deep neural networks. It implements
@@ -41,7 +41,7 @@ print(torch.norm(Z))
 ```
 
 And here's the same tensor product using fast_tp. We require that your
-tensors are stord on a CUDA device for this to work: 
+tensors are stored on a CUDA device for this to work: 
 
 ```python
 import fast_tp as ftp
@@ -80,21 +80,36 @@ node_ct, edge_ct = 3, 4
 edge_index = EdgeIndex(
                 [[0, 1, 2, 1],
                  [1, 0, 1, 2]],
-                device='cuda')
+                device='cuda',
+                dtype=torch.Long)
 
 X, Y = torch.rand(node_ct, x_ir.dim, device='cuda'), torch.rand(edge_ct, y_ir.dim, device='cuda')
 W = torch.rand(tp.weight_numel, device='cuda')
 
 tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
-Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim] 
+Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim]
+print(torch.norm(Z))
 ```
 
 If you can guarantee `EdgeIndex` is sorted by row and supply the transpose
-permutation, 
+permutation, we can provide even greater speedup (and run reproducibility) 
+by avoiding atomics: 
 
+```python
+edge_index.sort_by("row")
+_, perm = edge_index.sort_by("col")
+
+# Now we can use the faster deterministic algorithm
+tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
+Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1], perm) # Z has shape [node_ct, z_ir.dim]
+print(torch.norm(Z))
+```
+Note: you don't need Pytorch geometric to use our kernels. When
+`deterministic=False`, the `sender` and `receiver` indices can have
+arbitrary order. 
 
 ## Installation 
-We provide several options to build our package and replicate
+We provide two options to build our package and replicate
 the benchmarks in our preprint. Right now, we only support
 source builds, but we provide scripts to streamline installation.
 
@@ -186,4 +201,14 @@ We do not yet support:
 
 If you have a use case for any of the unsupported features above, let us know.
 
-## Acknowledgements
+## Citation and Acknowledgements
+If you find this code useful, please cite us.
+
+[Citation coming soon!]
+
+Our codebase includes a lightweight clone of 
+[e3nn](https://e3nn.org/)'s frontend interface (in particular, the 
+`TensorProduct` and `Irreps` classes). We removed references to Pytorch
+and separated the implementation from the problem description (for future
+frontend support outside of torch). Thank you to the current
+developers and maintainers! 
