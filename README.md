@@ -1,4 +1,9 @@
 # ESPMM
+
+[[Examples]](#show-me-some-examples) [[Installation]](#installation)
+[[Supported Tensor Products]](#tensor-products-we-accelerate)
+[[Citation and Acknowledgements]](#acknowledgements)
+
 This repository a kernel generator for the Clebsch-Gordon tensor product, 
 a key kernel in equivariant deep neural networks. It implements
 a subset of the functionality of [e3nn](https://e3nn.org/)
@@ -13,41 +18,80 @@ which has a closed-source kernel package. We also offer fused
 equivariant graph convolutions that can reduce memory consumption 
 significantly. 
 
-We currently support NVIDIA GPUs; HIP support for AMD is planned! 
+We currently support NVIDIA GPUs and offer a torch frontend.
+HIP support for AMD is planned! 
 
 ## Show me some examples
 Here's a CG tensor product implemented by e3nn: 
 
 ```python
-from e3nn import o3.TensorProduct 
-tp = o3.TensorProduct()
+import torch
+import e3nn.o3 as o3
+
+batch_size = 1000
+X_ir, Y_ir, Z_ir = o3.Irreps("128x5e"), o3.Irreps("128x3e"), o3.Irreps("128x5e") 
+X, Y = torch.rand(batch_size, x_ir.dim, device='cuda'), torch.rand(batch_size, y_ir.dim, device='cuda')
+W = torch.rand(tp.weight_numel, device='cuda')
+
+tp_e3nn = o3.TensorProduct(X_ir, Y_ir, Z_ir,
+        shared_weights=False, internal_weights=False)
+
+Z = tp_e3nn(X, Y, W)
+print(torch.norm(Z))
 ```
 
-And here's our code:
+And here's the same tensor product using fast_tp. We require that your
+tensors are stord on a CUDA device for this to work: 
 
 ```python
-To fill 
+import fast_tp as ftp
+
+problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, shared_weights=False, internal_weights=False)
+tp_fast = ftp.LoopUnrollTP(problem, torch_op=True)
+
+Z = tp_fast(X, Y, W) # Reuse X, Y, W from earlier
+print(torch.norm(Z))
 ```
 
-If you're performing a tensor product as part of a graph 
-convolution, you can fuse the two operations together to reduce both memory and compute time: 
-
-```python
-To fill 
-```
-All constructor arguments to `o3.TensorProduct` will work identically with
-`TPProblem`; we support some additional arguments like the desired precision of
-the weights and irreps. We recommend reading the [e3nn documentation and API
-reference](https://docs.e3nn.org/en/latest/) first, then use our kernels 
+Our interface for `ftp.TPProblem` is almost a strict superset of 
+`o3.TensorProduct` (two key differences: we 
+impose `internal_weights=False` and add support for multiple datatypes). 
+You can pass e3nn `Irreps` instances directly or 
+use `ftp.Irreps`, which is identical. We recommend 
+reading the [e3nn documentation and API reference](https://docs.e3nn.org/en/latest/) first, then using our kernels 
 as drop-in replacements. We support most "uvu" and "uvw" tensor products; 
-see [this section](#tensor-products-we-support) for an up-to-date list of supported
-configurations.
+see [this section](#tensor-products-we-support) for an up-to-date list of supported configurations. 
 
 **Important**: For many configurations, our kernels return results identical to
 e3nn up to floating point roundoff (in particular, all "uvu" problems with
 multiplicity 1 for all irreps in the second input). For other configurations 
 (e.g. any "uvw" connection modes), we return identical 
 results up to a well-defined reordering of the weights relative to e3nn. 
+
+If you're performing tensor products as part of a message passing graph
+neural network, we offer fused kernels that save both memory and compute time: 
+
+```python
+from torch.geometric import EdgeIndex
+
+node_ct, edge_ct = 3, 4
+
+# Sender, receiver indices for message passing GNN
+edge_index = EdgeIndex(
+                [[0, 1, 2, 1],
+                 [1, 0, 1, 2]],
+                device='cuda')
+
+X, Y = torch.rand(node_ct, x_ir.dim, device='cuda'), torch.rand(edge_ct, y_ir.dim, device='cuda')
+W = torch.rand(tp.weight_numel, device='cuda')
+
+tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
+Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim] 
+```
+
+If you can guarantee `EdgeIndex` is sorted by row and supply the transpose
+permutation, 
+
 
 ## Installation 
 We provide several options to build our package and replicate
@@ -65,7 +109,7 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
   our core dependencies: 
     ```bash
     conda create -c conda-forge --name my_env python=3.11 pybind11 cmake nvidia::cuda-toolkit
-    conda activate 
+    conda activate my_env 
     ``` 
 
 2. **Install**: Build our package and install via `pip`: 
@@ -119,7 +163,7 @@ Lawrence Berkeley National Laboratory. Your results may differ
 a different GPU.
 
 ## Tensor products we accelerate 
-e3nn supports a variety of connection modes for CG tensor products. We support accelerate
+e3nn supports a variety of connection modes for CG tensor products. We support 
 two that are commonly used in equivariant graph neural networks:
 "uvu" and "uvw". Our JIT compiled kernels should handle:
 
@@ -139,6 +183,7 @@ We do not yet support:
 
 - Mixing different instruction types in the same tensor product. 
 - Instruction types besides "uvu" and "uvw".
-- Shared weights for "uvu" tensor products.
 
 If you have a use case for any of the unsupported features above, let us know.
+
+## Acknowledgements
