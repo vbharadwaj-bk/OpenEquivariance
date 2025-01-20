@@ -91,7 +91,7 @@ encounter problems with the workflow above.
 You must install either `boa` or `conda-build`; we 
 use `boa` for its speed. 
     ```bash
-    shell> conda create --name my_env python=3.11 boa
+    shell> conda create --name my_env python=3.11 conda-forge::boa
     shell> conda activate my_env 
     ``` 
 
