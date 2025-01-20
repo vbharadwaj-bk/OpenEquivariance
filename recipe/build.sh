@@ -2,11 +2,11 @@ if [ -z "$PYTHON" ]; then
     PYTHON=python3
 fi
 
-rm -rf extlib; mkdir extlib;
+rm -rf src/extlib; mkdir src/extlib;
 rm -rf build; mkdir build; pushd build; 
-cmake .. -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
+cmake ../src/extension -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
 make -j4
-cmake --install . --prefix ../extlib
+cmake --install . --prefix ../src/extlib
 popd;
 rm -rf build;
 

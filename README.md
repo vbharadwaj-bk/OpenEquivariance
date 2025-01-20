@@ -59,14 +59,13 @@ We highly recommend that you use
 You can build the package via `conda-build` or
 `conda mambabuild`, or run `cmake` and `pip` directly if you prefer. 
 
-### Build via conda or mambabuild for production (recommended)
+### Build via conda or mambabuild for production
 1. **Setup**: Create a new conda environment, or activate an existing one.
 You must install either `boa` or `conda-build`; we 
 use `boa` for its speed. 
     ```bash
     shell> conda create --name my_env python=3.11 boa
     shell> conda activate my_env 
-    (my_env) shell> conda activate 
     ``` 
 
 2. **Install**: Clone, build, and install in three steps:
@@ -76,8 +75,8 @@ use `boa` for its speed.
     mamba install --use-local src 
     ```
 
-    Use `build` and `conda` in place of `mambabuild` and `mamba` if you
-    installed `conda-build` in Step 1. 
+    Use `build` and `conda` in place of `mambabuild` and `mamba`, 
+    respectively, if you installed `conda-build` in Step 1. 
 
 3. **Test**: You're ready to go!
 
@@ -91,7 +90,7 @@ path to NVIDIA's CUDA Toolkit.
 
 1. **Setup**: Create an environment with our core dependencies: 
     ```bash
-    shell> conda create --name my_env python=3.11 Jinja2 pybind11 cmake numpy
+    shell> conda create --name my_env python=3.11 Jinja2 pybind11 cmake numpy cuda-toolkit
     shell> conda activate 
     ``` 
 
@@ -99,7 +98,7 @@ path to NVIDIA's CUDA Toolkit.
     ```bash
     cd equivariant_spmm
     sh dev_build.sh 
-    pip install ./src -e -vv # Remove -e for non-editable install
+    pip install -e . # Remove -e for non-editable install
     ``` 
 
 ### Build to replicate our benchmarks 

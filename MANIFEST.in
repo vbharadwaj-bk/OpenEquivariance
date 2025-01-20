@@ -1,1 +1,1 @@
-include extlib/*.so
+include src/extlib/*.so

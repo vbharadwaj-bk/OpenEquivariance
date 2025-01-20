@@ -33,3 +33,4 @@ paper_benchmarks
 src/extlib
 
 get_node.sh
+*.egg-info
