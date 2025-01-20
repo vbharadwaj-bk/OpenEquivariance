@@ -56,10 +56,37 @@ source builds, but we provide scripts to streamline installation.
 
 We highly recommend that you use
 `conda` or `mamba` to set up a Python environment for installation.
-You can build the package via `conda-build` or
-`conda mambabuild`, or run `cmake` and `pip` directly if you prefer. 
 
-### Build via conda or mambabuild for production
+### Build via install script and pip (fastest) 
+The steps below assume that you're using a bash shell and have a C / C++ 
+compiler that CMake can find. If not, you can install [gxx](https://anaconda.org/conda-forge/gxx/) from `conda-forge`. 
+
+1. **Setup**: Create an environment (or activate an existing one) with 
+  our core dependencies: 
+    ```bash
+    shell> conda create --name my_env python=3.11 Jinja2 pybind11 cmake numpy cuda-toolkit
+    shell> conda activate 
+    ``` 
+
+2. **Install**: Build our package and install via `pip`: 
+    ```bash
+    cd equivariant_spmm
+    sh dev_build.sh 
+    pip install . # Use pip install -e . for an editable install 
+    ``` 
+
+3. **Test**: You're ready to go!
+
+You don't have to install NVIDIA's CUDA toolkit or CMake if they exist on your
+platform, but you're responsible for setting LD_LIBRARY_PATH so that libraries
+are findable at runtime. Installing the CUDA toolkit via `conda` takes care of this for
+you. 
+
+### Build via conda or mambabuild
+You can can also build our package via `conda-build` or
+`conda mambabuild`. This can be much slower, but may help if you
+encounter problems with the workflow above.
+
 1. **Setup**: Create a new conda environment, or activate an existing one.
 You must install either `boa` or `conda-build`; we 
 use `boa` for its speed. 
@@ -76,30 +103,7 @@ use `boa` for its speed.
     ```
 
     Use `build` and `conda` in place of `mambabuild` and `mamba`, 
-    respectively, if you installed `conda-build` in Step 1. 
-
-3. **Test**: You're ready to go!
-
-### Build for development
-You can also run `cmake` and use 
-`pip` to install the package yourself, which can be useful
-for development. We still recommend
-you do this inside a `conda` environment, but you don't have to. Without
-a `conda` environment, you become responsible for `cmake` and finding the right
-path to NVIDIA's CUDA Toolkit. 
-
-1. **Setup**: Create an environment with our core dependencies: 
-    ```bash
-    shell> conda create --name my_env python=3.11 Jinja2 pybind11 cmake numpy cuda-toolkit
-    shell> conda activate 
-    ``` 
-
-2. **Install**: Build the C++ extension and install the package via `pip`: 
-    ```bash
-    cd equivariant_spmm
-    sh dev_build.sh 
-    pip install -e . # Remove -e for non-editable install
-    ``` 
+    respectively, if you installed `conda-build` in Step 1.
 
 ### Build to replicate our benchmarks 
 Follow either build process above. You'll also need the following packages: 
