@@ -29,16 +29,6 @@ build:
   number: 0
   noarch: python
   script: |
-    rm -rf build; mkdir build; pushd build 
-
-    cmake .. -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
-    make -j4
-    cmake --install . --prefix ..
-    rm -rf build;
-
-    popd;
-
-    $PYTHON -m pip install . -vv
 
 about:
   home: https://github.com/vbharadwaj-bk/equivariant_spmm
