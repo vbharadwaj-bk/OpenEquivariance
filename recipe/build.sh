@@ -11,5 +11,5 @@ popd;
 rm -rf build;
 
 if [ -z "$NOINSTALL" ]; then
-    $PYTHON -m pip install . -vv
+    $PYTHON -m pip install . -vv --no-deps
 fi

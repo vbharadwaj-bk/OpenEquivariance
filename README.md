@@ -64,7 +64,7 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
 1. **Setup**: Create an environment (or activate an existing one) with 
   our core dependencies: 
     ```bash
-    shell> conda create --name my_env python=3.11 Jinja2 pybind11 cmake numpy cuda-toolkit
+    shell> conda create -c conda-forge --name my_env python=3.11 pybind11 cmake nvidia::cuda-toolkit
     shell> conda activate 
     ``` 
 
@@ -88,10 +88,10 @@ You can can also build our package via `conda-build` or
 encounter problems with the workflow above.
 
 1. **Setup**: Create a new conda environment, or activate an existing one.
-You must install either `boa` or `conda-build`; we 
-use `boa` for its speed. 
+    You must install either `boa` or `conda-build`; we 
+    use `boa` for its speed. 
     ```bash
-    shell> conda create --name my_env python=3.11 conda-forge::boa
+    shell> conda create --name my_env python=3.11 conda-forge::boa mamba
     shell> conda activate my_env 
     ``` 
 
