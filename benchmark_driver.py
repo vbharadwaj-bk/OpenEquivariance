@@ -5,7 +5,7 @@ import numpy as np
 import numpy.linalg as la
 
 from src.benchmark.logging_utils import getLogger
-from src.kernel_wrapper import DeviceProp
+from src.extlib.kernel_wrapper import DeviceProp
 from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
 from src.implementations.LoopUnrollTP import LoopUnrollTP
 from src.implementations.CUETensorProduct import CUETensorProduct

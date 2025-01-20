@@ -6,7 +6,7 @@ import numpy.linalg as la
 from src.benchmark.logging_utils import *
 from src.implementations.e3nn_lite import *
 from src.benchmark.e3nn_lite_utils import *
-from src.kernel_wrapper import *
+from src.extlib.kernel_wrapper import *
 from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from src.benchmark.tpp_creation_utils import *

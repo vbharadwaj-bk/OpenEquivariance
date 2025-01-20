@@ -1,5 +1,5 @@
 import numpy as np
-from src.kernel_wrapper import *
+from src.extlib.kernel_wrapper import *
 from src.implementations.e3nn_lite import *
 from itertools import accumulate
 from src.benchmark.logging_utils import *

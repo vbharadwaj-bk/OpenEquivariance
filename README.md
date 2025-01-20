@@ -131,7 +131,6 @@ of the input weights.
 Our code include correctness checks, but the configuration space is large. If you notice
 a bug, let us know in a Github issue. We'll try our best to correct it or document the problem here.
 
-### Lack of Support and Issues:
 We do not yet support:
 
 - Mixing different instruction types in the same tensor product. 

@@ -1,5 +1,5 @@
 import numpy as np
-from src.kernel_wrapper import *
+from src.extlib.kernel_wrapper import *
 from src.templates.jinja_utils import *
 
 class WarpMatmulTest:

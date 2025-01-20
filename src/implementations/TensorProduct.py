@@ -2,7 +2,7 @@ import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
-from src.kernel_wrapper import *
+from src.extlib.kernel_wrapper import *
 
 from src.implementations.e3nn_lite import TPProblem, wigner_3j
 from src.benchmark.logging_utils import getLogger, bcolors

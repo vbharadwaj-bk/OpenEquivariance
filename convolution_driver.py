@@ -3,7 +3,7 @@ import numpy as np
 import numpy.linalg as la
 import os
 
-from src.kernel_wrapper import *
+from src.extlib.kernel_wrapper import *
 from src.benchmark.tpp_creation_utils import *
 from src.implementations.convolution.LoopUnrollConv import *
 from src.implementations.convolution.CUEConv import *

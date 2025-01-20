@@ -28,7 +28,6 @@ requirements:
 build:
   number: 0
   noarch: python
-  script: |
 
 about:
   home: https://github.com/vbharadwaj-bk/equivariant_spmm
