@@ -1,1 +1,1 @@
-include src/extlib/*.so
+include fast_tp/extlib/*.so

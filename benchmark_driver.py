@@ -4,15 +4,15 @@ import logging
 import numpy as np
 import numpy.linalg as la
 
-from src.benchmark.logging_utils import getLogger
-from src.extlib.kernel_wrapper import DeviceProp
-from src.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
-from src.implementations.LoopUnrollTP import LoopUnrollTP
-from src.implementations.CUETensorProduct import CUETensorProduct
-from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from src.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem, SingleInstruction
-from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from src.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
+from fast_tp.benchmark.logging_utils import getLogger
+from fast_tp.extlib.kernel_wrapper import DeviceProp
+from fast_tp.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
+from fast_tp.implementations.LoopUnrollTP import LoopUnrollTP
+from fast_tp.implementations.CUETensorProduct import CUETensorProduct
+from fast_tp.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
+from fast_tp.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem, SingleInstruction
+from fast_tp.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from fast_tp.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
 
 '''
 Paper-ready benchmarks; driver.py is used for prototyping / debugging. 

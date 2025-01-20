@@ -3,12 +3,12 @@ import numpy as np
 import numpy.linalg as la
 import os
 
-from src.extlib.kernel_wrapper import *
-from src.benchmark.tpp_creation_utils import *
-from src.implementations.convolution.LoopUnrollConv import *
-from src.implementations.convolution.CUEConv import *
+from fast_tp.extlib.kernel_wrapper import *
+from fast_tp.benchmark.tpp_creation_utils import *
+from fast_tp.implementations.convolution.LoopUnrollConv import *
+from fast_tp.implementations.convolution.CUEConv import *
 
-from src.benchmark.logging_utils import *
+from fast_tp.benchmark.logging_utils import *
 logger = getLogger()
 
 def load_graph(name):

@@ -3,23 +3,23 @@ import itertools, typing, os
 import numpy as np
 import numpy.linalg as la
 
-from src.benchmark.logging_utils import *
-from src.implementations.e3nn_lite import *
-from src.benchmark.e3nn_lite_utils import *
-from src.extlib.kernel_wrapper import *
-from src.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
-from src.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from src.benchmark.tpp_creation_utils import *
-from src.implementations.LoopUnrollTP import LoopUnrollTP
-from src.implementations.NumpyTensorProduct import NumpyTensorProduct
-from src.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from src.implementations.E3NNTensorProduct import (
+from fast_tp.benchmark.logging_utils import *
+from fast_tp.implementations.e3nn_lite import *
+from fast_tp.benchmark.e3nn_lite_utils import *
+from fast_tp.extlib.kernel_wrapper import *
+from fast_tp.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
+from fast_tp.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
+from fast_tp.benchmark.tpp_creation_utils import *
+from fast_tp.implementations.LoopUnrollTP import LoopUnrollTP
+from fast_tp.implementations.NumpyTensorProduct import NumpyTensorProduct
+from fast_tp.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from fast_tp.implementations.E3NNTensorProduct import (
     E3NNTensorProduct, 
     E3NNTensorProductCompiledCUDAGraphs, 
     E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
     )
-from src.implementations.CUETensorProduct import CUETensorProduct
-import src.implementations.warp_matmul as warp_matmul 
+from fast_tp.implementations.CUETensorProduct import CUETensorProduct
+import fast_tp.implementations.warp_matmul as warp_matmul 
 
 logger = getLogger()
 
@@ -33,7 +33,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     
     tp = tp_impl(config)
 
-    from src.implementations.E3NNTensorProduct import E3NNTensorProduct
+    from fast_tp.implementations.E3NNTensorProduct import E3NNTensorProduct
     ref_tp = E3NNTensorProduct(config)
 
     logger.debug(repr(config))
@@ -220,7 +220,7 @@ if __name__=='__main__':
     bench_suite.run([tests[0]])
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
 
-    #from src.benchmark.correctness_utils import correctness_double_backward
+    #from fast_tp.benchmark.correctness_utils import correctness_double_backward
     #result = correctness_double_backward(
     #    problem = conv_problems[0],
     #    test_implementation = LoopUnrollTP,
