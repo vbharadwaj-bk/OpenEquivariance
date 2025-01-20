@@ -1,7 +1,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
-#include "espmm.hpp"
+#include "tensorproducts.hpp"
+#include "convolution.hpp"
+#include "device_prop.hpp"
+#include "gpu_util.hpp"
+#include "mm_tester.hpp"
 
 using namespace std;
 namespace py = pybind11;
