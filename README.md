@@ -64,7 +64,7 @@ You can build the package via `conda-build` or
 You must install either `boa` or `conda-build`; we 
 use `boa` for its speed. 
     ```bash
-    shell> conda create --name my_env python=3.11 conda-forge::boa
+    shell> conda create --name my_env python=3.11 conda-forge::boa mamba
     shell> conda activate my_env 
     ``` 
 
