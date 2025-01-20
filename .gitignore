@@ -31,3 +31,5 @@ scratch.txt
 triton_autotuning
 paper_benchmarks
 src/extlib
+
+get_node.sh

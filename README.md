@@ -65,19 +65,19 @@ You must install either `boa` or `conda-build`; we
 use `boa` for its speed. 
     ```bash
     shell> conda create --name my_env python=3.11 boa
-    shell> conda activate 
+    shell> conda activate my_env 
+    (my_env) shell> conda activate 
     ``` 
 
-2. **Install**: Clone, build, and install in three steps.
-below: 
+2. **Install**: Clone, build, and install in three steps:
     ```bash
-    (my_env) shell> git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
-    (my_env) shell> conda mambabuild equivariant_spmm 
-    (my_env) shell> conda install --use-local src 
+    git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
+    conda mambabuild ./equivariant_spmm 
+    mamba install --use-local src 
     ```
 
-    Use `build` in place of `mambabuild` if you
-    installed `conda-build` in Step 1.
+    Use `build` and `conda` in place of `mambabuild` and `mamba` if you
+    installed `conda-build` in Step 1. 
 
 3. **Test**: You're ready to go!
 
@@ -97,9 +97,9 @@ path to NVIDIA's CUDA Toolkit.
 
 2. **Install**: Build the C++ extension and install the package via `pip`: 
     ```bash
-    (my_env) shell> cd equivariant_spmm/src 
-    (my_env) shell> sh recipe/build.sh 
-    (my_env) shell> pip install -e . -vv # Remove -e for non-editable install
+    cd equivariant_spmm
+    sh dev_build.sh 
+    pip install ./src -e -vv # Remove -e for non-editable install
     ``` 
 
 ### Build to replicate our benchmarks 

@@ -1,3 +1,7 @@
+cmake_minimum_required(VERSION 3.15)
+project(equivariant_spmm LANGUAGES CXX)
+
+find_package(CUDAToolkit REQUIRED)
 find_package(pybind11 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 
@@ -30,8 +34,8 @@ target_include_directories(kernel_wrapper PUBLIC
 set_target_properties(kernel_wrapper PROPERTIES LINKER_LANGUAGE CXX)
 
 # Manually build the module to avoid SOABI renaming. Original command:
-#pybind11_add_module(kernel_wrapper kernel_wrapper.cpp)
-#target_link_libraries(kernel_wrapper PRIVATE espmm)
+# pybind11_add_module(kernel_wrapper kernel_wrapper.cpp)
+# target_link_libraries(kernel_wrapper PRIVATE espmm)
 
 target_link_libraries(kernel_wrapper PRIVATE 
     pybind11::pybind11
