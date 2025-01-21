@@ -72,11 +72,6 @@ class LoopUnrollConv(Convolution):
                 (backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + 4) * backward_schedule.total_warps)
             self.allocate_workspace(workspace_size)
 
-        # Print kernel to scratch.txt
-        with open("scratch.txt", "w") as f:
-            f.write(self.jit_kernel)
-
-
     @staticmethod
     def name():
         return "LoopUnrollConv"
