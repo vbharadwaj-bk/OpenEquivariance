@@ -28,13 +28,18 @@ Here's a CG tensor product implemented by e3nn:
 import torch
 import e3nn.o3 as o3
 
-batch_size = 1000
-X_ir, Y_ir, Z_ir = o3.Irreps("128x5e"), o3.Irreps("128x3e"), o3.Irreps("128x5e") 
-X, Y = torch.rand(batch_size, x_ir.dim, device='cuda'), torch.rand(batch_size, y_ir.dim, device='cuda')
-W = torch.rand(tp.weight_numel, device='cuda')
+gen = torch.Generator(device='cuda')
 
-tp_e3nn = o3.TensorProduct(X_ir, Y_ir, Z_ir,
-        shared_weights=False, internal_weights=False)
+batch_size = 1000
+X_ir, Y_ir, Z_ir = o3.Irreps("1x2e"), o3.Irreps("1x3e"), o3.Irreps("1x2e") 
+X = torch.rand(batch_size, X_ir.dim, device='cuda', generator=gen)
+Y = torch.rand(batch_size, Y_ir.dim, device='cuda', generator=gen)
+
+instructions=[(0, 0, 0, "uvu", True)]
+
+tp_e3nn = o3.TensorProduct(X_ir, Y_ir, Z_ir, instructions,
+        shared_weights=False, internal_weights=False).to('cuda')
+W = torch.rand(batch_size, tp_e3nn.weight_numel, device='cuda', generator=gen)
 
 Z = tp_e3nn(X, Y, W)
 print(torch.norm(Z))
@@ -46,7 +51,7 @@ tensors are stored on a CUDA device for this to work:
 ```python
 import fast_tp as ftp
 
-problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, shared_weights=False, internal_weights=False)
+problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
 tp_fast = ftp.LoopUnrollTP(problem, torch_op=True)
 
 Z = tp_fast(X, Y, W) # Reuse X, Y, W from earlier
@@ -72,19 +77,20 @@ If you're executing tensor products as part of a message passing graph
 neural network, we offer fused kernels that save both memory and compute time: 
 
 ```python
-from torch.geometric import EdgeIndex
+from torch_geometric import EdgeIndex
 
 node_ct, nonzero_ct = 3, 4
 
-# Sender, receiver indices for message passing GNN
+# Receiver, sender indices for message passing GNN
 edge_index = EdgeIndex(
-                [[0, 1, 2, 1],
-                 [1, 0, 1, 2]],
+                [[0, 1, 1, 2],  # Receiver 
+                 [1, 0, 2, 1]], # Sender 
                 device='cuda',
-                dtype=torch.Long)
+                dtype=torch.long)
 
-X, Y = torch.rand(node_ct, x_ir.dim, device='cuda'), torch.rand(nonzero_ct, y_ir.dim, device='cuda')
-W = torch.rand(tp.weight_numel, device='cuda')
+X = torch.rand(node_ct, X_ir.dim, device='cuda', generator=gen)
+Y = torch.rand(nonzero_ct, Y_ir.dim, device='cuda', generator=gen)
+W = torch.rand(nonzero_ct, problem.weight_numel, device='cuda', generator=gen)
 
 tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
 Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim]
@@ -96,12 +102,12 @@ permutation, we can provide even greater speedup (and deterministic results)
 by avoiding atomics: 
 
 ```python
-edge_index.sort_by("row")
-_, perm = edge_index.sort_by("col")
+_, sender_perm = edge_index.sort_by("col")            # Sort by sender index 
+edge_index, receiver_perm = edge_index.sort_by("row") # Sort by receiver index
 
 # Now we can use the faster deterministic algorithm
 tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
-Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1], perm) # Z has shape [node_ct, z_ir.dim]
+Z = tp_conv.forward(X, Y[receiver_perm], W[receiver_perm], edge_index[0], edge_index[1], sender_perm) 
 print(torch.norm(Z))
 ```
 Note: you don't need Pytorch geometric to use our kernels. When
