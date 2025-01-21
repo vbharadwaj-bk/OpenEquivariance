@@ -52,10 +52,32 @@ class LoopUnrollConv(Convolution):
 
         idx_type_map = {np.int32: "int", np.int64: "long"}
 
+        if self.torch_op:
+            self.setup_torch_module()
+
+        self.forward_workspace_offset = None
+        self.backward_workspace_offset = None
+
+        if deterministic:
+            destination_index_bytes = 32 # Add extra to account for padding
+            workspace_size = max(
+                (forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * forward_schedule.total_warps,
+                (backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * backward_schedule.total_warps)
+            self.allocate_workspace(workspace_size)
+
+            self.forward_workspace_offset = forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize * forward_schedule.total_warps
+            self.backward_workspace_offset = backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize * backward_schedule.total_warps
+
+            self.forward_workspace_offset = (self.forward_workspace_offset + 7) // 8 * 8
+            self.backward_workspace_offset = (self.backward_workspace_offset + 7) // 8 * 8
+
+
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
             backward_schedule=backward_schedule,
-            idx_type=idx_type_map[idx_dtype])
+            idx_type=idx_type_map[idx_dtype],
+            forward_workspace_offset=self.forward_workspace_offset,
+            backward_workspace_offset=self.backward_workspace_offset)
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
@@ -63,14 +85,6 @@ class LoopUnrollConv(Convolution):
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
-        if self.torch_op:
-            self.setup_torch_module()
-
-        if deterministic:
-            workspace_size = max(
-                (forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize + 4) * forward_schedule.total_warps,
-                (backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + 4) * backward_schedule.total_warps)
-            self.allocate_workspace(workspace_size)
 
     @staticmethod
     def name():
@@ -102,7 +116,7 @@ class LoopUnrollConvScatterSum(Convolution):
         super().__init__(config, idx_dtype, torch_op, deterministic=False)
 
         self.reference_tp = LoopUnrollTP(config, torch_op=torch_op)
-        from fast_tp.implementations.convolution.scatter import scatter_sum
+        from src.implementations.convolution.scatter import scatter_sum
         self.scatter_sum = scatter_sum
 
     def forward(self, L1_in, L2_in, weights, src, dst):

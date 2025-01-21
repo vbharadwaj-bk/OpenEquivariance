@@ -82,11 +82,11 @@ if __name__=='__main__':
     bench.run( graph,
             [   #LoopUnrollConvScatterSum, 
                 #CUEConv,
-                LoopUnrollConvDeterministic, 
+                #LoopUnrollConvDeterministic, 
                 #LoopUnrollConvAtomic
                 ], 
-            direction="forward", 
-            correctness=False,
+            direction="backward", 
+            correctness=True,
             double_backward_correctness=False,
             benchmark=True)
 
