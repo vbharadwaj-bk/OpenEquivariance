@@ -63,18 +63,18 @@ as drop-in replacements. We support most "uvu" and "uvw" tensor products;
 see [this section](#tensor-products-we-support) for an up-to-date list of supported configurations. 
 
 **Important**: For many configurations, our kernels return results identical to
-e3nn up to floating point roundoff (in particular, all "uvu" problems with
+e3nn up to floating point roundoff (this includes all "uvu" problems with
 multiplicity 1 for all irreps in the second input). For other configurations 
 (e.g. any "uvw" connection modes), we return identical 
 results up to a well-defined reordering of the weights relative to e3nn. 
 
-If you're performing tensor products as part of a message passing graph
+If you're executing tensor products as part of a message passing graph
 neural network, we offer fused kernels that save both memory and compute time: 
 
 ```python
 from torch.geometric import EdgeIndex
 
-node_ct, edge_ct = 3, 4
+node_ct, nonzero_ct = 3, 4
 
 # Sender, receiver indices for message passing GNN
 edge_index = EdgeIndex(
@@ -83,7 +83,7 @@ edge_index = EdgeIndex(
                 device='cuda',
                 dtype=torch.Long)
 
-X, Y = torch.rand(node_ct, x_ir.dim, device='cuda'), torch.rand(edge_ct, y_ir.dim, device='cuda')
+X, Y = torch.rand(node_ct, x_ir.dim, device='cuda'), torch.rand(nonzero_ct, y_ir.dim, device='cuda')
 W = torch.rand(tp.weight_numel, device='cuda')
 
 tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
@@ -92,7 +92,7 @@ print(torch.norm(Z))
 ```
 
 If you can guarantee `EdgeIndex` is sorted by row and supply the transpose
-permutation, we can provide even greater speedup (and run reproducibility) 
+permutation, we can provide even greater speedup (and deterministic results) 
 by avoiding atomics: 
 
 ```python
@@ -194,10 +194,11 @@ of the input weights.
 Our code include correctness checks, but the configuration space is large. If you notice
 a bug, let us know in a Github issue. We'll try our best to correct it or document the problem here.
 
-We do not yet support:
+We do not (yet) support:
 
 - Mixing different instruction types in the same tensor product. 
 - Instruction types besides "uvu" and "uvw".
+- Non-trainable instructions: all of your instructions must have weights associated. 
 
 If you have a use case for any of the unsupported features above, let us know.
 

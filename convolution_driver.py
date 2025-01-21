@@ -28,12 +28,12 @@ def load_graph(name):
 
     if name == "debug":
         coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
-        rows = np.array([0, 1, 1, 2, 2, 2], dtype=np.uint32)
-        cols = np.array([1, 0, 2, 0, 1, 2], dtype=np.uint32)
+        rows = np.array([0, 1, 1, 2], dtype=np.uint32)
+        cols = np.array([1, 0, 2, 1], dtype=np.uint32)
 
-        coords = coords[:2]
-        rows = rows[:2]
-        cols = cols[:2] 
+        coords = coords[:4]
+        rows = rows[:4]
+        cols = cols[:4] 
 
         name = "debug" 
 
@@ -171,15 +171,15 @@ def clean_benchmark():
 if __name__=='__main__':
     #clean_benchmark()
     #exit(1)
-    #graph = load_graph("debug")
-    graph = load_graph("carbon_lattice_radius6.0")
+    graph = load_graph("debug")
+    #graph = load_graph("carbon_lattice_radius6.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
-        #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x0e+128x1o+128x2e", 
-                "1x0e+1x1o+1x2e+1x3o",
-                "128x0e+128x1o+128x2e+128x3o"),
+        SingleInstruction("1x2e", "1x2e", "1x2e", "uvu", True),
+        #ChannelwiseTPP("128x0e+128x1o+128x2e", 
+        #        "1x0e+1x1o+1x2e+1x3o",
+        #        "128x0e+128x1o+128x2e+128x3o"),
         #SingleInstruction("32x5e", "1x5e", "32x3e", "uvu", True),
         #ChannelwiseTPP("32x3e + 32x2e", "1x0e + 1x1e", 3),
         #ChannelwiseTPP("32x3e + 32x2e + 32x1e + 32x0e", "1x0e + 1x1e + 1x2e", 3),
@@ -201,7 +201,7 @@ if __name__=='__main__':
             [   #LoopUnrollConvScatterSum, 
                 #CUEConv,
                 LoopUnrollConvDeterministic, 
-                #LoopUnrollConvAtomic
+                LoopUnrollConvAtomic
                 ], 
             direction="forward", 
             correctness=True,

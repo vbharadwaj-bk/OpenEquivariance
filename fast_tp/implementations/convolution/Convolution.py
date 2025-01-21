@@ -95,7 +95,7 @@ class Convolution:
     def allocate_workspace(self, size_bytes):
         self.workspace_size = size_bytes
         if self.torch_op:
-            self.workspace_buffer = torch.empty(size_bytes, dtype=torch.uint8, device='cuda')
+            self.workspace_buffer = torch.zeros(size_bytes, dtype=torch.uint8, device='cuda')
         else:
             self.workspace_buffer = DeviceBuffer(size_bytes)
         self.workspace_ptr = self.workspace_buffer.data_ptr()
@@ -196,6 +196,10 @@ class Convolution:
             L3_out=ref_out,
             graph=graph)
 
+        print(graph.rows)
+        print(graph.cols)
+        print(ref_out)
+
         test_out = out.copy()
         self.forward_cpu(
             L1_in=in1.copy(), 
@@ -203,6 +207,8 @@ class Convolution:
             weights=weights.copy(),
             L3_out=test_out,
             graph=graph)
+
+        print(test_out)
 
         for name, to_check, ground_truth in [
             ("output", ref_out, test_out)]:
@@ -547,21 +553,19 @@ class Convolution:
         if not self.deterministic:
             @torch.library.custom_op(f"fast_tp::conv_forward{self.conv_id}", mutates_args=(), device_types="cuda")
             def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
-                    weights : torch.Tensor, src: torch.Tensor, dst: torch.Tensor) -> torch.Tensor:
+                    weights : torch.Tensor, rows: torch.Tensor, cols: torch.Tensor) -> torch.Tensor:
                 L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
                 L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
 
-                torch._assert(src.shape[0] == dst.shape[0], "src and dst must have the same number of elements")
-
                 self.internal.exec_conv_rawptrs(L1_in_c.data_ptr(), L2_in_c.data_ptr(),
                     weights_c.data_ptr(), L3_out.data_ptr(),
-                    dst.data_ptr(), src.data_ptr(),
-                    src.shape[0], L1_in.shape[0], self.workspace_ptr)
+                    rows.data_ptr(), cols.data_ptr(),
+                    cols.shape[0], L1_in.shape[0], self.workspace_ptr)
 
                 return L3_out
             
             @forward.register_fake
-            def _(L1_in, L2_in, weights, src, dst):
+            def _(L1_in, L2_in, weights, rows, cols):
                 return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
             
             self.forward = forward
@@ -569,7 +573,7 @@ class Convolution:
             @torch.library.custom_op(f"fast_tp::conv_backward{self.conv_id}", mutates_args=(), device_types="cuda")
             def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                         weights : torch.Tensor, L3_grad : torch.Tensor,
-                        src: torch.Tensor, dst: torch.Tensor) -> typing.List[torch.Tensor]:
+                        rows: torch.Tensor, cols: torch.Tensor) -> typing.List[torch.Tensor]:
                 L1_grad = torch.zeros_like(L1_in)
                 L2_grad = torch.empty_like(L2_in)
                 weights_grad = torch.empty_like(weights)
@@ -579,41 +583,41 @@ class Convolution:
                         L2_in.data_ptr(), L2_grad.data_ptr(),
                         weights.data_ptr(), weights_grad.data_ptr(),
                         L3_grad.data_ptr(),
-                        dst.data_ptr(), src.data_ptr(),
-                        src.shape[0], L1_in.shape[0],
+                        rows.data_ptr(), cols.data_ptr(),
+                        rows.shape[0], L1_in.shape[0],
                         self.workspace_ptr,
                         0)
                 
                 return [L1_grad, L2_grad, weights_grad]
             
             @backward_helper.register_fake
-            def _(L1_in, L2_in, weights, L3_grad, src, dst):
+            def _(L1_in, L2_in, weights, L3_grad, rows, cols):
                 return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
             def setup_context(ctx, inputs, output):
-                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.src, ctx.dst = inputs
+                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.rows, ctx.cols = inputs
             
             def backward(ctx, grad_output):
-                result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst)
+                result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.rows, ctx.cols)
                 return result[0], result[1], result[2], None, None
 
             self.forward.register_autograd(backward, setup_context=setup_context)
 
             def setup_context_double_backward(ctx, inputs, output):
-                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad, ctx.src, ctx.dst = inputs 
+                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad, ctx.rows, ctx.cols = inputs 
 
             def double_backward(ctx, grad_output):
                 A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
                 E, F, G = grad_output[0], grad_output[1], grad_output[2]
-                src, dst = ctx.src, ctx.dst 
+                rows, cols = ctx.rows, ctx.cols
 
-                op1 = backward_helper(E, F, D, C, src, dst)
-                op2 = backward_helper(A, B, G, C, src, dst)
-                op3 = forward(E, B, D, src, dst)
-                op4 = backward_helper(E, B, D, C, src, dst) # op4 and op5 could be combined with op3 and op6 
-                op5 = backward_helper(A, F, D, C, src, dst) 
-                op6 = forward(A, F, D, src, dst)
-                op7 = forward(A, B, G, src, dst)
+                op1 = backward_helper(E, F, D, C, rows, cols)
+                op2 = backward_helper(A, B, G, C, rows, cols)
+                op3 = forward(E, B, D, rows, cols)
+                op4 = backward_helper(E, B, D, C, rows, cols) # op4 and op5 could be combined with op3 and op6 
+                op5 = backward_helper(A, F, D, C, rows, cols) 
+                op6 = forward(A, F, D, rows, cols)
+                op7 = forward(A, B, G, rows, cols)
 
                 return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None
 
@@ -622,21 +626,19 @@ class Convolution:
         else:
             @torch.library.custom_op(f"fast_tp::conv_forward{self.conv_id}", mutates_args=(), device_types="cuda")
             def forward(L1_in : torch.Tensor, L2_in : torch.Tensor, 
-                    weights : torch.Tensor, src: torch.Tensor, dst: torch.Tensor, transpose_perm: torch.Tensor) -> torch.Tensor:
+                    weights : torch.Tensor, rows: torch.Tensor, cols: torch.Tensor, transpose_perm: torch.Tensor) -> torch.Tensor:
                 L1_in_c, L2_in_c, weights_c = L1_in.contiguous(), L2_in.contiguous(), weights.contiguous()
                 L3_out = torch.zeros((L1_in_c.shape[0], self.L3.dim ), dtype=L1_in.dtype, device='cuda')
 
-                torch._assert(src.shape[0] == dst.shape[0], "src and dst must have the same number of elements")
-
                 self.internal.exec_conv_rawptrs(L1_in_c.data_ptr(), L2_in_c.data_ptr(),
                     weights_c.data_ptr(), L3_out.data_ptr(),
-                    dst.data_ptr(), src.data_ptr(),
-                    src.shape[0], L1_in.shape[0], self.workspace_ptr)
+                    rows.data_ptr(), cols.data_ptr(),
+                    rows.shape[0], L1_in.shape[0], self.workspace_ptr)
 
                 return L3_out
             
             @forward.register_fake
-            def _(L1_in, L2_in, weights, src, dst):
+            def _(L1_in, L2_in, weights, rows, cols):
                 return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
             
             self.forward = forward
@@ -644,7 +646,7 @@ class Convolution:
             @torch.library.custom_op(f"fast_tp::conv_backward{self.conv_id}", mutates_args=(), device_types="cuda")
             def backward_helper( L1_in : torch.Tensor, L2_in : torch.Tensor, 
                         weights : torch.Tensor, L3_grad : torch.Tensor,
-                        src: torch.Tensor, dst: torch.Tensor, transpose_perm: torch.Tensor) -> typing.List[torch.Tensor]:
+                        rows: torch.Tensor, cols: torch.Tensor, transpose_perm: torch.Tensor) -> typing.List[torch.Tensor]:
                 L1_grad = torch.zeros_like(L1_in)
                 L2_grad = torch.empty_like(L2_in)
                 weights_grad = torch.empty_like(weights)
@@ -654,41 +656,41 @@ class Convolution:
                         L2_in.data_ptr(), L2_grad.data_ptr(),
                         weights.data_ptr(), weights_grad.data_ptr(),
                         L3_grad.data_ptr(),
-                        dst.data_ptr(), src.data_ptr(),
-                        src.shape[0], L1_in.shape[0],
+                        rows.data_ptr(), cols.data_ptr(),
+                        rows.shape[0], L1_in.shape[0],
                         self.workspace_ptr,
                         transpose_perm.data_ptr())
                 
                 return [L1_grad, L2_grad, weights_grad]
             
             @backward_helper.register_fake
-            def _(L1_in, L2_in, weights, L3_grad, src, dst):
+            def _(L1_in, L2_in, weights, L3_grad, rows, cols):
                 return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
             def setup_context(ctx, inputs, output):
-                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.src, ctx.dst, ctx.transpose_perm = inputs
+                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.rows, ctx.cols, ctx.transpose_perm = inputs
             
             def backward(ctx, grad_output):
-                result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.src, ctx.dst, ctx.transpose_perm)
+                result = backward_helper(ctx.L1_in, ctx.L2_in, ctx.weights, grad_output, ctx.rows, ctx.cols, ctx.transpose_perm)
                 return result[0], result[1], result[2], None, None, None
 
             self.forward.register_autograd(backward, setup_context=setup_context)
 
             def setup_context_double_backward(ctx, inputs, output):
-                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad, ctx.src, ctx.dst, ctx.transpose_perm = inputs 
+                ctx.L1_in, ctx.L2_in, ctx.weights, ctx.L3_grad, ctx.rows, ctx.cols, ctx.transpose_perm = inputs 
 
             def double_backward(ctx, grad_output):
                 A, B, C, D = ctx.L1_in, ctx.L2_in, ctx.L3_grad, ctx.weights
                 E, F, G = grad_output[0], grad_output[1], grad_output[2]
-                src, dst, transpose_perm = ctx.src, ctx.dst, ctx.transpose_perm
+                rows, cols, transpose_perm = ctx.rows, ctx.cols, ctx.transpose_perm
 
-                op1 = backward_helper(E, F, D, C, src, dst, transpose_perm)
-                op2 = backward_helper(A, B, G, C, src, dst, transpose_perm)
-                op3 = forward(E, B, D, src, dst, transpose_perm)
-                op4 = backward_helper(E, B, D, C, src, dst, transpose_perm)
-                op5 = backward_helper(A, F, D, C, src, dst, transpose_perm) 
-                op6 = forward(A, F, D, src, dst, transpose_perm)
-                op7 = forward(A, B, G, src, dst, transpose_perm)
+                op1 = backward_helper(E, F, D, C, rows, cols, transpose_perm)
+                op2 = backward_helper(A, B, G, C, rows, cols, transpose_perm)
+                op3 = forward(E, B, D, rows, cols, transpose_perm)
+                op4 = backward_helper(E, B, D, C, rows, cols, transpose_perm)
+                op5 = backward_helper(A, F, D, C, rows, cols, transpose_perm) 
+                op6 = forward(A, F, D, rows, cols, transpose_perm)
+                op7 = forward(A, B, G, rows, cols, transpose_perm)
 
                 return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7), None, None, None
 
