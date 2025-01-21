@@ -1,5 +1,10 @@
-# Examples on the front page of README
+# Examples from the README 
+import logging
+from fast_tp.benchmark.logging_utils import getLogger
+logger = getLogger()
+logger.setLevel(logging.ERROR)
 
+# UVU Tensor Product 
 # ===============================
 import torch
 import e3nn.o3 as o3
@@ -31,7 +36,7 @@ Z = tp_fast(X, Y, W) # Reuse X, Y, W from earlier
 print(torch.norm(Z))
 # ===============================
 
-
+# Graph Convolution
 # ===============================
 from torch_geometric import EdgeIndex
 
@@ -39,8 +44,8 @@ node_ct, nonzero_ct = 3, 4
 
 # Sender, receiver indices for message passing GNN
 edge_index = EdgeIndex(
-                [[0, 1, 2, 1],  # Receiver 
-                 [1, 0, 1, 2]], # Sender 
+                [[0, 1, 1, 2],  # Receiver 
+                 [1, 0, 2, 1]], # Sender 
                 device='cuda',
                 dtype=torch.long)
 
@@ -55,11 +60,10 @@ print(torch.norm(Z))
 
 # ===============================
 _, sender_perm = edge_index.sort_by("col")            # Sort by sender index 
-edge_index, receiver_perm = edge_index.sort_by("row")     # Sort by receiver index
-
+edge_index, receiver_perm = edge_index.sort_by("row") # Sort by receiver index
 
 # Now we can use the faster deterministic algorithm
 tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
-Z = tp_conv.forward(X, Y, W[receiver_perm], edge_index[0], edge_index[1], sender_perm) # Z has shape [node_ct, z_ir.dim]
+Z = tp_conv.forward(X, Y[receiver_perm], W[receiver_perm], edge_index[0], edge_index[1], sender_perm) 
 print(torch.norm(Z))
 # ===============================
