@@ -62,10 +62,11 @@ Our interface for `ftp.TPProblem` is almost a strict superset of
 `o3.TensorProduct` (two key differences: we 
 impose `internal_weights=False` and add support for multiple datatypes). 
 You can pass e3nn `Irreps` instances directly or 
-use `ftp.Irreps`, which is identical. We recommend 
-reading the [e3nn documentation and API reference](https://docs.e3nn.org/en/latest/) first, then using our kernels 
+use `ftp.Irreps`, which is identical. 
+
+We recommend reading the [e3nn documentation and API reference](https://docs.e3nn.org/en/latest/) first, then using our kernels 
 as drop-in replacements. We support most "uvu" and "uvw" tensor products; 
-see [this section](#tensor-products-we-support) for an up-to-date list of supported configurations. 
+see [this section](#tensor-products-we-accelerate) for an up-to-date list of supported configurations. 
 
 **Important**: For many configurations, our kernels return results identical to
 e3nn up to floating point roundoff (this includes all "uvu" problems with
@@ -97,12 +98,12 @@ Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_c
 print(torch.norm(Z))
 ```
 
-If you can guarantee `EdgeIndex` is sorted by row and supply the transpose
+If you can guarantee `EdgeIndex` is sorted by receiver index and supply the transpose
 permutation, we can provide even greater speedup (and deterministic results) 
 by avoiding atomics: 
 
 ```python
-_, sender_perm = edge_index.sort_by("col")            # Sort by sender index 
+_, sender_perm = edge_index.sort_by("col")            # Compute transpose perm 
 edge_index, receiver_perm = edge_index.sort_by("row") # Sort by receiver index
 
 # Now we can use the faster deterministic algorithm
@@ -110,7 +111,7 @@ tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=True)
 Z = tp_conv.forward(X, Y[receiver_perm], W[receiver_perm], edge_index[0], edge_index[1], sender_perm) 
 print(torch.norm(Z))
 ```
-Note: you don't need Pytorch geometric to use our kernels. When
+**Note**: you don't need Pytorch geometric to use our kernels. When
 `deterministic=False`, the `sender` and `receiver` indices can have
 arbitrary order. 
 
