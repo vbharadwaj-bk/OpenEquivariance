@@ -16,6 +16,8 @@ from torch.utils.benchmark import Timer
 from mace.calculators import mace_mp
 from torch.profiler import profile, record_function, ProfilerActivity
 
+from fast_tp import package_root
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -152,7 +154,7 @@ def main():
 
     if output_folder is None:
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+        output_folder = pathlib.Path(f'{package_root}/outputs/{millis_since_epoch}')
     else:
         output_folder = pathlib.Path(output_folder)
 

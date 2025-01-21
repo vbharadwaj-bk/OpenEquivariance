@@ -95,7 +95,7 @@ class TestBenchmarkSuite:
         TestBenchmarkSuite.validate_inputs(test_list)
 
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'outputs/{millis_since_epoch}')
+        output_folder = pathlib.Path(f'{fast_tp.package_root}/outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
         metadata = TestBenchmarkSuite.generate_metadata(test_list)

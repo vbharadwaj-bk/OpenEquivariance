@@ -196,10 +196,6 @@ class Convolution:
             L3_out=ref_out,
             graph=graph)
 
-        print(graph.rows)
-        print(graph.cols)
-        print(ref_out)
-
         test_out = out.copy()
         self.forward_cpu(
             L1_in=in1.copy(), 
@@ -207,8 +203,6 @@ class Convolution:
             weights=weights.copy(),
             L3_out=test_out,
             graph=graph)
-
-        print(test_out)
 
         for name, to_check, ground_truth in [
             ("output", ref_out, test_out)]:
@@ -251,29 +245,29 @@ class Convolution:
             torch_L2_in = torch.tensor(L2_in, device='cuda')
             torch_weights = torch.tensor(weights, device='cuda')
 
-            torch_cols = torch.tensor(graph.cols, device='cuda')
             torch_rows = torch.tensor(graph.rows, device='cuda')
+            torch_cols = torch.tensor(graph.cols, device='cuda')
             torch_transpose_perm = torch.tensor(graph.transpose_perm, device='cuda')
 
             if not self.deterministic:
                 for i in range(num_warmup): 
-                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_rows, torch_cols)
 
                 for i in range(num_iter):
                     timer.clear_L2_cache()
                     timer.start()
-                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows)
+                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_rows, torch_cols)
                     time_millis[i] = timer.stop_clock_get_elapsed()
             else:
                 for i in range(num_warmup): 
-                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols
-                            , torch_rows, torch_transpose_perm)
+                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_rows, 
+                            torch_cols, torch_transpose_perm)
                 
                 for i in range(num_iter):
                     timer.clear_L2_cache()
                     timer.start()
-                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_cols
-                            , torch_rows, torch_transpose_perm)
+                    torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights, torch_rows, 
+                            torch_cols, torch_transpose_perm)
                     time_millis[i] = timer.stop_clock_get_elapsed()
 
         elif not self.torch_op:
@@ -304,7 +298,7 @@ class Convolution:
                 time_millis[i] = timer.stop_clock_get_elapsed() 
 
         ops_per_tp, data_per_tp, _ = flops_data_per_tp(self.config, direction)
-        ops_per_tp += self.config.irreps_out.dim # Output accumulation... should check this 
+        ops_per_tp += self.config.irreps_out.dim 
 
         return self.calculate_bench_stats(direction, ops_per_tp, data_per_tp, 
                 time_millis, graph, num_warmup, num_iter, prng_seed)
@@ -325,11 +319,11 @@ class Convolution:
             torch_L2_in = torch.tensor(in2, device='cuda', requires_grad=True) 
             torch_weights = torch.tensor(weights, device='cuda', requires_grad=True) 
 
-            torch_cols = torch.tensor(graph.cols, device='cuda').detach()
             torch_rows = torch.tensor(graph.rows, device='cuda').detach()
+            torch_cols = torch.tensor(graph.cols, device='cuda').detach()
             torch_transpose_perm = torch.tensor(graph.transpose_perm, device='cuda')
 
-            fwd_args = [torch_L1_in, torch_L2_in, torch_weights, torch_cols, torch_rows]
+            fwd_args = [torch_L1_in, torch_L2_in, torch_weights, torch_rows, torch_cols]
             if self.deterministic:
                 fwd_args.append(torch_transpose_perm)
 
@@ -505,11 +499,11 @@ class Convolution:
             in2_torch = torch.tensor(in2, device='cuda', requires_grad=True)
             weights_torch = torch.tensor(weights, device='cuda', requires_grad=True)
 
-            torch_cols = torch.tensor(graph.cols, device='cuda')
             torch_rows = torch.tensor(graph.rows, device='cuda')
+            torch_cols = torch.tensor(graph.cols, device='cuda')
             torch_transpose_perm = torch.tensor(graph.transpose_perm, device='cuda')
 
-            fwd_args = [in1_torch, in2_torch, weights_torch, torch_cols, torch_rows]
+            fwd_args = [in1_torch, in2_torch, weights_torch, torch_rows, torch_cols]
             if tp.deterministic:
                 fwd_args.append(torch_transpose_perm)
 
@@ -638,7 +632,7 @@ class Convolution:
                 return L3_out
             
             @forward.register_fake
-            def _(L1_in, L2_in, weights, rows, cols):
+            def _(L1_in, L2_in, weights, rows, cols, transpose_perm):
                 return L1_in.new_empty(L1_in.shape[0], self.L3.dim)
             
             self.forward = forward
@@ -664,7 +658,7 @@ class Convolution:
                 return [L1_grad, L2_grad, weights_grad]
             
             @backward_helper.register_fake
-            def _(L1_in, L2_in, weights, L3_grad, rows, cols):
+            def _(L1_in, L2_in, weights, L3_grad, rows, cols, transpose_perm):
                 return [L1_in.new_empty(*L1_in.shape), L2_in.new_empty(*L2_in.shape), weights.new_empty(*weights.shape)]
 
             def setup_context(ctx, inputs, output):
