@@ -35,9 +35,9 @@ class E3NNConv(Convolution):
         from fast_tp.implementations.convolution.scatter import scatter_sum
         self.scatter_sum = scatter_sum
 
-    def forward(self, L1_in, L2_in, weights, src, dst):
-        tp_outputs = self.reference_tp(L1_in[src], L2_in, weights)
-        return self.scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
+    def forward(self, L1_in, L2_in, weights, rows, cols):
+        tp_outputs = self.reference_tp(L1_in[cols], L2_in, weights)
+        return self.scatter_sum(src=tp_outputs, index=rows, dim=0, dim_size=L1_in.shape[0])
 
     @staticmethod
     def name():

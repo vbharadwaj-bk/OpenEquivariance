@@ -19,6 +19,6 @@ class CUEConv(Convolution):
     def name():
         return "CUEConvolution"
 
-    def forward(self, L1_in, L2_in, weights, src, dst):
-        tp_outputs = self.cue_tp(L1_in[src], L2_in, weights, use_fallback=False)
-        return self.scatter_sum(src=tp_outputs, index=dst, dim=0, dim_size=L1_in.shape[0])
+    def forward(self, L1_in, L2_in, weights, rows, cols):
+        tp_outputs = self.cue_tp(L1_in[cols], L2_in, weights, use_fallback=False)
+        return self.scatter_sum(src=tp_outputs, index=rows, dim=0, dim_size=L1_in.shape[0])

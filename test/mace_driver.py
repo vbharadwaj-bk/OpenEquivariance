@@ -1,5 +1,4 @@
 import sys, json, time, pathlib
-sys.path.append('mace_dev')
 
 import argparse
 import logging
@@ -158,8 +157,9 @@ def main():
     else:
         output_folder = pathlib.Path(output_folder)
 
-    for dtype_str, dtype in [   ("f32", torch.float32),
-                                ("f64", torch.float64)]:
+    for dtype_str, dtype in [   #("f32", torch.float32),
+                                ("f64", torch.float64)
+                            ]:
         torch.set_default_dtype(dtype)
         device = torch.device(args.device)
         hidden_irreps = o3.Irreps(args.hidden_irreps)
