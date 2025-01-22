@@ -173,7 +173,7 @@ class Convolution:
 
     def test_correctness_forward(self, 
             graph, thresh, prng_seed, reference_implementation=None,
-            check_reproducible=True):
+            check_reproducible=True, torch_op=False):
         L1, L2, L3 = self.L1, self.L2, self.L3
 
         if reference_implementation is None:
@@ -189,12 +189,32 @@ class Convolution:
 
         ref_tp = reference_implementation(self.config)
         ref_out = out.copy()
-        ref_tp.forward_cpu(
-            L1_in=in1.copy(), 
-            L2_in=in2.copy(), 
-            weights=weights.copy(),
-            L3_out=ref_out,
-            graph=graph)
+
+        if ref_tp.torch_op:
+            ref_out_torch = None
+            if not ref_tp.deterministic:
+                ref_out_torch = ref_tp.forward(
+                    L1_in=torch.tensor(in1, device='cuda'),
+                    L2_in=torch.tensor(in2, device='cuda'),
+                    weights=torch.tensor(weights, device='cuda'),
+                    rows = torch.tensor(graph.rows, device='cuda'),
+                    cols = torch.tensor(graph.cols, device='cuda'))
+            else:
+                ref_out_torch = ref_tp.forward(
+                    torch.tensor(in1, device='cuda'),
+                    torch.tensor(in2, device='cuda'),
+                    torch.tensor(weights, device='cuda'),
+                    torch.tensor(graph.rows, device='cuda'),
+                    torch.tensor(graph.cols, device='cuda'),
+                    torch.tensor(graph.transpose_perm, device='cuda'))
+            ref_out[:] = ref_out_torch.cpu().numpy()
+        else:
+            ref_tp.forward_cpu(
+                L1_in=in1.copy(), 
+                L2_in=in2.copy(), 
+                weights=weights.copy(),
+                L3_out=ref_out,
+                graph=graph)
 
         test_out = out.copy()
         self.forward_cpu(
