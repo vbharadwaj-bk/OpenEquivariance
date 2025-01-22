@@ -57,7 +57,7 @@ def analyze_trace(trace_file):
         "other_kernels_ms": other_kernels / 1000.
     }
 
-def create_model(hidden_irreps, max_ell, cueq_config=None):
+def create_model(hidden_irreps, max_ell, device, cueq_config=None):
     table = tools.AtomicNumberTable([8, 82, 53, 55])
     model_config = {
         "r_max": 6.0,
@@ -81,7 +81,7 @@ def create_model(hidden_irreps, max_ell, cueq_config=None):
         "atomic_inter_scale": 1.0,
         "atomic_inter_shift": 0.0,
     }
-    return modules.ScaleShiftMACE(**model_config)
+    return modules.ScaleShiftMACE(**model_config).to(device)
 
 def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, output_folder=None):
     def run_inference():
@@ -194,10 +194,12 @@ def main():
         print(f"Hidden irreps: {hidden_irreps}")
         print(f"Number of iterations: {args.num_iters}\n")
 
-        # Test without CUET
-        model_e3nn = create_model(hidden_irreps, args.max_ell).to(device)
-        #model_e3nn = mace_mp(model="large", device="cuda", default_dtype="float64")
-        measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
+        # Test without CUET (compiled)
+        model_e3nn = create_model(hidden_irreps, args.max_ell, device)
+        tmp_model = tools.compile.prepare(create_model)(hidden_irreps, args.max_ell, device)
+        model_e3nn_compiled = torch.compile(tmp_model, mode="default") 
+
+        measurement_e3nn = benchmark_model(model_e3nn_compiled, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
         model_fast_tp = load_fast_tp(model_e3nn, device)  
