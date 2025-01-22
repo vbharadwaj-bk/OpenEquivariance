@@ -11,13 +11,14 @@ def load_benchmarks(path : pathlib.Path, subfolder=None):
     
     files = os.listdir(path / subfolder)
     for file in files:
-        with open( path / subfolder / file , "r") as f:
-            if file != "metadata.json":
-                benchmarks.append(json.load(f))
-                benchmarks[-1]["filename"] = file
-            else:
-                metadata = json.load(f)
-                metadata["folder"] = subfolder
+        if not os.path.isdir(path / subfolder / file):
+            with open( path / subfolder / file , "r") as f:
+                if file != "metadata.json":
+                    benchmarks.append(json.load(f))
+                    benchmarks[-1]["filename"] = file
+                else:
+                    metadata = json.load(f)
+                    metadata["folder"] = subfolder
                 
     return benchmarks, metadata
 

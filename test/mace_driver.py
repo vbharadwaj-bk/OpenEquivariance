@@ -194,12 +194,9 @@ def main():
         print(f"Hidden irreps: {hidden_irreps}")
         print(f"Number of iterations: {args.num_iters}\n")
 
-        # Test without CUET (compiled)
+        # Test e3nn
         model_e3nn = create_model(hidden_irreps, args.max_ell, device)
-        tmp_model = tools.compile.prepare(create_model)(hidden_irreps, args.max_ell, device)
-        model_e3nn_compiled = torch.compile(tmp_model, mode="default") 
-
-        measurement_e3nn = benchmark_model(model_e3nn_compiled, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
+        measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
         model_fast_tp = load_fast_tp(model_e3nn, device)  
@@ -207,6 +204,7 @@ def main():
         print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
         print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
 
+        # Note: cuEq does not support compilation (yet), will update benchmark
         model_cueq = run_e3nn_to_cueq(model_e3nn)
         model_cueq = model_cueq.to(device)
         measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label=f"cuE_{dtype_str}", output_folder=output_folder)
