@@ -30,7 +30,7 @@ struct ConvData {
 };
 
 
-{%- macro generate_fixup_kernel(name, warp_size, dim) %}
+{%- macro generate_fixup_kernel(name, warp_size, dim, fixup_offset) %}
 __global__ void {{name}}(void* workspace, IRREP_T* dst_ptr) {
     /*
     *  Workspace consists of: 
@@ -43,7 +43,7 @@ __global__ void {{name}}(void* workspace, IRREP_T* dst_ptr) {
     size_t warps_launched = blockDim.x * gridDim.x / {{ warp_size }};
 
     IRREP_T* data = (IRREP_T*) workspace;
-    {{idx_type}}* dst_idxs = ({{idx_type}}*) (data + ({{dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) ((char*) workspace + {{fixup_offset}}); 
 
     if((warp_id == 0) || (dst_idxs[warp_id] != -1 && dst_idxs[warp_id - 1] != dst_idxs[warp_id])) {
         size_t current = warp_id;
@@ -61,7 +61,7 @@ __global__ void {{name}}(void* workspace, IRREP_T* dst_ptr) {
 }
 {%- endmacro %}
 
-{{ generate_fixup_kernel("fixup_forward", forward_schedule.launch_config.warp_size, forward_schedule.L3.dim) }}
+{{ generate_fixup_kernel("fixup_forward", forward_schedule.launch_config.warp_size, forward_schedule.L3.dim, forward_workspace_offset) }}
 
 __global__ void forward(
         IRREP_T* L1_in,
@@ -73,13 +73,13 @@ __global__ void forward(
  
     extern __shared__ char s[];
     size_t num_products = c.nnz;
-    unsigned {{idx_type}}* rows = (unsigned {{idx_type}}*) c.rows;
-    unsigned {{idx_type}}* cols = (unsigned {{idx_type}}*) c.cols;
+    {{idx_type}}* rows = ({{idx_type}}*) c.rows;
+    {{idx_type}}* cols = ({{idx_type}}*) c.cols;
 
     {{ set_launch_bound_variables(forward_schedule.launch_config) }}
 
     IRREP_T* workspace = (IRREP_T*) workspace_raw;
-    {{idx_type}}* dst_idxs = ({{idx_type}}*) (workspace + ({{forward_schedule.L3.dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) ((char*) workspace + {{forward_workspace_offset}}); 
 
     if(lane_id == 0) {
         if(start < end) {
@@ -100,7 +100,7 @@ __global__ void forward(
         ROW_OPERATION({{segment.L3.dim}}, j, L3_smem[j + lane_id] = 0.0f;)
 
         for(size_t i = start; i < end; i++) {
-            unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
+            {{idx_type}} row = rows[i]; {{idx_type}} col = cols[i];
 
             IRREP_T* l1 = L1_in + col * {{forward_schedule.L1.dim}} + lane_id;
             IRREP_T* l2 = L2_in + i * {{forward_schedule.L2.dim}} + lane_id; 
@@ -136,22 +136,22 @@ __global__ void forward(
 {{ generate_segment_kernel_backward(i, segment) }}
 {%- endfor %}
 
-{{ generate_fixup_kernel("fixup_backward", backward_schedule.launch_config.warp_size, backward_schedule.L1.dim) }}
+{{ generate_fixup_kernel("fixup_backward", backward_schedule.launch_config.warp_size, backward_schedule.L1.dim, backward_workspace_offset) }}
 
 __global__ void backward(
         IRREP_T* L1_in, IRREP_T* L1_grad,
         IRREP_T* L2_in, IRREP_T* L2_grad,
         WEIGHT_T* weights, WEIGHT_T* weights_grad,
         IRREP_T* L3_grad, ConvData c, void* workspace_raw, 
-        unsigned {{idx_type}}* transpose_perm) {
+        {{idx_type}}* transpose_perm) {
 
     extern __shared__ char s[];
     size_t num_products = c.nnz;
 
     // Note the transpose below (cols -> rows, rows -> cols)
-    unsigned {{idx_type}}* rows = (unsigned {{idx_type}}*) c.cols;
-    unsigned {{idx_type}}* cols = (unsigned {{idx_type}}*) c.rows;
-    unsigned {{idx_type}}* tperm = (unsigned {{idx_type}}*) transpose_perm;
+    {{idx_type}}* rows = ({{idx_type}}*) c.cols;
+    {{idx_type}}* cols = ({{idx_type}}*) c.rows;
+    {{idx_type}}* tperm = ({{idx_type}}*) transpose_perm;
 
     {{ set_launch_bound_variables(backward_schedule.launch_config) }}
 
@@ -159,7 +159,7 @@ __global__ void backward(
     char* smem = s + {{backward_schedule.memory_per_warp}} * warp_loc; 
 
     IRREP_T* workspace = (IRREP_T*) workspace_raw;
-    {{idx_type}}* dst_idxs = ({{idx_type}}*) (workspace + ({{backward_schedule.L1.dim}} * warps_launched)); 
+    {{idx_type}}* dst_idxs = ({{idx_type}}*) ((char*) workspace + {{backward_workspace_offset}}); 
 
     if(lane_id == 0) {
         if(start < end) {
@@ -177,8 +177,8 @@ __global__ void backward(
         ROW_OPERATION({{segment.L1.dim}}, j, L1_grad_smem[j + lane_id] = 0.0f;)
 
         for(size_t i = start; i < end; i++) {
-            unsigned {{idx_type}} row = rows[i]; unsigned {{idx_type}} col = cols[i];
-            unsigned {{idx_type}} tperm_idx = tperm[i];
+            {{idx_type}} row = rows[i]; {{idx_type}} col = cols[i];
+            {{idx_type}} tperm_idx = tperm[i];
 
             IRREP_T* l1_shft = L1_in + col * {{backward_schedule.L1.dim}} + lane_id;
             IRREP_T* l2_shft = L2_in + tperm_idx * {{backward_schedule.L2.dim}} + lane_id; 
