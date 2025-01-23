@@ -137,8 +137,8 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
 
 2. **Install**: Build our package and install via `pip`: 
     ```bash
-    git clone https://github.com/vbharadwaj-bk/equivariant_spmm/tree/release 
-    cd equivariant_spmm
+    git clone https://github.com/vbharadwaj-bk/OpenEquivariance
+    cd OpenEquivariance 
     sh dev_build.sh 
     pip install . # Use pip install -e . for an editable install 
     ``` 
@@ -159,14 +159,14 @@ encounter problems with the workflow above.
     You must install either `boa` or `conda-build`; we 
     use `boa` for its speed. 
     ```bash
-    conda create --name my_env python=3.11 conda-forge::boa mamba
+    conda create -c conda-forge --name my_env python=3.11 boa micromamba
     conda activate my_env 
     ``` 
 
 2. **Install**: Clone, build, and install in three steps:
     ```bash
-    git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
-    conda mambabuild ./equivariant_spmm 
+    git clone https://github.com/vbharadwaj-bk/OpenEquivariance.git
+    conda mambabuild ./OpenEquivariance
     mamba install --use-local openequivariance 
     ```
 
