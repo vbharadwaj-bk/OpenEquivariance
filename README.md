@@ -152,7 +152,7 @@ are findable at runtime. Installing the CUDA toolkit via `conda` takes care of t
 you. 
 
 ### Build to replicate our benchmarks 
-Follow either build process above. You'll also need the following packages: 
+To run our benchmark suite, you'll also need the following packages: 
 - `e3nn`, 
 - `cuEquivariance`
 - `cuEquivariance-torch` 
@@ -181,7 +181,7 @@ of the input weights.
 higher multiplicities is the first argument. Our results are identical to e3nn up to a reordering
 of the input weights. 
 
-Our code include correctness checks, but the configuration space is large. If you notice
+Our code includes correctness checks, but the configuration space is large. If you notice
 a bug, let us know in a Github issue. We'll try our best to correct it or document the problem here.
 
 We do not (yet) support:

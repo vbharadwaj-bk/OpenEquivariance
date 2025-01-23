@@ -14,6 +14,7 @@ from openequivariance.extlib.kernel_wrapper import *
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.correctness_utils import correctness_forward, correctness_backward
 from openequivariance.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
+from openequivariance import package_root
 
 logger = getLogger()
 
@@ -95,7 +96,7 @@ class TestBenchmarkSuite:
         TestBenchmarkSuite.validate_inputs(test_list)
 
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'{openequivariance.package_root}/outputs/{millis_since_epoch}')
+        output_folder = pathlib.Path(f'{package_root}/outputs/{millis_since_epoch}')
         output_folder.mkdir(parents=True)
 
         metadata = TestBenchmarkSuite.generate_metadata(test_list)
