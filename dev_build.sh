@@ -1,0 +1,1 @@
+NOINSTALL=1 sh recipe/build.sh

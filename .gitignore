@@ -7,7 +7,7 @@
 __pycache__
 
 # working folders
-build/*
+build
 outputs/*
 visualization/*
 figures/*
@@ -26,9 +26,11 @@ nvidia-mathdx*
 mace_dev
 valid_indices*
 
-
-vivek-env.sh
 *.xyz
 scratch.txt
 triton_autotuning
 paper_benchmarks
+openequivariance/extlib
+
+get_node.sh
+*.egg-info
