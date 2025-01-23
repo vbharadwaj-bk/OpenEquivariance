@@ -4,10 +4,11 @@
 [[Supported Tensor Products]](#tensor-products-we-accelerate)
 [[Citation and Acknowledgements]](#citation-and-acknowledgements)
 
-This repository a kernel generator for the Clebsch-Gordon tensor product, 
-a key kernel in equivariant deep neural networks. It implements
-a subset of the functionality of [e3nn](https://e3nn.org/)
-for its common use cases in equivariant graph neural networks
+OpeqnEquivariance is a kernel generator for the Clebsch-Gordon tensor product, 
+a key kernel in rotation-equivariant deep neural networks. 
+It implements some of the tensor products 
+that [e3nn](https://e3nn.org/) supports that are
+commonly found in graph neural networks 
 (e.g. [Nequip](https://github.com/mir-group/nequip) or
 [MACE](https://github.com/ACEsuit/mace)). 
 
@@ -15,8 +16,8 @@ We provide up to an order of magnitude acceleration over e3nn
 and up to ~2x speedup over 
 [NVIDIA cuEquivariance](https://github.com/NVIDIA/cuEquivariance),
 which has a closed-source kernel package. We also offer fused
-equivariant graph convolutions that can reduce memory consumption 
-significantly. 
+equivariant graph convolutions that can reduce 
+computation memory consumption significantly. 
 
 We currently support NVIDIA GPUs and offer a torch frontend.
 HIP support for AMD is planned! 
