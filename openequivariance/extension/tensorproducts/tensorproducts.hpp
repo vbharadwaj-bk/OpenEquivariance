@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <cstdint>
-#include <cublasLt.h>
 #include <string>
 
 #include "jit.hpp"

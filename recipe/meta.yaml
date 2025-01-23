@@ -12,7 +12,6 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - python >=3.9
-    - cuda-toolkit
     - pybind11
     - cmake
     - make
@@ -20,14 +19,11 @@ requirements:
   host:
     - python >=3.9 
     - pybind11
-    - setuptools
   run:
     - python
+    - pybind11
     - Jinja2
     - numpy
-    - pytorch
-    - cuda-toolkit
-    - setuptools
 
 build:
   number: 0

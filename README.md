@@ -20,7 +20,9 @@ equivariant graph convolutions that can reduce
 computation memory consumption significantly. 
 
 We currently support NVIDIA GPUs and offer a torch frontend.
-HIP support for AMD is planned! 
+HIP support for AMD is planned!
+
+**Warning**: This is an early release, bug reports are welcome.
 
 ## Show me some examples
 Here's a CG tensor product implemented by e3nn: 
@@ -117,9 +119,8 @@ print(torch.norm(Z))
 arbitrary order. 
 
 ## Installation 
-We provide two options to build our package and replicate
-the benchmarks in our preprint. Right now, we only support
-source builds, but we provide scripts to streamline installation.
+Right now, we only support source builds, 
+but we provide scripts to streamline installation.
 
 We highly recommend that you use
 `conda` or `mamba` to set up a Python environment for installation.
@@ -150,29 +151,6 @@ platform, but you're responsible for setting LD_LIBRARY_PATH so that libraries
 are findable at runtime. Installing the CUDA toolkit via `conda` takes care of this for
 you. 
 
-### Build via conda or mambabuild
-You can can also build our package via `conda-build` or
-`conda mambabuild`. This can be much slower, but may help if you
-encounter problems with the workflow above.
-
-1. **Setup**: Create a new conda environment, or activate an existing one.
-    You must install either `boa` or `conda-build`; we 
-    use `boa` for its speed. 
-    ```bash
-    conda create -c conda-forge --name my_env python=3.11 boa micromamba
-    conda activate my_env 
-    ``` 
-
-2. **Install**: Clone, build, and install in three steps:
-    ```bash
-    git clone https://github.com/vbharadwaj-bk/OpenEquivariance.git
-    conda mambabuild ./OpenEquivariance
-    mamba install --use-local openequivariance 
-    ```
-
-    Use `build` and `conda` in place of `mambabuild` and `mamba`, 
-    respectively, if you installed `conda-build` in Step 1.
-
 ### Build to replicate our benchmarks 
 Follow either build process above. You'll also need the following packages: 
 - `e3nn`, 
@@ -184,6 +162,10 @@ Follow either build process above. You'll also need the following packages:
 We conducted our benchmarks on an NVIDIA A100-SXM-80GB GPU at
 Lawrence Berkeley National Laboratory. Your results may differ 
 a different GPU.
+
+### conda or mambabuild (experimental)
+We are experimenting with setup using `conda-build` or
+`mambabuild`. Stay tuned for that
 
 ## Tensor products we accelerate 
 e3nn supports a variety of connection modes for CG tensor products. We support 
