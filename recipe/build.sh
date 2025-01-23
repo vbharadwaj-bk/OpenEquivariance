@@ -2,11 +2,11 @@ if [ -z "$PYTHON" ]; then
     PYTHON=python3
 fi
 
-rm -rf fast_tp/extlib; mkdir fast_tp/extlib;
+rm -rf openequivariance/extlib; mkdir openequivariance/extlib;
 rm -rf build; mkdir build; pushd build; 
-cmake ../fast_tp/extension -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
+cmake ../openequivariance/extension -Dpybind11_DIR=$($PYTHON -m pybind11 --cmakedir)
 make -j4
-cmake --install . --prefix ../fast_tp/extlib
+cmake --install . --prefix ../openequivariance/extlib
 popd;
 rm -rf build;
 

@@ -1,4 +1,4 @@
-# ESPMM
+# OpenEquivariance
 
 [[Examples]](#show-me-some-examples) [[Installation]](#installation)
 [[Supported Tensor Products]](#tensor-products-we-accelerate)
@@ -45,11 +45,11 @@ Z = tp_e3nn(X, Y, W)
 print(torch.norm(Z))
 ```
 
-And here's the same tensor product using fast_tp. We require that your
+And here's the same tensor product using openequivariance. We require that your
 tensors are stored on a CUDA device for this to work: 
 
 ```python
-import fast_tp as ftp
+import openequivariance as ftp
 
 problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
 tp_fast = ftp.LoopUnrollTP(problem, torch_op=True)
@@ -166,7 +166,7 @@ encounter problems with the workflow above.
     ```bash
     git clone https://github.com/vbharadwaj-bk/equivariant_spmm.git
     conda mambabuild ./equivariant_spmm 
-    mamba install --use-local fast_tp 
+    mamba install --use-local openequivariance 
     ```
 
     Use `build` and `conda` in place of `mambabuild` and `mamba`, 

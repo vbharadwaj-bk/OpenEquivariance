@@ -30,7 +30,7 @@ valid_indices*
 scratch.txt
 triton_autotuning
 paper_benchmarks
-fast_tp/extlib
+openequivariance/extlib
 
 get_node.sh
 *.egg-info

@@ -3,14 +3,14 @@ import numpy as np
 import numpy.linalg as la
 import os
 
-import fast_tp
-from fast_tp.extlib.kernel_wrapper import *
-from fast_tp.benchmark.tpp_creation_utils import *
-from fast_tp.implementations.convolution.LoopUnrollConv import *
-from fast_tp.implementations.convolution.CUEConv import *
+import openequivariance
+from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.benchmark.tpp_creation_utils import *
+from openequivariance.implementations.convolution.LoopUnrollConv import *
+from openequivariance.implementations.convolution.CUEConv import *
 
-from fast_tp.benchmark.logging_utils import *
-from fast_tp.benchmark.ConvBenchmarkSuite import *
+from openequivariance.benchmark.logging_utils import *
+from openequivariance.benchmark.ConvBenchmarkSuite import *
 logger = getLogger()
 
 def clean_benchmark():

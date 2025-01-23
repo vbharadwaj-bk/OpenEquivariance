@@ -1,6 +1,6 @@
 # Examples from the README 
 import logging
-from fast_tp.benchmark.logging_utils import getLogger
+from openequivariance.benchmark.logging_utils import getLogger
 logger = getLogger()
 logger.setLevel(logging.ERROR)
 
@@ -27,7 +27,7 @@ print(torch.norm(Z))
 # ===============================
 
 # ===============================
-import fast_tp as ftp
+import openequivariance as ftp
 
 problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
 tp_fast = ftp.LoopUnrollTP(problem, torch_op=True)

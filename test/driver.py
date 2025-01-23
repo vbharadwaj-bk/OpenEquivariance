@@ -3,23 +3,23 @@ import itertools, typing, os
 import numpy as np
 import numpy.linalg as la
 
-from fast_tp.benchmark.logging_utils import *
-from fast_tp.implementations.e3nn_lite import *
-from fast_tp.benchmark.e3nn_lite_utils import *
-from fast_tp.extlib.kernel_wrapper import *
-from fast_tp.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
-from fast_tp.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
-from fast_tp.benchmark.tpp_creation_utils import *
-from fast_tp.implementations.LoopUnrollTP import LoopUnrollTP
-from fast_tp.implementations.NumpyTensorProduct import NumpyTensorProduct
-from fast_tp.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
-from fast_tp.implementations.E3NNTensorProduct import (
+from openequivariance.benchmark.logging_utils import *
+from openequivariance.implementations.e3nn_lite import *
+from openequivariance.benchmark.e3nn_lite_utils import *
+from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
+from openequivariance.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
+from openequivariance.benchmark.tpp_creation_utils import *
+from openequivariance.implementations.LoopUnrollTP import LoopUnrollTP
+from openequivariance.implementations.NumpyTensorProduct import NumpyTensorProduct
+from openequivariance.implementations.MultiplicityOuterProductTP import MultiplicityOuterProductTP
+from openequivariance.implementations.E3NNTensorProduct import (
     E3NNTensorProduct, 
     E3NNTensorProductCompiledCUDAGraphs, 
     E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
     )
-from fast_tp.implementations.CUETensorProduct import CUETensorProduct
-import fast_tp.implementations.warp_matmul as warp_matmul 
+from openequivariance.implementations.CUETensorProduct import CUETensorProduct
+import openequivariance.implementations.warp_matmul as warp_matmul 
 
 logger = getLogger()
 
@@ -33,7 +33,7 @@ def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Directi
     
     tp = tp_impl(config)
 
-    from fast_tp.implementations.E3NNTensorProduct import E3NNTensorProduct
+    from openequivariance.implementations.E3NNTensorProduct import E3NNTensorProduct
     ref_tp = E3NNTensorProduct(config)
 
     logger.debug(repr(config))
@@ -220,7 +220,7 @@ if __name__=='__main__':
     bench_suite.run([tests[0]])
     #  debug(MultiplicityOuterProductTP, basic_fully_connected_problems[0], direction="forward")
 
-    #from fast_tp.benchmark.correctness_utils import correctness_double_backward
+    #from openequivariance.benchmark.correctness_utils import correctness_double_backward
     #result = correctness_double_backward(
     #    problem = conv_problems[0],
     #    test_implementation = LoopUnrollTP,

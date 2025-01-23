@@ -1,7 +1,7 @@
 {% set version = "0.1.0" %}
 
 package:
-  name: fast_tp 
+  name: openequivariance 
   version: {{ version }}
 
 source:
@@ -11,25 +11,29 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - python
+    - python >=3.9
     - cuda-toolkit
     - pybind11
     - cmake
     - make
+    - setuptools
   host:
-    - python
+    - python >=3.9 
     - pybind11
+    - setuptools
   run:
     - python
     - Jinja2
     - numpy
+    - pytorch
     - cuda-toolkit
+    - setuptools
 
 build:
   number: 0
   noarch: python
 
 about:
-  home: https://github.com/vbharadwaj-bk/equivariant_spmm
+  home: https://github.com/vbharadwaj-bk/OpenEquivariance
   license: MIT
   summary: 'Accelerated GPU kernels for equivariant deep neural networks.'

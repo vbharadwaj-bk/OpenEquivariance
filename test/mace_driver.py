@@ -15,7 +15,7 @@ from torch.utils.benchmark import Timer
 from mace.calculators import mace_mp
 from torch.profiler import profile, record_function, ProfilerActivity
 
-from fast_tp import package_root
+from openequivariance import package_root
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -121,16 +121,16 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
 
     return measurement
 
-def load_fast_tp(source_model, device):
+def load_openequivariance(source_model, device):
     from mace.tools.scripts_utils import extract_config_mace_model
     config = extract_config_mace_model(source_model)
-    config["fast_tp_config"] = {"enabled": True, "conv_fusion": "deterministic"}
+    config["openequivariance_config"] = {"enabled": True, "conv_fusion": "deterministic"}
     target_model = source_model.__class__(**config).to(device)
 
     source_dict = source_model.state_dict()
     target_dict = target_model.state_dict()
 
-    # To migrate fast_tp, we should transfer all keys
+    # To migrate openequivariance, we should transfer all keys
     for key in target_dict:
         if key in source_dict:
             target_dict[key] = source_dict[key]
@@ -199,10 +199,10 @@ def main():
         measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
-        model_fast_tp = load_fast_tp(model_e3nn, device)  
-        measurement_fast_tp = benchmark_model(model_fast_tp, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
-        print(f"\nFast TP (ours) Measurement:\n{measurement_fast_tp}")
-        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_fast_tp.mean:.2f}x")
+        model_openequivariance = load_openequivariance(model_e3nn, device)  
+        measurement_openequivariance = benchmark_model(model_openequivariance, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
+        print(f"\nFast TP (ours) Measurement:\n{measurement_openequivariance}")
+        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_openequivariance.mean:.2f}x")
 
         # Note: cuEq does not support compilation (yet), will update benchmark
         model_cueq = run_e3nn_to_cueq(model_e3nn)

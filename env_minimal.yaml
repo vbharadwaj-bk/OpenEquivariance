@@ -1,0 +1,20 @@
+name: oeq-minimal 
+channels:
+  - conda-forge
+  - nvidia
+  - pytorch
+  - default
+dependencies: 
+  - python=3.9 
+  - setuptools
+
+  # Core Function
+  - numpy
+  - jinja2 
+  - pybind11
+  - cmake 
+  - make
+
+  # pytorch
+  - pytorch 
+  - pytorch-cuda=12.1
