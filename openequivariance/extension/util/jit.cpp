@@ -10,6 +10,7 @@
 #include <string>
 
 #include "gpu_util.hpp"
+#include "device_prop.hpp"
 
 using namespace std;
 
@@ -107,13 +108,12 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
 
     }
     
-    // Prepare compilation options
-    // TODO: Need to change arch flag to dynamically query, fails otherwise! 
+    DeviceProp dp(0); // TODO: We only query the first device at the moment
+    std::string sm = "-arch=sm_" + std::to_string(dp.major) + std::to_string(dp.minor);
+
     std::vector<const char*> opts = {
-        "--std=c++17", 
-        "--device-as-default-execution-space",
-        "--include-path=/opt/nvidia/hpc_sdk/Linux_x86_64/2024/cuda/12.4/include/",
-        "-arch=sm_80",
+        "--std=c++17",
+        sm.c_str(),
         "--split-compile=0",
         "--use_fast_math"
     };    
