@@ -49,20 +49,20 @@ And here's the same tensor product using openequivariance. We require that your
 tensors are stored on a CUDA device for this to work: 
 
 ```python
-import openequivariance as ftp
+import openequivariance as oeq
 
-problem = ftp.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
-tp_fast = ftp.LoopUnrollTP(problem, torch_op=True)
+problem = oeq.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
+tp_fast = oeq.LoopUnrollTP(problem, torch_op=True)
 
 Z = tp_fast(X, Y, W) # Reuse X, Y, W from earlier
 print(torch.norm(Z))
 ```
 
-Our interface for `ftp.TPProblem` is almost a strict superset of 
+Our interface for `oeq.TPProblem` is almost a strict superset of 
 `o3.TensorProduct` (two key differences: we 
 impose `internal_weights=False` and add support for multiple datatypes). 
 You can pass e3nn `Irreps` instances directly or 
-use `ftp.Irreps`, which is identical. 
+use `oeq.Irreps`, which is identical. 
 
 We recommend reading the [e3nn documentation and API reference](https://docs.e3nn.org/en/latest/) first, then using our kernels 
 as drop-in replacements. We support most "uvu" and "uvw" tensor products; 
@@ -93,7 +93,7 @@ X = torch.rand(node_ct, X_ir.dim, device='cuda', generator=gen)
 Y = torch.rand(nonzero_ct, Y_ir.dim, device='cuda', generator=gen)
 W = torch.rand(nonzero_ct, problem.weight_numel, device='cuda', generator=gen)
 
-tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
+tp_conv = oeq.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
 Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim]
 print(torch.norm(Z))
 ```
@@ -107,7 +107,7 @@ _, sender_perm = edge_index.sort_by("col")            # Compute transpose perm
 edge_index, receiver_perm = edge_index.sort_by("row") # Sort by receiver index
 
 # Now we can use the faster deterministic algorithm
-tp_conv = ftp.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
+tp_conv = oeq.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
 Z = tp_conv.forward(X, Y[receiver_perm], W[receiver_perm], edge_index[0], edge_index[1], sender_perm) 
 print(torch.norm(Z))
 ```
