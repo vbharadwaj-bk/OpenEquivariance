@@ -113,7 +113,7 @@ def benchmark_roofline():
     implementations =   [LoopUnrollTP, 
                         CUETensorProduct
                         ]
-    directions = [  'forward', 
+    directions = [  'forward',
                     'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
@@ -132,7 +132,6 @@ def benchmark_roofline():
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
 
-
 if __name__=='__main__':
     dp = DeviceProp(0)
 
@@ -141,5 +140,5 @@ if __name__=='__main__':
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
     #benchmark_conv()
-    benchmark_roofline()
-    #run_paper_uvw_benchmark()
+    #benchmark_roofline()
+    run_paper_uvw_benchmark()

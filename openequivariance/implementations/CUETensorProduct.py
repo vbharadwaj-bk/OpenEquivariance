@@ -97,7 +97,6 @@ class CUETensorProduct(TensorProduct):
                     math_dtype=np_to_torch_dtype[config.irrep_dtype]) 
 
             self.cue_tp.to('cuda')
-            self.cue_tp = torch.compile(self.cue_tp, fullgraph=True, mode="default")
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
     def analyze_trace(self, trace_file):

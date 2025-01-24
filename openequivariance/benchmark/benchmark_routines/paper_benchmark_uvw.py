@@ -24,7 +24,7 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
 
     problems =  list(itertools.chain(
         e3nn_torch_tetris_polynomial,
-        diffdock_configs,
+        diffdock_configs
     ))
 
     directions : list[Direction] = [
