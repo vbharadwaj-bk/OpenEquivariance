@@ -82,6 +82,7 @@ class CUETensorProduct(TensorProduct):
                 math_dtype=torch_dtype
             )
             self.cue_tp.to('cuda')
+            self.cue_tp = torch.compile(self.cue_tp, fullgraph=True, mode="default")
             self.forward = self.cue_tp.__call__
         
         if isinstance(config, FullyConnectedTPProblem):
@@ -96,6 +97,7 @@ class CUETensorProduct(TensorProduct):
                     math_dtype=np_to_torch_dtype[config.irrep_dtype]) 
 
             self.cue_tp.to('cuda')
+            self.cue_tp = torch.compile(self.cue_tp, fullgraph=True, mode="default")
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
     def analyze_trace(self, trace_file):
@@ -154,6 +156,48 @@ class CUETensorProduct(TensorProduct):
                 with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
                     with record_function("cue_forward"):
                         torch_L3_out = self.forward(torch_L1_in, torch_L2_in, torch_weights) 
+
+                prof.export_chrome_trace(trace_file)
+                time_millis[i] = self.analyze_trace(trace_file)
+
+            return time_millis
+
+    def benchmark_backward(
+            self, 
+            num_warmup : int, 
+            num_iter : int, 
+            L1_in : np.ndarray, 
+            L2_in : np.ndarray, 
+            L3_buffer : np.ndarray, 
+            weights : np.ndarray, 
+            L1_grad : np.ndarray, 
+            L2_grad : np.ndarray,
+            weights_grad : np.ndarray
+            ) -> np.ndarray:
+        if self.torch_op:
+            return super().benchmark_forward(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights)
+        else:
+            from torch.profiler import profile, record_function, ProfilerActivity
+            time_millis = np.zeros(num_iter, dtype=np.float32)
+
+            torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+            torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda') 
+            torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+            torch_out = self.forward(torch_L1_in, torch_L2_in, torch_weights)
+            torch_L3_grad_in = torch.tensor(L3_buffer, device='cuda')
+
+            timer = GPUTimer()
+
+            for i in range(num_warmup):
+                torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
+
+            trace_file = tempfile.NamedTemporaryFile().name
+
+            for i in range(num_iter):
+                timer.clear_L2_cache()
+                with profile(activities=[ProfilerActivity.CUDA], record_shapes=True) as prof:
+                    with record_function("cue_backward"):
+                        torch_out.backward(gradient=torch_L3_grad_in, retain_graph=True, inputs=[torch_L1_in, torch_L2_in, torch_weights])
 
                 prof.export_chrome_trace(trace_file)
                 time_millis[i] = self.analyze_trace(trace_file)

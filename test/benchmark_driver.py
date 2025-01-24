@@ -86,12 +86,6 @@ def benchmark_conv():
              for implementation, problem, direction
              in itertools.product(implementations, problems, directions)]
 
-    # CUE tensor product cannot handle backwards pass for all input configs 
-    tests = [test for test in tests 
-            if test.direction == 'forward' 
-            or test.implementation != CUETensorProduct
-            or 'mace' in test.problem.label]
-
     # Handle the float64 Benzene case specially
     # since we run out of memory with torch compile
     tests = [test for test in tests
@@ -119,16 +113,12 @@ def benchmark_roofline():
     implementations =   [LoopUnrollTP, 
                         CUETensorProduct
                         ]
-    directions = ['forward', 'backward']
+    directions = [  'forward', 
+                    'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, roofline_configs, directions)]
-
-    # CUE tensor product cannot handle backwards pass 
-    tests = [test for test in tests 
-            if test.direction == 'forward' 
-            or test.implementation != CUETensorProduct]
 
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
