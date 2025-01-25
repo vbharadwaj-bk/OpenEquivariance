@@ -99,6 +99,7 @@ class CUETensorProduct(TensorProduct):
             self.cue_tp.to('cuda')
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
+            # Only used for correctness 
             self.tp_correctness = cuet.EquivariantTensorProduct(e, layout=cue.mul_ir,
                     math_dtype=np_to_torch_dtype[config.irrep_dtype]) 
             self.tp_correctness.to('cuda')

@@ -23,12 +23,12 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
     FCTPP = FullyConnectedTPProblem
 
     problems =  list(itertools.chain(
-        e3nn_torch_tetris_polynomial,
+        #e3nn_torch_tetris_polynomial,
         diffdock_configs
     ))
 
     directions : list[Direction] = [
-        'forward',
+        #'forward',
         'backward',
     ]
 
@@ -37,15 +37,15 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
         problem.irrep_dtype = np.float64
         problem.weight_dtype = np.float64
     
-    problems += float64_problems
+    #problems += float64_problems
 
     implementations = [
-        E3NNTensorProductCompiledCUDAGraphs,
-        CUETensorProduct,  
+        #E3NNTensorProductCompiledCUDAGraphs,
+        #CUETensorProduct,
         LoopUnrollTP,
         ]
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
                 for problem, direction, implementation
                 in itertools.product(problems, directions, implementations)]
 

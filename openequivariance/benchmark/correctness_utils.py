@@ -1,6 +1,7 @@
 from typing import Optional
 
 from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.CUETensorProduct import CUETensorProduct 
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
@@ -59,6 +60,10 @@ def correctness_forward(
         L3_out=ref_out, 
         weights=weights.copy()) 
 
+    weights_copy = weights.copy()
+    if problem.shared_weights and test_implementation == CUETensorProduct:
+        weights_copy = weights[np.newaxis, :]
+
     # run test
     test_tp = test_implementation(problem)
     test_out = out.copy()
@@ -66,7 +71,7 @@ def correctness_forward(
         L1_in=in1.copy(), 
         L2_in=in2.copy(), 
         L3_out=test_out, 
-        weights=weights.copy())
+        weights=weights_copy)
     
 
     for name, to_check, ground_truth in [
@@ -114,12 +119,18 @@ def correctness_backward(
         L3_grad=out_grad.copy(), 
         weights=weights.copy(), 
         weights_grad=ref_weights_grad
-        ) 
+        )
 
     # run test version
     test_weights_grad = weights_grad.copy()
     test_in1_grad = in1_grad.copy()
     test_in2_grad = in2_grad.copy()
+
+    weights_copy = weights.copy()
+    weights_grad_copy = weights_grad.copy()
+    if problem.shared_weights and test_implementation == CUETensorProduct:
+        weights_copy = weights[np.newaxis, :]
+        test_weights_grad = test_weights_grad[np.newaxis, :] 
 
     test_tp = test_implementation(problem)
     test_tp.backward_cpu(
@@ -128,14 +139,14 @@ def correctness_backward(
         L2_in=in2.copy(), 
         L2_grad=test_in2_grad, 
         L3_grad=out_grad.copy(), 
-        weights=weights.copy(), 
+        weights=weights_copy,
         weights_grad=test_weights_grad
         )
 
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
 
     for name, to_check, ground_truth, threshold in [
-        ("weight_grad", test_weights_grad, ref_weights_grad, weight_threshold),
+        ("weight_grad", test_weights_grad.squeeze(), ref_weights_grad, weight_threshold),
         ("in1_grad", test_in1_grad, ref_in1_grad, correctness_threshold),
         ("in2_grad", test_in2_grad, ref_in2_grad, correctness_threshold),
         ]:
