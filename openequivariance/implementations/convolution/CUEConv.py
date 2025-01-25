@@ -15,10 +15,13 @@ class CUEConv(Convolution):
         from openequivariance.implementations.convolution.scatter import scatter_sum
         self.scatter_sum = scatter_sum
 
+        def forward(self, L1_in, L2_in, weights, rows, cols):
+            tp_outputs = self.cue_tp(L1_in[cols], L2_in, weights, use_fallback=False)
+            return self.scatter_sum(src=tp_outputs, index=rows, dim=0, dim_size=L1_in.shape[0])
+
+        self.forward = forward
+        self.forward = torch.compile(self.forward, fullgraph=True, compile_mode='default')
+
     @staticmethod
     def name():
         return "CUEConvolution"
-
-    def forward(self, L1_in, L2_in, weights, rows, cols):
-        tp_outputs = self.cue_tp(L1_in[cols], L2_in, weights, use_fallback=False)
-        return self.scatter_sum(src=tp_outputs, index=rows, dim=0, dim_size=L1_in.shape[0])

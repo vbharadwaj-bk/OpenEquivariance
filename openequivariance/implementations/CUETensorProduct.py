@@ -221,7 +221,12 @@ class CUETensorProduct(TensorProduct):
             weights_grad : np.ndarray
             ) -> np.ndarray:
         if self.torch_op:
-            return super().benchmark_forward(num_warmup, num_iter, L1_in, L2_in, L3_buffer, weights)
+            return super().benchmark_backward(
+                    num_warmup, num_iter, 
+                    L1_in, L2_in, 
+                    L3_buffer, weights, 
+                    L1_grad, L2_grad, 
+                    weights_grad) 
         else:
             from torch.profiler import profile, record_function, ProfilerActivity
             time_millis = np.zeros(num_iter, dtype=np.float32)
