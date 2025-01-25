@@ -121,10 +121,11 @@ def benchmark_model(model, batch, num_iterations=100, warmup=100, label=None, ou
 
     return measurement
 
-def load_openequivariance(source_model, device):
+def create_model_oeq(hidden_irreps, max_ell, device, cueq_config=None):
+    source_model = create_model(hidden_irreps, max_ell, device, cueq_config)
     from mace.tools.scripts_utils import extract_config_mace_model
     config = extract_config_mace_model(source_model)
-    config["openequivariance_config"] = {"enabled": True, "conv_fusion": "deterministic"}
+    config["oeq_config"] = {"enabled": True, "conv_fusion": "deterministic"}
     target_model = source_model.__class__(**config).to(device)
 
     source_dict = source_model.state_dict()
@@ -137,6 +138,12 @@ def load_openequivariance(source_model, device):
 
     target_model.load_state_dict(target_dict)
     return target_model.to(device)
+
+
+def create_model_cueq(hidden_irreps, max_ell, device, cueq_config=None):
+    source_model = create_model(hidden_irreps, max_ell, device, cueq_config)
+    model_cueq = run_e3nn_to_cueq(source_model)
+    return model_cueq.to(device)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -186,6 +193,7 @@ def main():
         traces_folder = output_folder / "traces"
         traces_folder.mkdir(parents=True, exist_ok=True) 
 
+        # Compile is still not working for MACE and cueq; turned off for now
         print("\nBenchmarking Configuration:")
         print(f"Number of atoms: {len(atoms_list[0])}")
         print(f"Number of edges: {batch['edge_index'].shape[1]}")
@@ -194,22 +202,20 @@ def main():
         print(f"Hidden irreps: {hidden_irreps}")
         print(f"Number of iterations: {args.num_iters}\n")
 
-        # Test e3nn
         model_e3nn = create_model(hidden_irreps, args.max_ell, device)
         measurement_e3nn = benchmark_model(model_e3nn, batch_dict, args.num_iters, label=f"e3nn_{dtype_str}", output_folder=output_folder)
         print(f"E3NN Measurement:\n{measurement_e3nn}")
 
-        model_openequivariance = load_openequivariance(model_e3nn, device)  
-        measurement_openequivariance = benchmark_model(model_openequivariance, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
-        print(f"\nFast TP (ours) Measurement:\n{measurement_openequivariance}")
-        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_openequivariance.mean:.2f}x")
-
-        # Note: cuEq does not support compilation (yet), will update benchmark
-        model_cueq = run_e3nn_to_cueq(model_e3nn)
-        model_cueq = model_cueq.to(device)
+        model_oeq = create_model_oeq(hidden_irreps, args.max_ell, device)
+        measurement_oeq = benchmark_model(model_oeq, batch_dict, args.num_iters, label=f"ours_{dtype_str}", output_folder=output_folder)
+        print(f"\nFast TP (ours) Measurement:\n{measurement_oeq}")
+        print(f"\nSpeedup: {measurement_e3nn.mean / measurement_oeq.mean:.2f}x")
+         
+        model_cueq = create_model_cueq(hidden_irreps, args.max_ell, device)
         measurement_cueq = benchmark_model(model_cueq, batch_dict, args.num_iters, label=f"cuE_{dtype_str}", output_folder=output_folder)
         print(f"\nCUET Measurement:\n{measurement_cueq}")
         print(f"\nSpeedup: {measurement_e3nn.mean / measurement_cueq.mean:.2f}x")
+
 
 if __name__ == "__main__":
     main()
