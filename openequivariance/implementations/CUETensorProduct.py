@@ -99,6 +99,52 @@ class CUETensorProduct(TensorProduct):
             self.cue_tp.to('cuda')
             self.forward = lambda x, y, W: self.cue_tp(W, x, y)
 
+            self.tp_correctness = cuet.EquivariantTensorProduct(e, layout=cue.mul_ir,
+                    math_dtype=np_to_torch_dtype[config.irrep_dtype]) 
+            self.tp_correctness.to('cuda')
+            self.forward_correctness = lambda x, y, W: self.tp_correctness(W, x, y)
+
+    def forward_cpu(
+            self, 
+            L1_in : np.ndarray,
+            L2_in : np.ndarray, 
+            L3_out : np.ndarray, 
+            weights : np.ndarray,
+            ) -> None:
+        torch_L1_in = torch.tensor(L1_in, device='cuda')
+        torch_L2_in = torch.tensor(L2_in, device='cuda')
+        torch_weights = torch.tensor(weights, device='cuda')
+ 
+        torch_L3_out = self.forward_correctness(torch_L1_in, torch_L2_in, torch_weights)
+
+        L3_out[:] = torch_L3_out.numpy(force=True)
+
+    def backward_cpu(
+            self,
+            L1_in : np.ndarray,
+            L1_grad : np.ndarray,
+            L2_in : np.ndarray,
+            L2_grad : np.ndarray,
+            L3_grad : np.ndarray,
+            weights : np.ndarray,
+            weights_grad : np.ndarray,
+            ) -> None:
+
+        torch_L1_in = torch.tensor(L1_in, requires_grad=True, device='cuda')
+        torch_L2_in = torch.tensor(L2_in, requires_grad=True, device='cuda')        
+        torch_weights = torch.tensor(weights, requires_grad=True, device='cuda')
+
+        torch_out = self.forward_correctness(torch_L1_in, torch_L2_in, torch_weights)
+
+        torch_L3_grad_in = torch.tensor(L3_grad, device='cuda')
+
+        torch_out.backward(gradient=torch_L3_grad_in)
+        
+        L1_grad[:] = torch_L1_in.grad.numpy(force=True)
+        L2_grad[:] = torch_L2_in.grad.numpy(force=True)
+        weights_grad[:] = torch_weights.grad.numpy(force=True)
+
+
     def analyze_trace(self, trace_file):
         '''
         Need to update this function for the uvw case.
