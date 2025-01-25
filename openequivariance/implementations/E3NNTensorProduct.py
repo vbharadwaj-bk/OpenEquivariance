@@ -55,7 +55,7 @@ class E3NNTensorProduct(TensorProduct):
         torch_L1_in = torch.tensor(L1_in, device='cuda')
         torch_L2_in = torch.tensor(L2_in, device='cuda')
         torch_weights = torch.tensor(weights, device='cuda')
-        
+ 
         torch_L3_out = self.e3nn_tp(torch_L1_in, torch_L2_in, torch_weights)
 
         L3_out[:] = torch_L3_out.numpy(force=True)

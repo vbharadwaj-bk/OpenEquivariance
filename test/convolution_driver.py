@@ -49,12 +49,12 @@ def clean_benchmark():
 
 
 if __name__=='__main__':
-    #clean_benchmark()
-    #exit(1)
+    clean_benchmark()
+    exit(1)
 
     #graph = load_graph("debug")
     #graph = load_graph("covid_spike_radius3.0")
-    graph = load_graph("carbon_lattice_radius6.0")
+    #graph = load_graph("carbon_lattice_radius6.0")
     #config= SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True)
 
     configs = [
@@ -80,13 +80,13 @@ if __name__=='__main__':
     bench = ConvBenchmarkSuite(
         configs, torch_op=True)
     bench.run( graph,
-            [   #LoopUnrollConvScatterSum, 
+            [   LoopUnrollConvScatterSum, 
                 #CUEConv,
-                LoopUnrollConvDeterministic, 
+                #LoopUnrollConvDeterministic, 
                 #LoopUnrollConvAtomic
                 ], 
             direction="forward", 
-            correctness=True,
+            correctness=False,
             double_backward_correctness=False,
             benchmark=True)
 

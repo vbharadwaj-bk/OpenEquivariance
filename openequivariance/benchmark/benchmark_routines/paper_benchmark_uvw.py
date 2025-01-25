@@ -19,12 +19,11 @@ from openequivariance.benchmark.benchmark_configs import e3nn_torch_tetris_polyn
 logger = getLogger()
 
 def run_paper_uvw_benchmark() -> pathlib.Path:
-
     FCTPP = FullyConnectedTPProblem
 
     problems =  list(itertools.chain(
         e3nn_torch_tetris_polynomial,
-        diffdock_configs,
+        diffdock_configs
     ))
 
     directions : list[Direction] = [
@@ -41,9 +40,8 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
 
     implementations = [
         E3NNTensorProductCompiledCUDAGraphs,
-        CUETensorProduct,  
-        LoopUnrollTP,
-        ]
+        CUETensorProduct,
+        LoopUnrollTP]
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
                 for problem, direction, implementation
@@ -54,7 +52,8 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
             num_warmup=100,
             num_iter=100,
             bench_batch_size=50_000,
-            prng_seed=11111
+            prng_seed=11111,
+            torch_op=True
         )
     
     logger.setLevel(logging.INFO)

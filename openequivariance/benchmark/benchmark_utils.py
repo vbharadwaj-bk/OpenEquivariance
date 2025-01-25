@@ -9,7 +9,7 @@ from openequivariance.benchmark.perf_metrics_utils import (
 from openequivariance.benchmark.e3nn_lite_utils import calculate_total_nnz
 from openequivariance.implementations.TensorProduct import TensorProduct
 from openequivariance.implementations.e3nn_lite import TPProblem
-
+from openequivariance.implementations.CUETensorProduct import CUETensorProduct
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
 
 logger = getLogger()
@@ -79,9 +79,10 @@ def benchmark_forward(
     }
 
     L1_in, L2_in, weights, L3_buffer = get_random_buffers_forward(problem, batch_size, prng_seed)
+    if problem.shared_weights and implementation == CUETensorProduct:
+        weights = weights[np.newaxis, :]
 
     logger.info("Initialized input / output data.")
-
     tp = implementation(problem, torch_op=torch_op)
 
     # BENCHMARK 
@@ -141,6 +142,9 @@ def benchmark_backward(
         }
 
         in1, in2, out_grad, weights, weights_grad, in1_grad, in2_grad = get_random_buffers_backward(problem, batch_size, prng_seed) 
+        if problem.shared_weights and implementation == CUETensorProduct:
+            weights = weights[np.newaxis, :]
+
         logger.info("Initialized input / output data.")
         tp = implementation(problem, torch_op=torch_op)
 
@@ -148,8 +152,8 @@ def benchmark_backward(
             time_millis = tp.benchmark_backward(
                 num_warmup=num_warmup,
                 num_iter=num_iter, 
-                L1_in=in1, 
-                L2_in=in2, 
+                L1_in=in1,
+                L2_in=in2,
                 L3_buffer=out_grad,
                 weights=weights, 
                 L1_grad=in1_grad, 

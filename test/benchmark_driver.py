@@ -86,12 +86,6 @@ def benchmark_conv():
              for implementation, problem, direction
              in itertools.product(implementations, problems, directions)]
 
-    # CUE tensor product cannot handle backwards pass for all input configs 
-    tests = [test for test in tests 
-            if test.direction == 'forward' 
-            or test.implementation != CUETensorProduct
-            or 'mace' in test.problem.label]
-
     # Handle the float64 Benzene case specially
     # since we run out of memory with torch compile
     tests = [test for test in tests
@@ -119,16 +113,12 @@ def benchmark_roofline():
     implementations =   [LoopUnrollTP, 
                         CUETensorProduct
                         ]
-    directions = ['forward', 'backward']
+    directions = [  'forward',
+                    'backward']
 
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, roofline_configs, directions)]
-
-    # CUE tensor product cannot handle backwards pass 
-    tests = [test for test in tests 
-            if test.direction == 'forward' 
-            or test.implementation != CUETensorProduct]
 
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
@@ -142,7 +132,6 @@ def benchmark_roofline():
     logger.setLevel(logging.INFO)
     bench_suite.run(tests)
 
-
 if __name__=='__main__':
     dp = DeviceProp(0)
 
@@ -151,5 +140,5 @@ if __name__=='__main__':
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
     #benchmark_conv()
-    benchmark_roofline()
-    #run_paper_uvw_benchmark()
+    #benchmark_roofline()
+    run_paper_uvw_benchmark()

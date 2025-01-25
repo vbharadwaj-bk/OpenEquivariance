@@ -30,6 +30,7 @@ valid_indices*
 scratch.txt
 triton_autotuning
 paper_benchmarks
+paper_benchmarks_v2
 openequivariance/extlib
 
 get_node.sh

@@ -113,6 +113,9 @@ class LoopUnrollConvAtomic(LoopUnrollConv):
 class LoopUnrollConvScatterSum(Convolution):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         assert(torch_op)
+        global torch
+        import torch
+
         super().__init__(config, idx_dtype, torch_op, deterministic=False)
 
         self.reference_tp = LoopUnrollTP(config, torch_op=torch_op)
@@ -122,7 +125,7 @@ class LoopUnrollConvScatterSum(Convolution):
     def forward(self, L1_in, L2_in, weights, rows, cols):
         tp_outputs = self.reference_tp(L1_in[cols], L2_in, weights)
         return self.scatter_sum(src=tp_outputs, index=rows, dim=0, dim_size=L1_in.shape[0])
-
+        
     def forward_cpu(self, L1_in, L2_in, weights, L3_out, graph):
         tp_outputs = np.zeros((graph.nnz, self.L3.dim), dtype=L3_out.dtype)
         self.reference_tp.forward_cpu(L1_in[graph.cols], L2_in, tp_outputs, weights)
