@@ -17,7 +17,7 @@ and up to ~2x speedup over
 [NVIDIA cuEquivariance](https://github.com/NVIDIA/cuEquivariance),
 which has a closed-source kernel package. We also offer fused
 equivariant graph convolutions that can reduce 
-computation memory consumption significantly. 
+computation and memory consumption significantly. 
 
 We currently support NVIDIA GPUs and offer a torch frontend.
 HIP support for AMD is planned!
