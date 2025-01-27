@@ -31,7 +31,8 @@ scratch.txt
 triton_autotuning
 paper_benchmarks
 paper_benchmarks_v2
-openequivariance/extlib
+openequivariance/extlib/*
+!openequivariance/extlib/*.empty
 
 get_node.sh
 *.egg-info
