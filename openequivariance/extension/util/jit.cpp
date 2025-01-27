@@ -86,7 +86,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         throw std::logic_error("Kernel names and template parameters must have the same size!");
     }
 
-    for(int kernel = 0; kernel < kernel_names_i.size(); kernel++) {
+    for(unsigned int kernel = 0; kernel < kernel_names_i.size(); kernel++) {
         string kernel_name = kernel_names_i[kernel];
         vector<int> &template_params = template_param_list[kernel];
 
@@ -96,7 +96,7 @@ void JITKernel::compile(vector<string> kernel_names_i, vector<vector<int>> templ
         }
         else {
             std::string result = kernel_name + "<";
-            for(int i = 0; i < template_params.size(); i++) {
+            for(unsigned int i = 0; i < template_params.size(); i++) {
                 result += std::to_string(template_params[i]); 
                 if(i != template_params.size() - 1) {
                     result += ",";
