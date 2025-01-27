@@ -207,7 +207,7 @@ If you find this code useful, please cite our paper:
 ```bibtex
 @misc{openequivariance,
       title={An Efficient Sparse Kernel Generator for O(3)-Equivariant Deep Networks}, 
-      author={Vivek Bharadwaj and Austin Scott Glover and Aydin Buluc and James Demmel},
+      author={Vivek Bharadwaj and Austin Glover and Aydin Buluc and James Demmel},
       year={2025},
       eprint={2501.13986},
       archivePrefix={arXiv},
