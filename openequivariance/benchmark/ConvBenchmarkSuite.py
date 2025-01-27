@@ -5,7 +5,7 @@ import os
 
 from openequivariance import package_root
 from openequivariance.benchmark.logging_utils import *
-from openequivariance.implementations.convolution.Convolution import *
+from openequivariance.implementations.convolution.ConvolutionBase import *
 logger = getLogger()
 
 def load_graph(name):

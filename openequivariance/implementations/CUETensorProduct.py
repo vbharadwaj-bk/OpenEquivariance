@@ -1,7 +1,7 @@
 import numpy as np
 import tempfile, json
 
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.e3nn_lite import *
 from openequivariance.benchmark.logging_utils import getLogger
 from openequivariance.benchmark.tpp_creation_utils import *
@@ -10,7 +10,7 @@ from openequivariance.benchmark.e3nn_lite_utils import count_cg_non_zero
 
 logger = getLogger()
 
-class CUETensorProduct(TensorProduct):
+class CUETensorProduct(TensorProductBase):
     def __init__(self, config : TPProblem, torch_op=True):
         super().__init__(config, torch_op=torch_op)
 

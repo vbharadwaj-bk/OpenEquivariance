@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional, Literal, Any, get_args
 from dataclasses import dataclass
 
 from openequivariance.extlib.kernel_wrapper import DeviceProp
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 
 from openequivariance.benchmark.logging_utils import getLogger
 from openequivariance.extlib.kernel_wrapper import *
@@ -21,7 +21,7 @@ logger = getLogger()
 Direction = Literal['forward', 'backward']
 
 class TestDefinition(NamedTuple):
-    implementation : type[TensorProduct]
+    implementation : type[TensorProductBase]
     problem : TPProblem
     direction : Direction
     correctness : bool = True
@@ -34,7 +34,7 @@ class TestBenchmarkSuite:
     correctness_batch_size : int = 10_000
     bench_batch_size : int = 10_000_000
     prng_seed : int = 12345
-    reference_implementation : Optional[type[TensorProduct]] = None
+    reference_implementation : Optional[type[TensorProductBase]] = None
     correctness_threshold : float = 5e-7
     torch_op : bool = True
 
@@ -47,7 +47,7 @@ class TestBenchmarkSuite:
         assert len(test_list) != 0
         for test in test_list:
             assert isinstance(test, TestDefinition)
-            assert issubclass(test.implementation, TensorProduct)
+            assert issubclass(test.implementation, TensorProductBase)
             assert isinstance(test.problem, TPProblem)
             assert test.direction in get_args(Direction)
             assert isinstance(test.correctness, bool)

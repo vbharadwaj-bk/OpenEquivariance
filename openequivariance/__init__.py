@@ -71,6 +71,9 @@ if build_ext:
 
 import torch # Needed for libc10.so for torch compiled extensions
 from openequivariance.implementations.e3nn_lite import TPProblem, Irreps
-from openequivariance.implementations.LoopUnrollTP import LoopUnrollTP 
-from openequivariance.implementations.convolution.LoopUnrollConv import LoopUnrollConv
-from openequivariance.implementations.e3nn_lite import TPProblem, Irreps
+from openequivariance.implementations.TensorProduct import TensorProduct 
+from openequivariance.implementations.convolution.TensorProductConv import TensorProductConv 
+
+# For compatibility with first version of README
+from openequivariance.implementations.convolution.LoopUnrollConv import LoopUnrollTP
+from openequivariance.implementations.convolution.LoopUnrollConv import LoopUnrollConv 

@@ -7,7 +7,7 @@ from openequivariance.benchmark.perf_metrics_utils import (
     calculate_minimum_memory_streamed_backward,
     )
 from openequivariance.benchmark.e3nn_lite_utils import calculate_total_nnz
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
@@ -61,7 +61,7 @@ def calculate_performance_statistics(
 
 def benchmark_forward(
         problem : TPProblem, 
-        implementation : type[TensorProduct],
+        implementation : type[TensorProductBase],
         batch_size : int, 
         num_warmup : int,
         num_iter : int, 
@@ -126,7 +126,7 @@ def benchmark_forward(
 
 def benchmark_backward(
         problem : TPProblem, 
-        implementation : type[TensorProduct],
+        implementation : type[TensorProductBase],
         batch_size : int, 
         num_warmup : int,
         num_iter : int, 

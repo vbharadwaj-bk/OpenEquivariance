@@ -1,6 +1,6 @@
 from typing import Optional
 
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct 
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
@@ -32,8 +32,8 @@ def check_similiarity(name : str,  to_check : np.ndarray,  ground_truth : np.nda
 
 def correctness_forward(
         problem : TPProblem,  
-        test_implementation : type[TensorProduct], 
-        reference_implementation : Optional[type[TensorProduct]], 
+        test_implementation : type[TensorProductBase], 
+        reference_implementation : Optional[type[TensorProductBase]], 
         batch_size : int, 
         correctness_threshold : float,
         prng_seed : int,
@@ -83,8 +83,8 @@ def correctness_forward(
 
 def correctness_backward(
         problem : TPProblem,  
-        test_implementation : type[TensorProduct], 
-        reference_implementation : Optional[type[TensorProduct]], 
+        test_implementation : type[TensorProductBase], 
+        reference_implementation : Optional[type[TensorProductBase]], 
         batch_size : int, 
         correctness_threshold : float,
         prng_seed : int,
@@ -156,8 +156,8 @@ def correctness_backward(
 
 def correctness_double_backward(
         problem : TPProblem,  
-        test_implementation : type[TensorProduct], 
-        reference_implementation : Optional[type[TensorProduct]], 
+        test_implementation : type[TensorProductBase], 
+        reference_implementation : Optional[type[TensorProductBase]], 
         batch_size : int, 
         correctness_threshold : float,
         prng_seed : int):

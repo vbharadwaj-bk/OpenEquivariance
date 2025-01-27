@@ -2,7 +2,7 @@ import numpy as np
 
 from openequivariance.benchmark.e3nn_lite_utils import calc_weight_offsets
 from openequivariance.benchmark.e3nn_lite_utils import Irrep, _MulIr, Irreps, TPProblem, Instruction
-from openequivariance.implementations.TensorProduct import TensorProduct 
+from openequivariance.implementations.TensorProductBase import TensorProductBase 
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, PackageLoader
 
@@ -22,7 +22,7 @@ def sizeof(dtype):
     else:
         raise Exception("Provided undefined datatype to sizeof!")
 
-class MultiplicityOuterProductTP(TensorProduct):
+class MultiplicityOuterProductTP(TensorProductBase):
     def __init__(self, config : TPProblem, torch_op : bool = False):
         super().__init__(config, torch_op)
 

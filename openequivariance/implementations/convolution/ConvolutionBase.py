@@ -2,7 +2,7 @@ import numpy as np
 import numpy.linalg as la
 from openequivariance.extlib.kernel_wrapper import *
 from openequivariance.benchmark.random_buffer_utils import * 
-from openequivariance.implementations.TensorProduct import *
+from openequivariance.implementations.TensorProductBase import *
 
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
 from openequivariance.benchmark.correctness_utils import check_similiarity
@@ -30,7 +30,7 @@ def flops_data_per_tp(config, direction):
     ops_per_tp = 0
     nnz = 0
     for (u, v, w, connection_mode, *others) in config.instructions:
-        tensor = TensorProduct.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
+        tensor = TensorProductBase.load_cg_tensor(L1[u].ir.l, L2[v].ir.l, L3[w].ir.l)
         local_nnz = np.count_nonzero(tensor)
         nnz += local_nnz
         ops_per_tp += ops_per_nz * local_nnz * L1[u].mul * L2[v].mul # Assumes L3.mult(w) = L1.mult(u) * L2.mult(v)
@@ -69,9 +69,7 @@ class CoordGraph:
         triples.sort(key=lambda x: (x[0], x[1]))
         self.transpose_perm = np.array([x[2] for x in triples], dtype=self.rows.dtype)
 
-
-
-class Convolution:
+class ConvolutionBase:
     next_conv_id = 0 # Used to assign unique IDs to each conv instance 
 
     def __init__(self, config, idx_dtype, torch_op=False, deterministic=False):
@@ -82,8 +80,8 @@ class Convolution:
         self.idx_dtype = idx_dtype
         self.deterministic = deterministic
 
-        self.conv_id = Convolution.next_conv_id
-        Convolution.next_conv_id += 1
+        self.conv_id = ConvolutionBase.next_conv_id
+        ConvolutionBase.next_conv_id += 1
 
         if torch_op:
             global torch

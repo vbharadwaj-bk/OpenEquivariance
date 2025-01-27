@@ -55,7 +55,7 @@ tensors are stored on a CUDA device for this to work:
 import openequivariance as oeq
 
 problem = oeq.TPProblem(X_ir, Y_ir, Z_ir, instructions, shared_weights=False, internal_weights=False)
-tp_fast = oeq.LoopUnrollTP(problem, torch_op=True)
+tp_fast = oeq.TensorProduct(problem, torch_op=True)
 
 Z = tp_fast(X, Y, W) # Reuse X, Y, W from earlier
 print(torch.norm(Z))
@@ -86,7 +86,7 @@ from torch_geometric import EdgeIndex
 
 node_ct, nonzero_ct = 3, 4
 
-# Receiver, sender indices for message passing GNN
+# Sender, receiver indices for message passing GNN
 edge_index = EdgeIndex(
                 [[0, 1, 1, 2],  # Receiver 
                  [1, 0, 2, 1]], # Sender 
@@ -97,7 +97,7 @@ X = torch.rand(node_ct, X_ir.dim, device='cuda', generator=gen)
 Y = torch.rand(nonzero_ct, Y_ir.dim, device='cuda', generator=gen)
 W = torch.rand(nonzero_ct, problem.weight_numel, device='cuda', generator=gen)
 
-tp_conv = oeq.LoopUnrollConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
+tp_conv = oeq.TensorProductConv(problem, torch_op=True, deterministic=False) # Reuse problem from earlier
 Z = tp_conv.forward(X, Y, W, edge_index[0], edge_index[1]) # Z has shape [node_ct, z_ir.dim]
 print(torch.norm(Z))
 ```
@@ -107,11 +107,11 @@ permutation, we can provide even greater speedup (and deterministic results)
 by avoiding atomics: 
 
 ```python
-_, sender_perm = edge_index.sort_by("col")            # Compute transpose perm 
+_, sender_perm = edge_index.sort_by("col")            # Sort by sender index 
 edge_index, receiver_perm = edge_index.sort_by("row") # Sort by receiver index
 
 # Now we can use the faster deterministic algorithm
-tp_conv = oeq.LoopUnrollConv(problem, torch_op=True, deterministic=True) 
+tp_conv = oeq.TensorProductConv(problem, torch_op=True, deterministic=True) 
 Z = tp_conv.forward(X, Y[receiver_perm], W[receiver_perm], edge_index[0], edge_index[1], sender_perm) 
 print(torch.norm(Z))
 ```

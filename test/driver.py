@@ -23,8 +23,8 @@ import openequivariance.implementations.warp_matmul as warp_matmul
 
 logger = getLogger()
 
-def debug(tp_impl : type[TensorProduct], config : TPProblem, direction : Direction) -> None:
-    assert issubclass(tp_impl, TensorProduct)
+def debug(tp_impl : type[TensorProductBase], config : TPProblem, direction : Direction) -> None:
+    assert issubclass(tp_impl, TensorProductBase)
     assert isinstance(config, TPProblem)
     assert direction in typing.get_args(Direction)
 

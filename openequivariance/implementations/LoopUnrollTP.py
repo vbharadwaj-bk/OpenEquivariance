@@ -3,12 +3,12 @@ from openequivariance.extlib.kernel_wrapper import *
 from openequivariance.templates.jinja_utils import *
 from openequivariance.implementations.ComputationSchedule import ComputationSchedule 
 
-from openequivariance.implementations.TensorProduct import TensorProduct 
+from openequivariance.implementations.TensorProductBase import TensorProductBase 
 from openequivariance.benchmark.logging_utils import getLogger, bcolors
 from openequivariance.benchmark.e3nn_lite_utils import count_cg_non_zero
 logger = getLogger()
 
-class LoopUnrollTP(TensorProduct):
+class LoopUnrollTP(TensorProductBase):
     def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)
         L1, L2, L3 = self.L1, self.L2, self.L3

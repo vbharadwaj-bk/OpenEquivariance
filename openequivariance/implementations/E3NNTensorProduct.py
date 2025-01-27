@@ -4,7 +4,7 @@ import os
 import pathlib
 import numpy as np
 
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.logging_utils import getLogger
 
@@ -12,7 +12,7 @@ TORCH_COMPILE_AUTOTUNING_DIR = pathlib.Path('triton_autotuning')
 
 logger = getLogger()
 
-class E3NNTensorProduct(TensorProduct):
+class E3NNTensorProduct(TensorProductBase):
     def __init__(self, config : TPProblem, torch_op=True):
         super().__init__(config, torch_op=torch_op)
         assert(self.torch_op)
