@@ -4,7 +4,7 @@ import math
 
 import numpy as np 
 
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.e3nn_lite import Irrep, _MulIr, Irreps, Instruction, TPProblem
 
 def sparse_outer_product_work(cg : np.ndarray) -> int: 
@@ -16,7 +16,7 @@ def convenience_namer(L1 : Irreps, L2 : Irreps, L3 : Irreps):
 # Non Zeros 
 @functools.lru_cache(typed=True)
 def count_cg_non_zero(l1, l2, l3) -> int:
-    return np.count_nonzero(TensorProduct.load_cg_tensor(l1, l2, l3))
+    return np.count_nonzero(TensorProductBase.load_cg_tensor(l1, l2, l3))
 
 def calculate_total_nnz(tpp : TPProblem) -> int:
         """

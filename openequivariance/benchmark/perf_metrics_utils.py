@@ -1,7 +1,7 @@
 import math
 
 from openequivariance.benchmark.e3nn_lite_utils import count_cg_non_zero, sparse_outer_product_work
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.logging_utils import getLogger
 import numpy as np
@@ -58,7 +58,7 @@ def calculate_minimum_flops_forward(tpp : TPProblem, batch_size : int) -> dict:
     for ins in tpp.instructions: # type : Instruction
         l1, l2, l3 = tpp.irreps_in1[ins.i_in1].ir.l, tpp.irreps_in2[ins.i_in2].ir.l, tpp.irreps_out[ins.i_out].ir.l
 
-        flops_count["outer_products"] += sparse_outer_product_work(TensorProduct.load_cg_tensor(l1,l2,l3))
+        flops_count["outer_products"] += sparse_outer_product_work(TensorProductBase.load_cg_tensor(l1,l2,l3))
         flops_count["CG_decomposition"] += count_cg_non_zero(l1, l2, l3) * (ins.path_shape[0] * ins.path_shape[1])
         flops_count["linear_combination"] += (2 * l3 + 1) * math.prod(ins.path_shape) if ins.has_weight else 0
 

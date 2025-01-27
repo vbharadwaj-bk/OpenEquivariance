@@ -1,7 +1,7 @@
 import numpy as np
-from openequivariance.implementations.TensorProduct import TensorProduct
+from openequivariance.implementations.TensorProductBase import TensorProductBase
 
-class NumpyTensorProduct(TensorProduct):
+class NumpyTensorProduct(TensorProductBase):
     def __init__(self, config, torch_op=False):
         super().__init__(config, torch_op=torch_op)
 

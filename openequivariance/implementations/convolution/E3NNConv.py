@@ -1,10 +1,10 @@
 import numpy as np
 import numpy.linalg as la
 
-from openequivariance.implementations.convolution.Convolution import *
+from openequivariance.implementations.convolution.ConvolutionBase import *
 from openequivariance.implementations.E3NNTensorProduct import *
 
-class E3NNConv(Convolution):
+class E3NNConv(ConvolutionBase):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         assert(torch_op)
         super().__init__(config, idx_dtype, torch_op)

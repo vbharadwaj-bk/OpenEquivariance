@@ -3,7 +3,7 @@ from openequivariance.extlib.kernel_wrapper import *
 from openequivariance.implementations.e3nn_lite import *
 from itertools import accumulate
 from openequivariance.benchmark.logging_utils import *
-from openequivariance.implementations.TensorProduct import *
+from openequivariance.implementations.TensorProductBase import *
 logger = getLogger()
 
 # This class assumes a warp size of 32
@@ -56,7 +56,7 @@ class CGTensor:
             np.float64: "L"
         }
 
-        tensor = TensorProduct.load_cg_tensor(l1, l2, l3)
+        tensor = TensorProductBase.load_cg_tensor(l1, l2, l3)
         coord1, coord2, coord3 = [arr.astype(np.int32).copy() for arr in np.nonzero(tensor)]
         float_values = tensor[np.nonzero(tensor)].astype(dtype).copy() * normalization_factor
         values = [str(float.hex(float(val))) + suffix_map[dtype] for val in float_values]

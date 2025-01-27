@@ -1,10 +1,10 @@
-from openequivariance.implementations.convolution.Convolution import *
+from openequivariance.implementations.convolution.ConvolutionBase import *
 from openequivariance.implementations.ComputationSchedule import ComputationSchedule
 from openequivariance.implementations.LoopUnrollTP import *
 from openequivariance.templates.jinja_utils import *
 from openequivariance.extlib.kernel_wrapper import *
 
-class LoopUnrollConv(Convolution):
+class LoopUnrollConv(ConvolutionBase):
     def __init__(self, config, idx_dtype=np.int64, 
             torch_op=False, deterministic=False):
         super().__init__(config, idx_dtype, torch_op, deterministic)
@@ -110,7 +110,7 @@ class LoopUnrollConvAtomic(LoopUnrollConv):
     def name():
         return "LoopUnrollConvAtomic"
 
-class LoopUnrollConvScatterSum(Convolution):
+class LoopUnrollConvScatterSum(ConvolutionBase):
     def __init__(self, config, idx_dtype=np.int64, torch_op=True):
         assert(torch_op)
         global torch
