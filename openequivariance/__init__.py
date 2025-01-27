@@ -6,7 +6,7 @@ logger = getLogger()
 package_root = str(Path(__file__).parent.parent)
 oeq_root = str(Path(__file__).parent)
 
-build_ext = False 
+build_ext = True 
 candidates = [f for f in os.listdir(oeq_root + '/extlib') 
                 if f.startswith('kernel_wrapper')]
 
@@ -22,7 +22,7 @@ elif len(candidates) > 1:
 if build_ext:
     with tempfile.TemporaryDirectory() as tmpdirname:
         from setuptools import setup
-        from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+        from torch.utils.cpp_extension import BuildExtension, CUDAExtension, library_paths
 
         sources = [
             'util/buffer.cpp',
@@ -39,6 +39,18 @@ if build_ext:
         sources = [oeq_root + '/extension/' + src for src in sources]
         include_dirs = [oeq_root + '/extension/' + d for d in include_dirs]
 
+        extra_link_args = ['-Wl,--no-as-needed', 
+                        '-lcuda',
+                        '-lnvrtc',
+                        '-lcudart']
+        
+        try:
+            cuda_libs = library_paths(cuda=True)[1]
+            if os.path.exists(cuda_libs + '/stubs'):
+                extra_link_args.append('-L' + cuda_libs + '/stubs')
+        except Exception as e:
+            logger.info(str(e))
+
         setup(name='kernel_wrapper',
             ext_modules=[
                 CUDAExtension(
@@ -46,10 +58,7 @@ if build_ext:
                         include_dirs=include_dirs,
                         sources=sources,
                         extra_compile_args={'cxx': ['-O3']},
-                        extra_link_args=['-Wl,--no-as-needed', 
-                                            '-lcuda',
-                                            '-lnvrtc',
-                                            '-lcudart'])
+                        extra_link_args=extra_link_args)
             ],
             cmdclass={
                 'build_ext': BuildExtension 
