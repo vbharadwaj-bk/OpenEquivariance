@@ -42,7 +42,7 @@ from torch_geometric import EdgeIndex
 
 node_ct, nonzero_ct = 3, 4
 
-# Sender, receiver indices for message passing GNN
+# Receiver, sender indices for message passing GNN
 edge_index = EdgeIndex(
                 [[0, 1, 1, 2],  # Receiver 
                  [1, 0, 2, 1]], # Sender 
