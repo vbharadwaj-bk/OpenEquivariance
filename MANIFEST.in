@@ -2,3 +2,6 @@ include openequivariance/extlib/*.so
 include openequivariance/templates/*.cuh
 include openequivariance/templates/*.jinja
 include openequivariance/extension/*
+include openequivariance/extension/convolution/*
+include openequivariance/extension/tensorproducts/*
+include openequivariance/extension/util/*

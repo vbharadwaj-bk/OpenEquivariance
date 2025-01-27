@@ -6,10 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "openequivariance"
 version = "0.1.0"
 authors = [
-  { name="Example Author", email="author@example.com" },
+  { name="Austin Scott Glover" },
+  { name="Vivek Bharadwaj" }
 ]
-description = "A small example package"
+description = "A fast GPU JIT kernel generator for the Clebsch-Gordon Tensor Product"
 requires-python = ">=3.11"
+dependencies = [
+  "torch"
+]
 
 [tool.setuptools.packages.find]
 include = ["openequivariance*"]
