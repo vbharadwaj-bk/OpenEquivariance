@@ -79,7 +79,7 @@ results up to a well-defined reordering of the weights relative to e3nn.
 
 If you're executing tensor products as part of a message passing graph
 neural network, we offer fused kernels that save both memory and compute time (only supported
-for "uvu" at the moment, "uvw" support coming soon: 
+for "uvu" at the moment, "uvw" support coming soon): 
 
 ```python
 from torch_geometric import EdgeIndex
