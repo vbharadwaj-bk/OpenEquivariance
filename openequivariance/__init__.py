@@ -6,7 +6,7 @@ logger = getLogger()
 package_root = str(Path(__file__).parent.parent)
 oeq_root = str(Path(__file__).parent)
 
-build_ext = True 
+build_ext = False 
 candidates = [f for f in os.listdir(oeq_root + '/extlib') 
                 if f.startswith('kernel_wrapper')]
 

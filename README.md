@@ -120,9 +120,7 @@ print(torch.norm(Z))
 arbitrary order. 
 
 ## Installation 
-Right now, we only support source builds, 
-but we provide scripts to streamline installation.
-
+We currently support Linux systems only.
 We highly recommend that you use
 `conda` or `mamba` to set up a Python environment for installation.
 
@@ -131,9 +129,14 @@ After activating an environment of your choice, run
 ```bash
 pip install git+https://github.com/vbharadwaj-bk/OpenEquivariance
 ```
-If you encounter problems with this build blow, try a development 
-build. After installation, you should be able to run the 
-example above.
+After installation, the very first library
+import will trigger a build of a C++ extension we use.
+All subsequent imports will not retrigger compilation.
+
+If you encounter problems with installation, let us
+know by filing a bug and try a development build (see
+below). After installation, you should be able 
+to run the example above.
 
 ### Development build 
 The steps below assume that you're using a bash shell and have a C / C++ 
