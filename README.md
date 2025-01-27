@@ -120,13 +120,25 @@ print(torch.norm(Z))
 arbitrary order. 
 
 ## Installation 
-Right now, we only support source builds, 
-but we provide scripts to streamline installation.
-
+We currently support Linux systems only.
 We highly recommend that you use
 `conda` or `mamba` to set up a Python environment for installation.
 
-### Build via install script and pip (fastest) 
+### Install via pip
+After activating an environment of your choice, run
+```bash
+pip install git+https://github.com/vbharadwaj-bk/OpenEquivariance
+```
+After installation, the very first library
+import will trigger a build of a C++ extension we use.
+All subsequent imports will not retrigger compilation.
+
+If you encounter problems with installation, let us
+know by filing a bug and try a development build (see
+below). After installation, you should be able 
+to run the example above.
+
+### Development build 
 The steps below assume that you're using a bash shell and have a C / C++ 
 compiler that CMake can find. If not, you can install [gxx](https://anaconda.org/conda-forge/gxx/) from `conda-forge`. 
 
@@ -163,10 +175,6 @@ To run our benchmark suite, you'll also need the following packages:
 We conducted our benchmarks on an NVIDIA A100-SXM-80GB GPU at
 Lawrence Berkeley National Laboratory. Your results may differ 
 a different GPU.
-
-### conda or mambabuild (experimental)
-We are experimenting with setup using `conda-build` or
-`mambabuild`. Stay tuned for that
 
 ## Tensor products we accelerate 
 e3nn supports a variety of connection modes for CG tensor products. We support 
