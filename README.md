@@ -202,9 +202,19 @@ We do not (yet) support:
 If you have a use case for any of the unsupported features above, let us know.
 
 ## Citation and Acknowledgements
-If you find this code useful, please cite us.
+If you find this code useful, please cite our paper:
 
-[Citation coming soon!]
+```bibtex
+@misc{openequivariance,
+      title={An Efficient Sparse Kernel Generator for O(3)-Equivariant Deep Networks}, 
+      author={Vivek Bharadwaj and Austin Scott Glover and Aydin Buluc and James Demmel},
+      year={2025},
+      eprint={2501.13986},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2501.13986}, 
+}
+```
 
 Our codebase includes a lightweight clone of 
 [e3nn](https://e3nn.org/)'s frontend interface (in particular, the 
