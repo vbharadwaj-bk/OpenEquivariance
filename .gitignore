@@ -18,7 +18,7 @@ triton_autotuning/*
 
 # bash scripts
 get_gpu_node.sh
-env.sh 
+env.sh
 
 nvidia-mathdx*
 .vscode/*
