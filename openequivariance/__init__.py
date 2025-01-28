@@ -1,8 +1,6 @@
 import openequivariance.extlib
 from pathlib import Path
 
-dp = openequivariance.extlib.DeviceProp(0)
-
 package_root = str(Path(__file__).parent.parent)
 
 from openequivariance.implementations.e3nn_lite import TPProblem, Irreps

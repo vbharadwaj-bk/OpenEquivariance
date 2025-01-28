@@ -139,6 +139,6 @@ if __name__=='__main__':
     if dp.name != paper_benchmark_gpu:
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
-    #benchmark_conv()
+    benchmark_conv()
     #benchmark_roofline()
-    run_paper_uvw_benchmark()
+    #run_paper_uvw_benchmark()
