@@ -5,7 +5,7 @@ import numpy as np
 import numpy.linalg as la
 
 from openequivariance.benchmark.logging_utils import getLogger
-from openequivariance.extlib.kernel_wrapper import DeviceProp
+from openequivariance.extlib import DeviceProp
 from openequivariance.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
 from openequivariance.implementations.LoopUnrollTP import LoopUnrollTP
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct
@@ -139,6 +139,6 @@ if __name__=='__main__':
     if dp.name != paper_benchmark_gpu:
         logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Your benchmarks may differ from our reported results.")
 
-    #benchmark_conv()
+    benchmark_conv()
     #benchmark_roofline()
-    run_paper_uvw_benchmark()
+    #run_paper_uvw_benchmark()

@@ -2,7 +2,7 @@ import pickle, pathlib, typing
 from math import prod
 import numpy as np
 import numpy.linalg as la
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.extlib import *
 
 from openequivariance.implementations.e3nn_lite import TPProblem, wigner_3j
 from openequivariance.benchmark.logging_utils import getLogger, bcolors

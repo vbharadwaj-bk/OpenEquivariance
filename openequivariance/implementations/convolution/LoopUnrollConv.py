@@ -2,7 +2,7 @@ from openequivariance.implementations.convolution.ConvolutionBase import *
 from openequivariance.implementations.ComputationSchedule import ComputationSchedule
 from openequivariance.implementations.LoopUnrollTP import *
 from openequivariance.templates.jinja_utils import *
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.extlib import *
 
 class LoopUnrollConv(ConvolutionBase):
     def __init__(self, config, idx_dtype=np.int64, 

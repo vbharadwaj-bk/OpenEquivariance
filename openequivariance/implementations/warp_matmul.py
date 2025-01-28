@@ -1,5 +1,5 @@
 import numpy as np
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.extlib import *
 from openequivariance.templates.jinja_utils import *
 
 class WarpMatmulTest:
