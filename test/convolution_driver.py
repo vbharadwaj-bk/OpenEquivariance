@@ -4,7 +4,7 @@ import numpy.linalg as la
 import os
 
 import openequivariance
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.kernel_wrapper import *
 from openequivariance.benchmark.tpp_creation_utils import *
 from openequivariance.implementations.convolution.LoopUnrollConv import *
 from openequivariance.implementations.convolution.CUEConv import *

@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.linalg as la
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.kernel_wrapper import *
 from openequivariance.benchmark.random_buffer_utils import * 
 from openequivariance.implementations.TensorProductBase import *
 

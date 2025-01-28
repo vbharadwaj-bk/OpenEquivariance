@@ -1,5 +1,5 @@
 import numpy as np
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.kernel_wrapper import *
 from openequivariance.implementations.e3nn_lite import *
 from itertools import accumulate
 from openequivariance.benchmark.logging_utils import *

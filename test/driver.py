@@ -6,7 +6,7 @@ import numpy.linalg as la
 from openequivariance.benchmark.logging_utils import *
 from openequivariance.implementations.e3nn_lite import *
 from openequivariance.benchmark.e3nn_lite_utils import *
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.kernel_wrapper import *
 from openequivariance.benchmark.random_buffer_utils import get_random_buffers_forward, get_random_buffers_backward
 from openequivariance.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from openequivariance.benchmark.tpp_creation_utils import *

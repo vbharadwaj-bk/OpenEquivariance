@@ -6,7 +6,7 @@ from openequivariance.implementations.TensorProductBase import TensorProductBase
 from openequivariance.benchmark.logging_utils import getLogger, bcolors 
 from jinja2 import Environment, PackageLoader
 
-from openequivariance.extlib.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
+from openequivariance.kernel_wrapper import KernelLaunchConfig, JITTPImpl, DeviceProp
 
 logger = getLogger()
 

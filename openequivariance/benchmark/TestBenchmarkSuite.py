@@ -6,11 +6,11 @@ import pathlib
 from typing import NamedTuple, Optional, Literal, Any, get_args
 from dataclasses import dataclass
 
-from openequivariance.extlib.kernel_wrapper import DeviceProp
+from openequivariance.kernel_wrapper import DeviceProp
 from openequivariance.implementations.TensorProductBase import TensorProductBase
 
 from openequivariance.benchmark.logging_utils import getLogger
-from openequivariance.extlib.kernel_wrapper import *
+from openequivariance.kernel_wrapper import *
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.correctness_utils import correctness_forward, correctness_backward
 from openequivariance.benchmark.benchmark_utils import benchmark_forward, benchmark_backward

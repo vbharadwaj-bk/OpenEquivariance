@@ -5,7 +5,7 @@ import numpy as np
 import numpy.linalg as la
 
 from openequivariance.benchmark.logging_utils import getLogger
-from openequivariance.extlib.kernel_wrapper import DeviceProp
+from openequivariance.kernel_wrapper import DeviceProp
 from openequivariance.implementations.E3NNTensorProduct import E3NNTensorProduct, E3NNTensorProductCompiledCUDAGraphs, E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
 from openequivariance.implementations.LoopUnrollTP import LoopUnrollTP
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct
