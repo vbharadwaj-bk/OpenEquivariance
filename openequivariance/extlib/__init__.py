@@ -12,8 +12,7 @@ if len(candidates) == 1:
 
 kernel_wrapper = None
 if not build_ext: 
-    from openequivariance.extlib import kernel_wrapper as k
-    kernel_wrapper = k
+    from openequivariance.extlib.kernel_wrapper import * 
 else:
     from setuptools import setup
     from torch.utils.cpp_extension import BuildExtension, CUDAExtension, library_paths
@@ -57,4 +56,4 @@ else:
             with_cuda=True,
             extra_ldflags=extra_link_args)
 
-from kernel_wrapper import *
+    from kernel_wrapper import *
