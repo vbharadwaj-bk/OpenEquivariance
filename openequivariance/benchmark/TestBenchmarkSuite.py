@@ -6,6 +6,7 @@ import pathlib
 from typing import NamedTuple, Optional, Literal, Any, get_args
 from dataclasses import dataclass
 
+import openequivariance as oeq
 from openequivariance.extlib import DeviceProp
 from openequivariance.implementations.TensorProductBase import TensorProductBase
 
@@ -14,7 +15,6 @@ from openequivariance.extlib import *
 from openequivariance.implementations.e3nn_lite import TPProblem
 from openequivariance.benchmark.correctness_utils import correctness_forward, correctness_backward
 from openequivariance.benchmark.benchmark_utils import benchmark_forward, benchmark_backward
-from openequivariance import package_root
 
 logger = getLogger()
 
@@ -91,12 +91,17 @@ class TestBenchmarkSuite:
 
         return metadata
 
-    def run(self, test_list : list[TestDefinition]) -> pathlib.Path:        
-        
-        TestBenchmarkSuite.validate_inputs(test_list)
-
+    def run(self, test_list : list[TestDefinition], output_folder=None) -> pathlib.Path:
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'{package_root}/outputs/{millis_since_epoch}')
+        if output_folder is None:
+            if oeq._check_package_editable():
+                output_folder = oeq._editable_install_output_path / f"{millis_since_epoch}"
+            else:
+                raise ValueError("output folder must be specified for non-editable installs.")
+        else:
+            output_folder = pathlib.Path(output_folder) / f"{millis_since_epoch}"        
+
+        TestBenchmarkSuite.validate_inputs(test_list)
         output_folder.mkdir(parents=True)
 
         metadata = TestBenchmarkSuite.generate_metadata(test_list)
@@ -117,7 +122,6 @@ class TestBenchmarkSuite:
             logger.info(f'Implementation Name: {impl.name()}')
             logger.info(f'Test Direction: {test.direction}')
             logger.info(f"Torch Overhead Included: {self.torch_op}")
-
 
             result = {
                 "config_str" : str(tpp),
