@@ -102,17 +102,16 @@ def benchmark_uvu(params):
         correctness_threshold = 5e-5,
         num_warmup=100,
         num_iter=100,
-        bench_batch_size=50000,
+        bench_batch_size=params.batch_size,
         prng_seed=11111
     )
 
     logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
-def benchmark_roofline():
+def benchmark_roofline(params):
     implementations =   [LoopUnrollTP, 
-                        CUETensorProduct
-                        ]
+                        CUETensorProduct]
     directions = [  'forward',
                     'backward']
 
@@ -130,7 +129,7 @@ def benchmark_roofline():
     )
 
     logger.setLevel(logging.INFO)
-    bench_suite.run(tests)
+    bench_suite.run(tests, params.output_folder)
 
 if __name__=='__main__':
     dp = DeviceProp(0)
@@ -141,7 +140,7 @@ if __name__=='__main__':
     parser.add_argument("--output_folder", "-o", type=str, default=None, help="Output folder for benchmark results")
 
     subparsers = parser.add_subparsers(help='subcommand help', required=True)
-    parser_uvu = subparsers.add_parser('uvu_bench', help='Run the UVU kernel benchmark without fusion') 
+    parser_uvu = subparsers.add_parser('uvu', help='Run the UVU kernel benchmark without fusion') 
     parser_uvu.add_argument("--batch_size", "-b", type=int, default=50000, help="Batch size for benchmark")
     parser_uvu.add_argument("--implementations", "-i", type=str, nargs='+', 
             default=['e3nn', 'cue', 'oeq'], help="Implementations to benchmark",
@@ -153,12 +152,10 @@ if __name__=='__main__':
             default=['float32', 'float64'], help="Data types to benchmark",
             choices=['float32', 'float64'])
     parser_uvu.set_defaults(func=benchmark_uvu)
-
     parser_roofline = subparsers.add_parser('roofline', help='Run the roofline comparison')
+    parser_roofline.set_defaults(func=benchmark_roofline)
 
     args = parser.parse_args()
     args.func(args)
 
-    #benchmark_conv()
-    #benchmark_roofline()
     #run_paper_uvw_benchmark()
