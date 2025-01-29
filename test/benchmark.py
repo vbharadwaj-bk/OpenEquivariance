@@ -79,7 +79,7 @@ def benchmark_uvu(params):
                 problem.irrep_dtype = np.float64
                 problem.weight_dtype = np.float64
 
-            problems.append(problem64)
+            problems.append(problem)
  
     tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
              for implementation, problem, direction
@@ -92,12 +92,12 @@ def benchmark_uvu(params):
             or test.implementation != E3NNTensorProductCompiledMaxAutotuneCUDAGraphs 
             or test.problem.irrep_dtype != np.float64]
 
-    if 'e3nn' in params.implementations:
+    if 'e3nn' in params.implementations and 'float64' in params.datatypes:
         tests.extend([TestDefinition(E3NNTensorProduct, 
             CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
                     'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=False, benchmark=True) 
                     for direction in ['forward', 'backward']])
-    
+
     bench_suite = TestBenchmarkSuite(
         correctness_threshold = 5e-5,
         num_warmup=100,
@@ -107,7 +107,7 @@ def benchmark_uvu(params):
     )
 
     logger.setLevel(logging.INFO)
-    bench_suite.run(params.output_folder, tests)
+    bench_suite.run(tests, params.output_folder)
 
 def benchmark_roofline():
     implementations =   [LoopUnrollTP, 
@@ -136,12 +136,12 @@ if __name__=='__main__':
     dp = DeviceProp(0)
     paper_benchmark_gpu = "NVIDIA A100-SXM4-80GB"
     if dp.name != paper_benchmark_gpu:
-        logger.warning(msg=f"Notice: current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Runtime benchmarks may differ from our reported results.")
+        logger.warning(msg=f"Current GPU ({dp.name}) is not the {paper_benchmark_gpu} used in the paper. Runtime benchmarks may differ from our reported results.")
     parser = argparse.ArgumentParser(description='Benchmark openequivariance kernels')
-    subparsers = parser.add_subparsers(help='subcommand help')
+    parser.add_argument("--output_folder", "-o", type=str, default=None, help="Output folder for benchmark results")
 
-    parser_uvu = subparsers.add_parser('uvu', help='Run the UVU kernel benchmark without fusion') 
-    parser_uvu.add_argument("--output_folder", "-o", type=str, default=None, help="Output folder for benchmark results")
+    subparsers = parser.add_subparsers(help='subcommand help', required=True)
+    parser_uvu = subparsers.add_parser('uvu_bench', help='Run the UVU kernel benchmark without fusion') 
     parser_uvu.add_argument("--batch_size", "-b", type=int, default=50000, help="Batch size for benchmark")
     parser_uvu.add_argument("--implementations", "-i", type=str, nargs='+', 
             default=['e3nn', 'cue', 'oeq'], help="Implementations to benchmark",
@@ -153,6 +153,9 @@ if __name__=='__main__':
             default=['float32', 'float64'], help="Data types to benchmark",
             choices=['float32', 'float64'])
     parser_uvu.set_defaults(func=benchmark_uvu)
+
+    parser_roofline = subparsers.add_parser('roofline', help='Run the roofline comparison')
+
     args = parser.parse_args()
     args.func(args)
 
