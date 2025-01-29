@@ -91,12 +91,13 @@ class TestBenchmarkSuite:
 
         return metadata
 
-    def run(self, test_list : list[TestDefinition]) -> pathlib.Path:        
-        
-        TestBenchmarkSuite.validate_inputs(test_list)
-
+    def run(self, test_list : list[TestDefinition], output_folder=None) -> pathlib.Path:
         millis_since_epoch = round(time.time() * 1000)
-        output_folder = pathlib.Path(f'{package_root}/outputs/{millis_since_epoch}')
+        if self.output_folder is None:
+            if openequivariance._check_package_editable()
+                output_folder = openequivariance._editable_install_output_path / f"{millis_since_epoch}"
+
+        TestBenchmarkSuite.validate_inputs(test_list)
         output_folder.mkdir(parents=True)
 
         metadata = TestBenchmarkSuite.generate_metadata(test_list)
