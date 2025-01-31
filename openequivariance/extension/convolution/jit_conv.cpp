@@ -50,11 +50,11 @@ void JITConvImpl::exec_conv(
     ConvData conv_data = {rows, cols, nnz, node_count};
 
     void *args[] = {&L1_in, &L2_in, &weights, &L3_out, &conv_data, &workspace}; 
-    jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
+    jit.execute(0, args, forward_config);
 
     if(reinterpret_cast<uint64_t>(workspace) != 0) {
         void *fixup_args[] = {&workspace, &L3_out};
-        jit.execute(2, forward_config.num_blocks, forward_config.num_threads, fixup_args, 0);
+        jit.execute(2, fixup_args, forward_config);
     }
 } 
 
@@ -70,10 +70,10 @@ void JITConvImpl::backward(
 
     ConvData conv_data = {rows, cols, nnz, node_count};
     void *args[] = {&L1_in, &L1_grad, &L2_in, &L2_grad, &weight, &weight_grad, &L3_grad, &conv_data, &workspace, &transpose_perm};
-    jit.execute(1, backward_config.num_blocks, backward_config.num_threads, args, backward_config.smem);
+    jit.execute(1, args, backward_config);
 
     if(reinterpret_cast<uint64_t>(workspace) != 0) {
         void *fixup_args[] = {&workspace, &L1_grad};
-        jit.execute(3, backward_config.num_blocks, backward_config.num_threads, fixup_args, 0);
+        jit.execute(3, fixup_args, backward_config);
     }
 }

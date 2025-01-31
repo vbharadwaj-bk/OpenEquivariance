@@ -49,9 +49,10 @@ public:
     virtual ~GenericTensorProductImpl() {};
 };
 
+template<typename JIT_IMPL>
 class __attribute__ ((visibility ("default"))) JITTPImpl : public GenericTensorProductImpl {
 public:
-    JITKernel jit;
+    JIT_IMPL jit;
     KernelLaunchConfig forward_config; 
     KernelLaunchConfig backward_config; 
 

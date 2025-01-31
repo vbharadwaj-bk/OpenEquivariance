@@ -35,7 +35,7 @@ void JITTPImpl::exec_tensor_product(
     void* weights) {
 
     void *args[] = { &num_products, &L1_in, &L2_in, &L3_out, &weights};
-    jit.execute(0, forward_config.num_blocks, forward_config.num_threads, args, forward_config.smem);
+    jit.execute(0, args, forward_config);
 }
 
 void JITTPImpl::backward(
@@ -46,5 +46,5 @@ void JITTPImpl::backward(
         void* L3_grad) {
 
     void *args[] = { &num_products, &L1_in, &L1_grad, &L2_in, &L2_grad, &weight, &weight_grad, &L3_grad}; 
-    jit.execute(1, backward_config.num_blocks, backward_config.num_threads, args, backward_config.smem);
+    jit.execute(1, args, backward_config);
 }

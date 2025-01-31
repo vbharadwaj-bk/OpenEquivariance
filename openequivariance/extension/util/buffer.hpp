@@ -1,33 +1,11 @@
 #pragma once
-
-#include <cuda_runtime.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <chrono>
-
-#define BIG_CONSTANT(x) (x##LLU)
 
 using namespace std;
 namespace py = pybind11;
 
-void* gpu_alloc (size_t size) {
-    void* ptr;
-    gpuErrchk( cudaMalloc((void**) &ptr, size ))
-    return ptr;
-}
-
-void gpu_free (void* ptr) {
-    gpuErrchk( cudaFree(ptr))
-}
-
-void copy_host_to_device (void* host, void* device, size_t size) {
-    gpuErrchk( cudaMemcpy(device, host, size, cudaMemcpyHostToDevice));
-}
-
-void copy_device_to_host (void* host, void* device, size_t size) {
-    gpuErrchk( cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost));
-}
-
+template<typename ALLOC_T>
 class PyDeviceBuffer {
 public:
     char* host_ptr;
@@ -36,7 +14,7 @@ public:
 
     PyDeviceBuffer(uint64_t size) {
         this->size = size;
-        device_ptr = static_cast<char*>(gpu_alloc(size));
+        device_ptr = static_cast<char*>(ALLOC_T.gpu_alloc(size));
         host_ptr = nullptr;
     }
 
@@ -49,16 +27,16 @@ public:
         }
         size *= info.itemsize;
 
-        device_ptr = static_cast<char*>(gpu_alloc(size));
-        copy_host_to_device(host_ptr, device_ptr, size);
+        device_ptr = static_cast<char*>(ALLOC_T.gpu_alloc(size));
+        ALLOC_T.copy_host_to_device(host_ptr, device_ptr, size);
     }
 
     ~PyDeviceBuffer() {
-        gpu_free(static_cast<void*>(device_ptr));
+        ALLOC_T.gpu_free(static_cast<void*>(device_ptr));
     }
 
     void copy_to_host() {
-        copy_device_to_host(host_ptr, device_ptr, size);
+        ALLOC_T.copy_device_to_host(host_ptr, device_ptr, size);
     }
 
     uint64_t data_ptr() {

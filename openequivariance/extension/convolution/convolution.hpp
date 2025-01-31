@@ -87,10 +87,10 @@ public:
     virtual ~ConvolutionImpl() {};
 };
 
-
+template<typename JIT_IMPL>
 class __attribute__ ((visibility ("default"))) JITConvImpl : public ConvolutionImpl{
 public:
-    JITKernel jit;
+    JIT_IMPL jit;
     KernelLaunchConfig forward_config; 
     KernelLaunchConfig backward_config; 
 
