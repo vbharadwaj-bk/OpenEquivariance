@@ -3,7 +3,7 @@
 
 #include "backend_cuda.hpp"
 #include "tensorproducts.hpp"
-#include "convolution.hpp"
+//#include "convolution.hpp"
 
 using namespace std;
 namespace py = pybind11;
@@ -37,7 +37,7 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def_readonly("minor", &DeviceProp::minor)
         .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
         .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock); 
-    py::class_<PyDeviceBuffer>(m, "DeviceBuffer")
+    py::class_<PyDeviceBuffer<>>(m, "DeviceBuffer")
         .def(py::init<uint64_t>())
         .def(py::init<py::buffer>())
         .def("copy_to_host", &PyDeviceBuffer::copy_to_host)

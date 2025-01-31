@@ -6,20 +6,12 @@ find_package(pybind11 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 
 set(core_SOURCES
-  util/gpu_util.hpp
   util/buffer.hpp
-  util/buffer.cpp
   util/jit.hpp
-  util/jit.cpp
-  util/device_prop.hpp
-  util/device_prop.cpp
-  util/mm_tester.hpp
+  util/backend_cuda.hpp
 
   tensorproducts/tensorproducts.hpp
-  tensorproducts/jit_tp.cpp
-
   convolution/convolution.hpp
-  convolution/jit_conv.cpp
 )
 
 add_library(kernel_wrapper MODULE ${core_SOURCES} kernel_wrapper.cpp)

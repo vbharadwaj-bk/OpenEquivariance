@@ -17,7 +17,7 @@ do {                                                            \
    }                                                            \
 } while(0)
 
-#define CUDA_SAFE_CALL(x)                                       \
+#define CUDA_SAFE_CALL(x)                                     \
 do {                                                            \
    CUresult result = x;                                         \
    if (result != CUDA_SUCCESS) {                                \
@@ -29,27 +29,37 @@ do {                                                            \
    }                                                            \
 } while(0)
 
+#define CUDA_ERRCHK(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
 class CUDA_Allocator {
-    void* gpu_alloc (size_t size) {
+    static void* gpu_alloc (size_t size) {
         void* ptr;
-        CUDA_CHECK( cudaMalloc((void**) &ptr, size ))
+        CUDA_ERRCHK( cudaMalloc((void**) &ptr, size ))
         return ptr;
     }
 
-    void gpu_free (void* ptr) {
-        CUDA_CHECK( cudaFree(ptr))
+    static void gpu_free (void* ptr) {
+        CUDA_ERRCHK( cudaFree(ptr))
     }
 
-    void copy_host_to_device (void* host, void* device, size_t size) {
-        CUDA_CHECK( cudaMemcpy(device, host, size, cudaMemcpyHostToDevice));
+    static void copy_host_to_device (void* host, void* device, size_t size) {
+        CUDA_ERRCHK( cudaMemcpy(device, host, size, cudaMemcpyHostToDevice));
     }
 
-    void copy_device_to_host (void* host, void* device, size_t size) {
-        CUDA_CHECK( cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost));
+    static void copy_device_to_host (void* host, void* device, size_t size) {
+        CUDA_ERRCHK( cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost));
     }
-}
+};
 
-class CUDATimer {
+class GPUTimer {
     cudaEvent_t start_evt, stop_evt;
 
 public:
@@ -73,9 +83,9 @@ public:
     void clear_L2_cache() {
         size_t element_count = 25000000;
 
-        int* ptr = (int*) gpu_alloc (element_count * sizeof(int)) {
+        int* ptr = (int*) CUDA_Allocator.gpu_alloc (element_count * sizeof(int)) {
         CUDA_CHECK(cudaMemset(ptr, 42, element_count * sizeof(int)))
-        gpu_free(ptr);
+        CUDA_ALLocator.gpu_free(ptr);
         cudaDeviceSynchronize();
     }
     
