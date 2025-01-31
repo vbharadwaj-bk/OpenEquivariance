@@ -18,16 +18,9 @@ else:
     from torch.utils.cpp_extension import BuildExtension, CUDAExtension, library_paths
 
     sources = [
-        'util/buffer.cpp',
-        'util/jit.cpp',
-        'util/device_prop.cpp',
-        'tensorproducts/jit_tp.cpp',
-        'convolution/jit_conv.cpp',
         'kernel_wrapper.cpp'
     ]
-    include_dirs = ['util', 
-                    'tensorproducts', 
-                    'convolution']
+    include_dirs = ['util']
 
     sources = [oeq_root + '/extension/' + src for src in sources]
     include_dirs = [oeq_root + '/extension/' + d for d in include_dirs]
