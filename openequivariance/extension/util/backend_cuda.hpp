@@ -40,6 +40,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 }
 
 class CUDA_Allocator {
+public:
     static void* gpu_alloc (size_t size) {
         void* ptr;
         CUDA_ERRCHK( cudaMalloc((void**) &ptr, size ))
@@ -83,9 +84,9 @@ public:
     void clear_L2_cache() {
         size_t element_count = 25000000;
 
-        int* ptr = (int*) CUDA_Allocator.gpu_alloc (element_count * sizeof(int)) {
-        CUDA_CHECK(cudaMemset(ptr, 42, element_count * sizeof(int)))
-        CUDA_ALLocator.gpu_free(ptr);
+        int* ptr = (int*) (CUDA_Allocator::gpu_alloc(element_count * sizeof(int)));
+        CUDA_ERRCHK(cudaMemset(ptr, 42, element_count * sizeof(int)))
+        CUDA_Allocator::gpu_free(ptr);
         cudaDeviceSynchronize();
     }
     
@@ -108,12 +109,12 @@ public:
         cudaDeviceProp prop; 
         cudaGetDeviceProperties(&prop, device_id);
         name = std::string(prop.name);
-        CUDA_CHECK(cudaDeviceGetAttribute(&maxSharedMemoryPerMultiprocessor, cudaDevAttrMaxSharedMemoryPerMultiprocessor, device_id));
-        CUDA_CHECK(cudaDeviceGetAttribute(&maxSharedMemPerBlock, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id));
-        CUDA_CHECK(cudaDeviceGetAttribute(&warpsize, cudaDevAttrWarpSize, device_id));
-        CUDA_CHECK(cudaDeviceGetAttribute(&multiprocessorCount, cudaDevAttrMultiProcessorCount, device_id));
-        CUDA_CHECK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id));
-        CUDA_CHECK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&maxSharedMemoryPerMultiprocessor, cudaDevAttrMaxSharedMemoryPerMultiprocessor, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&maxSharedMemPerBlock, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&warpsize, cudaDevAttrWarpSize, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&multiprocessorCount, cudaDevAttrMultiProcessorCount, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id));
+        CUDA_ERRCHK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id));
     }
 };
 
@@ -122,8 +123,9 @@ public:
 * https://docs.nvidia.com/cuda/nvrtc/index.html#example-using-nvrtcgettypename
 */
 
-class CUJITKernel {
+class __attribute__((visibility("default"))) CUJITKernel {
 private:
+    string kernel_plaintext;
     nvrtcProgram prog;
 
     bool compiled = false;
@@ -136,17 +138,17 @@ private:
     vector<CUkernel> kernels;
 
 public:
-    CUJITKernel(string gpu_program) :
-        gpu_program(gpu_program) {
+    CUJITKernel(string plaintext) :
+        kernel_plaintext(plaintext) {
 
-        CUDA_CHECK(cudaFree(0)); // No-op to initialize the primary context 
+        CUDA_ERRCHK(cudaFree(0)); // No-op to initialize the primary context 
         NVRTC_SAFE_CALL(
-        nvrtcCreateProgram( &prog,                // prog
-                            gpu_program.c_str(),  // buffer
-                            "kernel.cu",          // name
-                            0,                    // numHeaders
-                            NULL,                 // headers
-                            NULL));               // includeNames
+        nvrtcCreateProgram( &prog,                     // prog
+                            kernel_plaintext.c_str(),  // buffer
+                            "kernel.cu",               // name
+                            0,                         // numHeaders
+                            NULL,                      // headers
+                            NULL));                    // includeNames
     }
 
     void compile(string kernel_name, const vector<int> template_params) {

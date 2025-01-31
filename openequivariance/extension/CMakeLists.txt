@@ -10,8 +10,8 @@ set(core_SOURCES
   util/jit.hpp
   util/backend_cuda.hpp
 
-  tensorproducts/tensorproducts.hpp
-  convolution/convolution.hpp
+  tensorproducts.hpp
+  convolution.hpp
 )
 
 add_library(kernel_wrapper MODULE ${core_SOURCES} kernel_wrapper.cpp)
@@ -19,8 +19,6 @@ set_property(TARGET kernel_wrapper PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(kernel_wrapper PUBLIC 
   ${CMAKE_CURRENT_SOURCE_DIR}/util
-  ${CMAKE_CURRENT_SOURCE_DIR}/tensorproducts
-  ${CMAKE_CURRENT_SOURCE_DIR}/convolution
 )
 
 set_target_properties(kernel_wrapper PROPERTIES LINKER_LANGUAGE CXX)

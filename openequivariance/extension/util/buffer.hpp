@@ -14,7 +14,7 @@ public:
 
     PyDeviceBuffer(uint64_t size) {
         this->size = size;
-        device_ptr = static_cast<char*>(ALLOC_T.gpu_alloc(size));
+        device_ptr = static_cast<char*>(ALLOC_T::gpu_alloc(size));
         host_ptr = nullptr;
     }
 
@@ -27,16 +27,16 @@ public:
         }
         size *= info.itemsize;
 
-        device_ptr = static_cast<char*>(ALLOC_T.gpu_alloc(size));
-        ALLOC_T.copy_host_to_device(host_ptr, device_ptr, size);
+        device_ptr = static_cast<char*>(ALLOC_T::gpu_alloc(size));
+        ALLOC_T::copy_host_to_device(host_ptr, device_ptr, size);
     }
 
     ~PyDeviceBuffer() {
-        ALLOC_T.gpu_free(static_cast<void*>(device_ptr));
+        ALLOC_T::gpu_free(static_cast<void*>(device_ptr));
     }
 
     void copy_to_host() {
-        ALLOC_T.copy_device_to_host(host_ptr, device_ptr, size);
+        ALLOC_T::copy_device_to_host(host_ptr, device_ptr, size);
     }
 
     uint64_t data_ptr() {

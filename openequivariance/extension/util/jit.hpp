@@ -13,6 +13,7 @@ public:
    uint32_t num_blocks = 0;
    uint32_t num_threads = 0;
    uint32_t warp_size = 32;
+   uint32_t smem = 0;
    CUstream hStream = NULL;
 
    KernelLaunchConfig() = default;
