@@ -9,13 +9,6 @@ using namespace std;
 namespace py = pybind11;
 
 PYBIND11_MODULE(kernel_wrapper, m) {
-    py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
-        .def(py::init<>())
-        .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
-        .def_readwrite("warp_size", &KernelLaunchConfig::warp_size)
-        .def_readwrite("num_threads", &KernelLaunchConfig::num_threads)
-        .def_readwrite("smem", &KernelLaunchConfig::smem);
-
     //=========== Batch tensor products =========
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product_device_rawptrs)
@@ -29,6 +22,15 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def("backward_rawptrs", &ConvolutionImpl::backward_rawptrs);
     py::class_<JITConvImpl<CUJITKernel>, ConvolutionImpl>(m, "JITConvImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
+
+    //============= Utilities ===============
+    py::class_<KernelLaunchConfig>(m, "KernelLaunchConfig")
+        .def(py::init<>())
+        .def_readwrite("num_blocks", &KernelLaunchConfig::num_blocks)
+        .def_readwrite("warp_size", &KernelLaunchConfig::warp_size)
+        .def_readwrite("num_threads", &KernelLaunchConfig::num_threads)
+        .def_readwrite("smem", &KernelLaunchConfig::smem);
+
     py::class_<DeviceProp>(m, "DeviceProp")
         .def(py::init<int>())
         .def_readonly("name", &DeviceProp::name)
@@ -37,11 +39,13 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def_readonly("minor", &DeviceProp::minor)
         .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
         .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock); 
+
     py::class_<PyDeviceBuffer<CUDA_Allocator>>(m, "DeviceBuffer")
         .def(py::init<uint64_t>())
         .def(py::init<py::buffer>())
         .def("copy_to_host", &PyDeviceBuffer<CUDA_Allocator>::copy_to_host)
         .def("data_ptr", &PyDeviceBuffer<CUDA_Allocator>::data_ptr);
+
     py::class_<GPUTimer>(m, "GPUTimer")
         .def(py::init<>())
         .def("start", &GPUTimer::start)
