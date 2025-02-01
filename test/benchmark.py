@@ -131,6 +131,28 @@ def benchmark_roofline(params):
     logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
+def correctness(params):
+    implementations = [LoopUnrollTP]
+    directions = [ 'forward', 
+                    #'backward' Disabled temporarily while testing HIP warp reduction
+                ]
+    problems = [CTPP(*config) for config in mace_conv + nequip_conv]
+
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
+             for implementation, problem, direction
+             in itertools.product(implementations, problems, directions)]
+
+    bench_suite = TestBenchmarkSuite(
+        correctness_threshold = 5e-5,
+        num_warmup=100,
+        num_iter=100,
+        prng_seed=11111,
+        torch_op=False
+    )
+
+    logger.setLevel(logging.INFO)
+    bench_suite.run(tests, params.output_folder)
+
 if __name__=='__main__':
     dp = DeviceProp(0)
     paper_benchmark_gpu = "NVIDIA A100-SXM4-80GB"
@@ -152,8 +174,12 @@ if __name__=='__main__':
             default=['float32', 'float64'], help="Data types to benchmark",
             choices=['float32', 'float64'])
     parser_uvu.set_defaults(func=benchmark_uvu)
+
     parser_roofline = subparsers.add_parser('roofline', help='Run the roofline comparison')
     parser_roofline.set_defaults(func=benchmark_roofline)
+
+    parser_correctness = subparsers.add_parser('correctness', help='Run correctness tests')
+    parser_correctness.set_defaults(func=correctness)
 
     args = parser.parse_args()
     args.func(args)

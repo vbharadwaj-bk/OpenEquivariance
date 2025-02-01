@@ -27,7 +27,6 @@ else:
 
     include_dirs, extra_link_args = ['util'], None 
     if torch.cuda.is_available() and torch.version.cuda: 
-
         extra_link_args = ['-Wl,--no-as-needed', '-lcuda', '-lcudart', '-lnvrtc']
 
         try:
