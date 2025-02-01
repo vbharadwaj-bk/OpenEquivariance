@@ -1,4 +1,4 @@
-import os, warnings, logging
+import os, warnings, logging, tempfile
 from pathlib import Path
 
 oeq_root = str(Path(__file__).parent.parent)
@@ -50,11 +50,13 @@ else:
     include_dirs = [oeq_root + '/extension/' + d for d in include_dirs] + include_paths('cuda')
 
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        kernel_wrapper = torch.utils.cpp_extension.load("kernel_wrapper",
-            sources,
-            extra_cflags=["-O3"],
-            extra_include_paths=include_dirs,
-            extra_ldflags=extra_link_args)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            warnings.simplefilter("ignore")
+            kernel_wrapper = torch.utils.cpp_extension.load("kernel_wrapper",
+                sources,
+                extra_cflags=["-O3"],
+                extra_include_paths=include_dirs,
+                extra_ldflags=extra_link_args,
+                build_directory=tmpdir)
 
 from kernel_wrapper import *
