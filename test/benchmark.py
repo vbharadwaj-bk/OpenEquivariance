@@ -18,7 +18,8 @@ CTPP = ChannelwiseTPP
 FCTPP = FullyConnectedTPProblem
 
 implementation_map = {
-    'e3nn': E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
+    'e3nn': E3NNTensorProduct, 
+    'e3nn_compiled': E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
     'cue': CUETensorProduct,
     'oeq': LoopUnrollTP
 }
@@ -165,8 +166,8 @@ if __name__=='__main__':
     parser_uvu = subparsers.add_parser('uvu', help='Run the UVU kernel benchmark without fusion') 
     parser_uvu.add_argument("--batch_size", "-b", type=int, default=50000, help="Batch size for benchmark")
     parser_uvu.add_argument("--implementations", "-i", type=str, nargs='+', 
-            default=['e3nn', 'cue', 'oeq'], help="Implementations to benchmark",
-            choices=['e3nn', 'cue', 'oeq'])
+            default=['e3nn_compiled', 'cue', 'oeq'], help="Implementations to benchmark",
+            choices=['e3nn', 'e3nn_compiled', 'cue', 'oeq'])
     parser_uvu.add_argument("--directions", "-d", type=str, nargs='+',
             default=['forward', 'backward'], help="Directions to benchmark",
             choices=['forward', 'backward'])
