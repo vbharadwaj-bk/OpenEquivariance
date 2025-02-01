@@ -10,7 +10,8 @@ logger = getLogger()
 
 def postprocess(kernel):
     kernel = kernel.replace("__syncwarp();", "")
-    return kernel
+    kernel = kernel.replace("__shfl_down_sync(FULL_MASK,", "__shfl_down(")
+    return kernel 
 
 class LoopUnrollTP(TensorProductBase):
     def __init__(self, config, torch_op=True):
