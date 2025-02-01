@@ -26,9 +26,7 @@ else:
     include_dirs = [oeq_root + '/extension/' + d for d in include_dirs] + include_paths('cuda')
 
     extra_link_args = ['-Wl,--no-as-needed', 
-                    '-lcuda',
-                    '-lnvrtc',
-                    '-lcudart']
+                    '-lhiprtc']
     
     try:
         cuda_libs = library_paths('cuda')[1]
@@ -48,4 +46,4 @@ else:
             extra_include_paths=include_dirs,
             extra_ldflags=extra_link_args)
 
-    from kernel_wrapper import *
+    from hip_wrapper import *
