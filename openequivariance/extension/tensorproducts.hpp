@@ -4,8 +4,6 @@
 #include <cstdint>
 #include <string>
 
-#include "jit.hpp"
-
 class __attribute__ ((visibility ("default"))) GenericTensorProductImpl {
 public:
     GenericTensorProductImpl() { }

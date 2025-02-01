@@ -1,4 +1,5 @@
 import numpy as np
+
 from openequivariance.extlib import *
 from openequivariance.templates.jinja_utils import *
 from openequivariance.implementations.ComputationSchedule import ComputationSchedule 
@@ -49,7 +50,7 @@ class LoopUnrollTP(TensorProductBase):
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
             backward_schedule=backward_schedule)
-        self.jit_kernel = postprocess(self.jit_kernel)
+        self.jit_kernel = postprocess_kernel(self.jit_kernel)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel,

@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
+#include "buffer.hpp"
 #include "backend_cuda.hpp"
 #include "tensorproducts.hpp"
 #include "convolution.hpp"

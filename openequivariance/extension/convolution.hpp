@@ -6,9 +6,6 @@
 #include <pybind11/numpy.h>
 #include <cstdint>
 
-#include "buffer.hpp"
-#include "jit.hpp"
-
 class __attribute__ ((visibility ("default"))) ConvolutionImpl {
 public:
     bool record_internal_stats = false;

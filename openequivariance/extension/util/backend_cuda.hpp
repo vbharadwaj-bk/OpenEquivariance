@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nvrtc.h>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <string>
 #include <iostream>
@@ -115,6 +117,18 @@ public:
         CUDA_ERRCHK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id));
         CUDA_ERRCHK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id));
     }
+};
+
+class __attribute__((visibility("default"))) KernelLaunchConfig {
+public:
+   uint32_t num_blocks = 0;
+   uint32_t num_threads = 0;
+   uint32_t warp_size = 32;
+   uint32_t smem = 0;
+   CUstream hStream = NULL;
+
+   KernelLaunchConfig() = default;
+   ~KernelLaunchConfig() = default;
 };
 
 /*
@@ -283,16 +297,4 @@ public:
         }
         NVRTC_SAFE_CALL(nvrtcDestroyProgram(&prog));
     }
-};
-
-class __attribute__((visibility("default"))) KernelLaunchConfig {
-public:
-   uint32_t num_blocks = 0;
-   uint32_t num_threads = 0;
-   uint32_t warp_size = 32;
-   uint32_t smem = 0;
-   CUStream hStream = NULL;
-
-   KernelLaunchConfig() = default;
-   ~KernelLaunchConfig() = default;
 };

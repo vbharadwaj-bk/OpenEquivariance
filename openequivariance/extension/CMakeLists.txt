@@ -7,9 +7,7 @@ find_package(Python COMPONENTS Interpreter Development)
 
 set(core_SOURCES
   util/buffer.hpp
-  util/jit.hpp
   util/backend_cuda.hpp
-
   tensorproducts.hpp
   convolution.hpp
 )

@@ -86,7 +86,6 @@ class LoopUnrollConv(ConvolutionBase):
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
-
     @staticmethod
     def name():
         return "LoopUnrollConv"

@@ -14,7 +14,6 @@ kernel_wrapper = None
 
 postprocess_kernel = lambda kernel: kernel
 
-
 if not build_ext: 
     from openequivariance.extlib.kernel_wrapper import * 
 else:
@@ -24,9 +23,11 @@ else:
     global torch
     import torch
 
-    sources, include_dirs, extra_link_args = None, ['util'], None 
+    sources = ['kernel_wrapper.cpp']
+
+    include_dirs, extra_link_args = ['util'], None 
     if torch.cuda.is_available() and torch.version.cuda: 
-        sources = ['kernel_wrapper.cpp']
+
         extra_link_args = ['-Wl,--no-as-needed', '-lcuda', '-lcudart', '-lnvrtc']
 
         try:
@@ -37,7 +38,6 @@ else:
         except Exception as e:
             logging.info(str(e))
     elif torch.cuda.is_available() and torch.version.hip:
-        sources = ['hip_wrapper.cpp']
         extra_link_args = [ '-Wl,--no-as-needed', '-lhiprtc']
 
         def postprocess(kernel):
@@ -51,7 +51,7 @@ else:
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        kernel_wrapper = torch.utils.cpp_extension.load(sources[0].split('.')[0],
+        kernel_wrapper = torch.utils.cpp_extension.load("kernel_wrapper",
             sources,
             extra_cflags=["-O3"],
             extra_include_paths=include_dirs,

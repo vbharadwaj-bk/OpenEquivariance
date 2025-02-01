@@ -122,6 +122,18 @@ public:
 * Guide to HIPRTC: https://rocm.docs.amd.com/projects/HIP/en/docs-5.7.1/user_guide/hip_rtc.html
 */
 
+class __attribute__((visibility("default"))) KernelLaunchConfig {
+public:
+   uint32_t num_blocks = 0;
+   uint32_t num_threads = 0;
+   uint32_t warp_size = 64;
+   uint32_t smem = 0;
+   hipStream_t hStream = NULL;
+
+   KernelLaunchConfig() = default;
+   ~KernelLaunchConfig() = default;
+};
+
 class __attribute__((visibility("default"))) HIPJITKernel {
 private:
     string kernel_plaintext;
@@ -271,16 +283,4 @@ public:
         }
         HIPRTC_SAFE_CALL(hiprtcDestroyProgram(&prog));
     }
-};
-
-class __attribute__((visibility("default"))) KernelLaunchConfig {
-public:
-   uint32_t num_blocks = 0;
-   uint32_t num_threads = 0;
-   uint32_t warp_size = 32;
-   uint32_t smem = 0;
-   hipStream_t hStream = NULL;
-
-   KernelLaunchConfig() = default;
-   ~KernelLaunchConfig() = default;
 };
