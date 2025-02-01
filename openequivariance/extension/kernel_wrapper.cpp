@@ -1,8 +1,19 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
-#include "buffer.hpp"
+#ifdef CUDA
 #include "backend_cuda.hpp"
+using JITKernel = CUJITKernel;
+using Allocator = CUDA_Allocator;
+#endif
+
+#ifdef HIP
+#include "backend_hip.hpp"
+using JITKernel = HIPJITKernel;
+using Allocator = HIP_Allocator;
+#endif
+
+#include "buffer.hpp"
 #include "tensorproducts.hpp"
 #include "convolution.hpp"
 
@@ -14,14 +25,14 @@ PYBIND11_MODULE(kernel_wrapper, m) {
     py::class_<GenericTensorProductImpl>(m, "GenericTensorProductImpl")
         .def("exec_tensor_product", &GenericTensorProductImpl::exec_tensor_product_device_rawptrs)
         .def("backward", &GenericTensorProductImpl::backward_device_rawptrs);
-    py::class_<JITTPImpl<CUJITKernel>, GenericTensorProductImpl>(m, "JITTPImpl")
+    py::class_<JITTPImpl<JITKernel>, GenericTensorProductImpl>(m, "JITTPImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
     //============= Convolutions ===============
     py::class_<ConvolutionImpl>(m, "ConvolutionImpl")
         .def("exec_conv_rawptrs", &ConvolutionImpl::exec_conv_rawptrs)
         .def("backward_rawptrs", &ConvolutionImpl::backward_rawptrs);
-    py::class_<JITConvImpl<CUJITKernel>, ConvolutionImpl>(m, "JITConvImpl")
+    py::class_<JITConvImpl<JITKernel>, ConvolutionImpl>(m, "JITConvImpl")
         .def(py::init<std::string, KernelLaunchConfig&, KernelLaunchConfig&>());
 
     //============= Utilities ===============
@@ -41,11 +52,11 @@ PYBIND11_MODULE(kernel_wrapper, m) {
         .def_readonly("multiprocessorCount", &DeviceProp::multiprocessorCount)
         .def_readonly("maxSharedMemPerBlock", &DeviceProp::maxSharedMemPerBlock); 
 
-    py::class_<PyDeviceBuffer<CUDA_Allocator>>(m, "DeviceBuffer")
+    py::class_<PyDeviceBuffer<Allocator>>(m, "DeviceBuffer")
         .def(py::init<uint64_t>())
         .def(py::init<py::buffer>())
-        .def("copy_to_host", &PyDeviceBuffer<CUDA_Allocator>::copy_to_host)
-        .def("data_ptr", &PyDeviceBuffer<CUDA_Allocator>::data_ptr);
+        .def("copy_to_host", &PyDeviceBuffer<Allocator>::copy_to_host)
+        .def("data_ptr", &PyDeviceBuffer<Allocator>::data_ptr);
 
     py::class_<GPUTimer>(m, "GPUTimer")
         .def(py::init<>())
