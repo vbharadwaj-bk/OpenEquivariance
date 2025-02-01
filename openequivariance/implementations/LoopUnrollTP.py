@@ -8,11 +8,6 @@ from openequivariance.benchmark.logging_utils import getLogger, bcolors
 from openequivariance.benchmark.e3nn_lite_utils import count_cg_non_zero
 logger = getLogger()
 
-def postprocess(kernel):
-    kernel = kernel.replace("__syncwarp();", "")
-    kernel = kernel.replace("__shfl_down_sync(FULL_MASK,", "__shfl_down(")
-    return kernel 
-
 class LoopUnrollTP(TensorProductBase):
     def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)

@@ -6,7 +6,6 @@
 #include <vector>
 #include <string>
 #include <iostream>
-#include "jit.hpp"
 
 using namespace std;
 
@@ -274,3 +273,14 @@ public:
     }
 };
 
+class __attribute__((visibility("default"))) KernelLaunchConfig {
+public:
+   uint32_t num_blocks = 0;
+   uint32_t num_threads = 0;
+   uint32_t warp_size = 32;
+   uint32_t smem = 0;
+   hipStream_t hStream = NULL;
+
+   KernelLaunchConfig() = default;
+   ~KernelLaunchConfig() = default;
+};
