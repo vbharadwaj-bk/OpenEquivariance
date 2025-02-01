@@ -1,8 +1,9 @@
 #pragma once
 
-#include <hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include <hip/hiprtc.h>
 
+#include <vector>
 #include <string>
 #include <iostream>
 #include "jit.hpp"
@@ -14,14 +15,14 @@ do {                                                            \
    hiprtcResult result = x;                                     \
    if (result != HIPRTC_SUCCESS) {                              \
       std::cerr << "\nerror: " #x " failed with error "         \
-               << hipGetErrorString(result) << '\n';            \
+               << hiprtcGetErrorString(result) << '\n';            \
       exit(1);                                                  \
    }                                                            \
 } while(0)
 
 #define HIP_SAFE_CALL(x)                                        \
 do {                                                            \
-   CUresult result = x;                                         \
+   hipResult_t result = x;                                         \
    if (result != HIP_SUCCESS) {                                \
       const char *msg;                                          \
       hipGetErrorName(result, &msg);                            \
@@ -67,19 +68,19 @@ class GPUTimer {
 
 public:
     GPUTimer() {  
-        hipEventCreate(&start_evt);
-        hipEventCreate(&stop_evt);
+        HIP_ERRCHK(hipEventCreate(&start_evt))
+        HIP_ERRCHK(hipEventCreate(&stop_evt));
     }
 
     void start() {
-        hipEventRecord(start_evt);
+        HIP_ERRCHK(hipEventRecord(start_evt));
     }
 
     float stop_clock_get_elapsed() {
         float time_millis;
-        hipEventRecord(stop_evt);
-        hipEventSynchronize(stop_evt);
-        hipEventElapsedTime(&time_millis, start_evt, stop_evt);
+        HIP_ERRCHK(hipEventRecord(stop_evt));
+        HIP_ERRCHK(hipEventSynchronize(stop_evt));
+        HIP_ERRCHK(hipEventElapsedTime(&time_millis, start_evt, stop_evt));
         return time_millis; 
     }
 
@@ -89,12 +90,12 @@ public:
         int* ptr = (int*) (HIP_Allocator::gpu_alloc(element_count * sizeof(int)));
         HIP_ERRCHK(hipMemset(ptr, 42, element_count * sizeof(int)))
         HIP_Allocator::gpu_free(ptr);
-        hipDeviceSynchronize();
+        HIP_ERRCHK(hipDeviceSynchronize());
     }
     
     ~GPUTimer() {
-        hipEventDestroy(start_evt);
-        hipEventDestroy(stop_evt);
+        HIP_ERRCHK(hipEventDestroy(start_evt));
+        HIP_ERRCHK(hipEventDestroy(stop_evt));
     }
 };
 
@@ -109,12 +110,12 @@ public:
 
     DeviceProp(int device_id) {
         hipDeviceProp_t prop; 
-        hipGetDeviceProperties(&prop, device_id);
+        HIP_ERRCHK(hipGetDeviceProperties(&prop, device_id));
         name = std::string(prop.name);
         HIP_ERRCHK(hipDeviceGetAttribute(&maxSharedMemoryPerMultiprocessor, hipDeviceAttributeMaxSharedMemoryPerMultiprocessor, device_id));
-        HIP_ERRCHK(hipDeviceGetAttribute(&maxSharedMemPerBlock, hipDeviceAttributeMaxSharedMemoryPerBlockOptin, device_id));
+        HIP_ERRCHK(hipDeviceGetAttribute(&maxSharedMemPerBlock, hipDeviceAttributeMaxSharedMemoryPerBlock, device_id));
         HIP_ERRCHK(hipDeviceGetAttribute(&warpsize, hipDeviceAttributeWarpSize, device_id));
-        HIP_ERRCHK(hipDeviceGetAttribute(&multiprocessorCount, hipDeviceAttributeMultiProcessorCount, device_id));
+        HIP_ERRCHK(hipDeviceGetAttribute(&multiprocessorCount, hipDeviceAttributeMultiprocessorCount, device_id));
     }
 };
 
@@ -136,7 +137,7 @@ private:
     vector<hipFunction_t> kernels;
 
 public:
-    CUJITKernel(string plaintext) :
+    HIPJITKernel(string plaintext) :
         kernel_plaintext(plaintext) {
 
         //HIP_ERRCHK(hipFree(0)); // No-op to initialize the primary context 
@@ -188,7 +189,7 @@ public:
 
         hipDeviceProp_t props;
         int device = 0;
-        HIP_CHECK(hipGetDeviceProperties(&props, device));
+        HIP_ERRCHK(hipGetDeviceProperties(&props, device));
         std::string sarg = std::string("--gpu-architecture=") + props.gcnArchName;  
 
         std::vector<const char*> opts = {
@@ -226,8 +227,11 @@ public:
         code = new char[codeSize];
         HIPRTC_SAFE_CALL(hiprtcGetCode(prog, code));
 
+	vector<char> kernel_binary(codeSize);
+	hiprtcGetCode(prog, kernel_binary.data());
+
         //HIP_SAFE_CALL(cuInit(0));
-        HIP_SAFE_CALL(hipModuleLoadData(&library, code, 0, 0, 0, 0, 0, 0));
+        HIP_ERRCHK(hipModuleLoadData(&library, kernel_binary.data()));
 
         for (size_t i = 0; i < kernel_names.size(); i++) {
             const char *name;
@@ -239,7 +243,7 @@ public:
                     ));
 
             kernels.emplace_back();
-            HIP_SAFE_CALL(hipModuleGetFunction(&(kernels[i]), library, name));
+            HIP_ERRCHK(hipModuleGetFunction(&(kernels[i]), library, name));
         }
     }
 
@@ -247,17 +251,14 @@ public:
         if(kernel_id >= kernels.size())
             throw std::logic_error("Kernel index out of range!");
 
-        HIP_SAFE_CALL(hipFuncSetAttribute(
-                hipFuncAttributeMaxDynamicSharedMemorySize, 
-                max_smem_bytes,
-                kernels[kernel_id]));
+	// Ignore for AMD GPUs 
     }
 
     void execute(int kernel_id, void* args[], KernelLaunchConfig config) {
         if(kernel_id >= kernels.size())
             throw std::logic_error("Kernel index out of range!");
 
-        HIP_SAFE_CALL(
+        HIP_ERRCHK(
             hipModuleLaunchKernel( (kernels[kernel_id]),
                             config.num_blocks, 1, 1,    // grid dim
                             config.num_threads, 1, 1,   // block dim
@@ -266,9 +267,9 @@ public:
         );            
     }
 
-    ~CUJITKernel() {
+    ~HIPJITKernel() {
         if(compiled) {
-            HIP_SAFE_CALL(hipModuleUnload(library));
+            HIP_ERRCHK(hipModuleUnload(library));
             delete[] code;
         }
         HIPRTC_SAFE_CALL(hiprtcDestroyProgram(&prog));

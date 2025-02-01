@@ -1,7 +1,6 @@
 #pragma once
 
-#include <nvrtc.h>
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -14,7 +13,7 @@ public:
    uint32_t num_threads = 0;
    uint32_t warp_size = 32;
    uint32_t smem = 0;
-   CUstream hStream = NULL;
+   hipStream_t hStream = NULL;
 
    KernelLaunchConfig() = default;
    ~KernelLaunchConfig() = default;
