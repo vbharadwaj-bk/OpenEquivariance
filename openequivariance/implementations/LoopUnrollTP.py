@@ -8,6 +8,10 @@ from openequivariance.benchmark.logging_utils import getLogger, bcolors
 from openequivariance.benchmark.e3nn_lite_utils import count_cg_non_zero
 logger = getLogger()
 
+def postprocess(kernel):
+    kernel = kernel.replace("__syncwarp();", "")
+    return kernel
+
 class LoopUnrollTP(TensorProductBase):
     def __init__(self, config, torch_op=True):
         super().__init__(config, torch_op=torch_op)
@@ -49,6 +53,7 @@ class LoopUnrollTP(TensorProductBase):
         self.jit_kernel = template.render(
             forward_schedule=forward_schedule,
             backward_schedule=backward_schedule)
+        self.jit_kernel = postprocess(self.jit_kernel)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel,

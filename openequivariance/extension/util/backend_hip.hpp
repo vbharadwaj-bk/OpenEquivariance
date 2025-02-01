@@ -194,9 +194,7 @@ public:
 
         std::vector<const char*> opts = {
             "--std=c++17",
-            sarg.c_str(),
-            "--split-compile=0",
-            "--use_fast_math"
+            sarg.c_str()
         }; 
 
         // =========================================================
