@@ -112,7 +112,8 @@ def benchmark_uvu(params):
 
 def benchmark_roofline(params):
     implementations =   [LoopUnrollTP, 
-                        CUETensorProduct]
+                        #CUETensorProduct
+                        ]
     directions = [  'forward',
                     'backward']
 

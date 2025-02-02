@@ -6,8 +6,6 @@ from openequivariance.benchmark.logging_utils import *
 from openequivariance.implementations.TensorProductBase import *
 logger = getLogger()
 
-# This class assumes a warp size of 32
-
 class IrrepMapping:
     '''
     Maps irreps from a source to a destination set.
@@ -161,8 +159,11 @@ class ComputationSchedule:
         '''
         # Note: does not work with variances for irreps; easy to add that in 
 
-        # Step 1: Break the irreps and the instructions into chunks of at most 32 x 32 x 32. 
+        # Step 1: Break the irreps and the instructions into chunks of at most warpsize * warpsize * warpsize 
 
+        launch_config = KernelLaunchConfig()
+        self.warpsize = launch_config.warp_size
+        self.chunksize = self.warpsize
         self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.total_warps = warps_per_block * block_count
 
@@ -185,8 +186,8 @@ class ComputationSchedule:
         for rep_raw_idx, rep in enumerate(reps_raw):
             for ir_idx_raw, mul_ir in enumerate(rep):
                 irrep_maps[rep_raw_idx, ir_idx_raw] = []
-                for mul_start in range(0, mul_ir.mul, 32): 
-                    mul = min(32, mul_ir.mul - mul_start) 
+                for mul_start in range(0, mul_ir.mul, self.warpsize): 
+                    mul = min(self.warpsize, mul_ir.mul - mul_start) 
                     reps[rep_raw_idx] += [(mul, mul_ir.ir)]
                     irrep_maps[rep_raw_idx, ir_idx_raw].append(len(reps[rep_raw_idx]) - 1)
 
@@ -243,9 +244,9 @@ class ComputationSchedule:
             smem["weights"]["size"] = weights_smem * weight_itemsize 
 
             if include_scratch: 
-                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                smem["weights"]["size"] = self.warpsize * self.warpsize * weight_itemsize
                 # Max irrep size of 10 -> dim = 21 
-                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
+                smem["scratch"]["size"] = (self.warpsize * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
@@ -282,11 +283,11 @@ class ComputationSchedule:
             smem["weights_grad"]["size"] = weights_smem * np.dtype(weight_dtype).itemsize
 
             if include_scratch: 
-                smem["weights"]["size"] = 32 * 32 * weight_itemsize
+                smem["weights"]["size"] = self.warpsize * self.warpsize * weight_itemsize
                 # We can reuse the weight buffer to accumulate the gradient in shared memory 
                 smem["weights_grad"]["size"] = 0 
                 # Max irrep size of 10 -> dim = 21 
-                smem["scratch"]["size"] = (32 * 21) * weight_itemsize 
+                smem["scratch"]["size"] = (self.warpsize * 21) * weight_itemsize 
 
             range_offsets = list(accumulate([smem[name]["size"] for name in smem], initial=0))
             for i, name in enumerate(smem):
@@ -367,9 +368,8 @@ class ComputationSchedule:
         true_max_smem = max([seg.smem["total"] for seg in self.segments])
         self.memory_per_warp = true_max_smem
 
-        launch_config = KernelLaunchConfig()
         launch_config.num_blocks = block_count
-        launch_config.num_threads = warps_per_block * 32
+        launch_config.num_threads = warps_per_block * self.warpsize
         launch_config.smem = self.memory_per_warp * warps_per_block 
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
