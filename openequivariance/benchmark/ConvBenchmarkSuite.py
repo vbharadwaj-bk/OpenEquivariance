@@ -3,40 +3,18 @@ import numpy as np
 import numpy.linalg as la
 import os
 
-from openequivariance import package_root
+import openequivariance as oeq
 from openequivariance.benchmark.logging_utils import *
 from openequivariance.implementations.convolution.ConvolutionBase import *
 logger = getLogger()
 
-def load_graph(name):
-    coords, rows, cols = None, None, None
-
-    def load_pickle(name):
-        with open(f"../data/molecular_structures/{name}.pickle", 'rb') as f:
-            result = pickle.load(f)
-            return result["coords"], result["row"], result["col"], name
-
-    pickle_files = [f[:-7] for f in os.listdir("../data/molecular_structures") if f.endswith(".pickle")]
-    for candidate in pickle_files:
-        if name == candidate:
-            logger.info(f"Loading {name} from pickle...")
-            coords, rows, cols, name = load_pickle(name) 
-            logger.info(f"Graph {name} loaded with {len(coords)} nodes and {len(rows)} edges.")
-
-    if name == "debug":
-        coords = np.array([[0.3, 0.4, 0.5], [0.3, 0.2, 0.1], [0.5, 0.4, 0.6]], dtype=np.float32)
-        rows = np.array([0, 1, 1, 2], dtype=np.uint32)
-        cols = np.array([1, 0, 2, 1], dtype=np.uint32)
-
-        coords = coords[:4]
-        rows = rows[:4]
-        cols = cols[:4] 
-
-        name = "debug" 
-
-    if coords is None or rows is None or cols is None:
-        logger.critical(f"{bcolors.FAIL}Could not find graph with name {name}{bcolors.ENDC}")
-        exit(1)
+def load_graph(filename):
+    coords, rows, cols, name = [None] * 4 
+    with open(filename, 'rb') as f:
+        logger.info(f"Loading {name} from pickle...")
+        result = pickle.load(f)
+        coords, rows, cols, name = result["coords"], result["row"], result["col"], name
+        logger.info(f"Graph {name} loaded with {len(coords)} nodes and {len(rows)} edges.")
 
     return CoordGraph(coords, rows.astype(np.int64), cols.astype(np.int64), name)
 
@@ -55,13 +33,19 @@ class ConvBenchmarkSuite:
         self.prng_seed = 12345
         self.correctness_threshold = 1e-5
         self.torch_op = torch_op
-
-        millis_since_epoch = round(time.time() * 1000)
-        self.output_folder = pathlib.Path(f'{package_root}/outputs/{millis_since_epoch}')
-        self.output_folder.mkdir(parents=True)
         self.exp_count = 0
 
-    def run(self, graph, implementations, direction, correctness=True, double_backward_correctness=False, benchmark=True):        
+    def run(self, graph, implementations, direction, output_folder=None, correctness=True, double_backward_correctness=False, benchmark=True):
+        millis_since_epoch = round(time.time() * 1000)
+        if output_folder is None:
+            if oeq._check_package_editable():
+                output_folder = oeq._editable_install_output_path / f"{millis_since_epoch}"
+            else:
+                raise ValueError("output folder must be specified for non-editable installs.")
+        else:
+            output_folder = pathlib.Path(output_folder) / f"{millis_since_epoch}"
+        output_folder.mkdir(parents=True)
+
         metadata = {
             "test_name": "Convolution",
             "configs": [str(config) for config in self.configs], 
@@ -69,7 +53,7 @@ class ConvBenchmarkSuite:
             "graph": graph.name
         }
         if self.exp_count == 0:
-            with open(os.path.join(self.output_folder,'metadata.json'), 'w') as f:
+            with open(os.path.join(output_folder,'metadata.json'), 'w') as f:
                 json.dump(metadata, f, indent=2) 
 
         for config in self.configs: 
@@ -122,7 +106,7 @@ class ConvBenchmarkSuite:
                     "double_backward_correctness": double_backward_correctness
                 }
          
-                fname = pathlib.Path(f"{self.output_folder}/{self.exp_count}_{impl.name()}_{graph.name}.json")
+                fname = pathlib.Path(f"{output_folder}/{self.exp_count}_{impl.name()}_{graph.name}.json")
                 with open(fname, 'w') as f:
                     json.dump(result, f, indent=2)
                 self.exp_count += 1
