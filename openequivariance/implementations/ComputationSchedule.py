@@ -143,6 +143,11 @@ def create_schedule_case3(instructions, memory_per_warp, calculate_smem):
 
     return segments
 
+class ChunkedProblem:
+    '''
+    Chunks an input problem to produce an output problem where all multiplicities lie below the provided threshold 
+    ''' 
+
 
 class ComputationSchedule:
     def __init__(self, 
