@@ -221,7 +221,12 @@ if __name__=='__main__':
     parser_conv.add_argument("--run_bench", action='store_true', help="Run benchmarks (disable to only download data)")
     parser_conv.set_defaults(func=benchmark_convolution)
 
+    parser_uvu = subparsers.add_parser('uvw', help='Run the UVW kernel benchmark without fusion') 
+    parser_uvu.add_argument("--batch_size", "-b", type=int, default=50000, help="Batch size for benchmark")
+    parser_uvu.add_argument("--directions", "-d", type=str, nargs='+',
+            default=['forward', 'backward'], help="Directions to benchmark",
+            choices=['forward', 'backward'])
+    parser_uvu.set_defaults(func=run_paper_uvw_benchmark)
+
     args = parser.parse_args()
     args.func(args)
-
-    #run_paper_uvw_benchmark()
