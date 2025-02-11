@@ -434,7 +434,6 @@ class ComputationSchedule:
         is treated as the batch dimension. 
         ''' 
         for i, child_inst in enumerate(self.problem_splitter.new_instructions):
-            # Step 1: copy over ranges induced by the chunked problem 
             parent_start, parent_end = child_inst.parent_weights_start, child_inst.parent_weights_end
             parent_shape = list(child_inst.parent_weights_shape)
 
