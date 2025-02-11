@@ -446,7 +446,7 @@ class ComputationSchedule:
             reshape_size = [-1]
             transpose_perm = None
 
-            connection_mode = self.updated_config.instrcutions[i].connection_mode
+            connection_mode = self.updated_config.instructions[i].connection_mode
             if connection_mode == "uvu":
                 transpose_perm = [1, 0]
             elif connection_mode == "uvw":
@@ -460,5 +460,5 @@ class ComputationSchedule:
                 reshape_size = [batch_dim] + reshape_size
                 transpose_perm = [0] + [i + 1 for i in transpose_perm]
 
-            sliced_weights = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)]
-            weights_out[tuple(child_range)] = sliced_weights.transpose(tuple(transpose_perm)).reshape(reshape_size)
+            sliced_weights = weights_in[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)]
+            weights_out[tuple(child_range)] = sliced_weights.transpose(transpose_perm).reshape(reshape_size)
