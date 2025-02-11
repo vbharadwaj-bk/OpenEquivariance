@@ -442,14 +442,17 @@ class ComputationSchedule:
 
             parent_range, child_range = [slice(parent_start, parent_end)], [slice(child_start, child_end)]
             weights_subrange = child_inst.weights_subrange 
+            batch_dim = weights_in.shape[0]
+            reshape_size = [-1]
 
             if has_batch_dim:
-                child_range = [slice(0)] + child_range
-                parent_range = [slice(0)] + parent_range 
-                parent_shape = [slice(0)] + parent_shape 
-                weights_subrange = [slice(0)] + child_inst.weights_subrange
+                child_range = [slice(0, batch_dim)] + child_range
+                parent_range = [slice(0, batch_dim)] + parent_range 
+                parent_shape = [batch_dim] + parent_shape 
+                weights_subrange = [slice(0, batch_dim)] + child_inst.weights_subrange
+                reshape_size = [batch_dim] + reshape_size
 
-            weights_out[tuple(child_range)] = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)].flatten()
+            weights_out[tuple(child_range)] = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)].reshape(reshape_size)
 
             # Step 2: transpose the weights
             #if child_inst.connection_mode == "uvu":
