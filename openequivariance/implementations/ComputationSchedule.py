@@ -218,11 +218,11 @@ class ProblemSplitter:
             w_end = w_start + child_reps[2][w].mul_ir[0]
 
             if connection_mode == "uvw":
-                child_inst.weights_subrange = (slice(u_start, u_end), slice(v_start, v_end), slice(w_start, w_end))
+                child_inst.weights_subrange = [slice(u_start, u_end), slice(v_start, v_end), slice(w_start, w_end)]
             elif connection_mode == "uvu":
-                child_inst.weights_subrange = (slice(u_start, u_end), slice(v_start, v_end)) 
+                child_inst.weights_subrange = [slice(u_start, u_end), slice(v_start, v_end)]
             elif connection_mode == "uuu":
-                child_inst.weights_subrange = slice(u_start, u_end)
+                child_inst.weights_subrange = [slice(u_start, u_end)]
 
             child_inst.parent_weights_start, child_inst.parent_weights_end, child_inst.parent_weights_shape = \
                     input.weight_range_and_shape_for_instruction(child_inst.parent_idx)
@@ -424,20 +424,33 @@ class ComputationSchedule:
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
 
-    def reorder_weights_forward(self, weights_in, weights_out):
+    def reorder_weights_forward(self, weights_in, weights_out, has_batch_dim):
         '''
         Reorders weights from the canonical e3nn form to the
         form that LoopUnrollTP can ingest. Can also reorder the parameters 
-        of a dense neural network layer that produces the weight matrix. 
-        '''
-        # Step 1: copy over ranges induced by the chunked problem 
+        of a dense neural network layer that produces the weight matrix.
+
+        If has_batch_dim is true, the first dimension of the input weight matrix
+        is treated as the batch dimension. 
+        ''' 
         for i, child_inst in enumerate(self.problem_splitter.new_instructions):
+            # Step 1: copy over ranges induced by the chunked problem 
             parent_start, parent_end = child_inst.parent_weights_start, child_inst.parent_weights_end
-            parent_shape = child_inst.parent_weights_shape
+            parent_shape = list(child_inst.parent_weights_shape)
 
-            child_start, child_end, _ = self.updated_config.weight_range_and_shape_for_instruction(i)
-            weights_out[child_start:child_end] = weights_in[parent_start:parent_end].reshape(parent_shape)[child_inst.weights_subrange].flatten()
+            child_start, child_end, child_shape = self.updated_config.weight_range_and_shape_for_instruction(i)
 
-            print(parent_start, parent_end, parent_shape)
-            print(child_start, child_end)
-            print('--------------------------------------')
+            parent_range, child_range = [slice(parent_start, parent_end)], [slice(child_start, child_end)]
+            weights_subrange = child_inst.weights_subrange 
+
+            if has_batch_dim:
+                child_range = [slice(0)] + child_range
+                parent_range = [slice(0)] + parent_range 
+                parent_shape = [slice(0)] + parent_shape 
+                weights_subrange = [slice(0)] + child_inst.weights_subrange
+
+            weights_out[tuple(child_range)] = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)].flatten()
+
+            # Step 2: transpose the weights
+            #if child_inst.connection_mode == "uvu":
+            #    pass
