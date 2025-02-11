@@ -176,7 +176,7 @@ if __name__=='__main__':
         #ChannelwiseTPP("128x0e+128x1o+128x2e", 
         #        "1x0e+1x1o+1x2e+1x3o",
         #        "128x0e+128x1o+128x2e+128x3o")
-        ChannelwiseTPP("1x0e", "2x0e", "1x0e")
+        ChannelwiseTPP("32x0e", "5x0e", "32x0e")
         #FCTPP("32x5e", "1x5e", "32x5e"),
     ]
 
@@ -200,7 +200,7 @@ if __name__=='__main__':
         #ManyOneUVWTP
         ]
 
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=True, benchmark=False) 

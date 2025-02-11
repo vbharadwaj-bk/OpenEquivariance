@@ -61,6 +61,9 @@ class LoopUnrollTP(TensorProductBase):
         if self.torch_op:
             self.setup_torch_custom_op()
 
+        with open("scratch.txt", "w") as f:
+            f.write(self.jit_kernel)
+
     def forward_cpu(self, L1_in, L2_in, L3_out, weights):
         super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights, "forward"))
 

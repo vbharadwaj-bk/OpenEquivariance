@@ -70,7 +70,6 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
             {%- endfor %}
             // ----------------- CORE CALCULATION -----------------
 
-
             {%- if problem.instructions[k].connection_mode == "uvw" %}
                 {{transpose_store(L1[u].mul, L3[w].ir.dim, 'scratch', '0', 'l3_vec', '=', '1.0')}}
                 __syncwarp();
@@ -86,7 +85,13 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
             {%- if problem.instructions[k].connection_mode != "uvw" %}
                 offset = {{ L3.slices()[w].start}}; 
                 {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', '1.0')}}
-            {%- endif %}
+
+                {%- if L2[v].mul > 1%}
+                #pragma unroll
+                for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                    l3_vec[j] = 0.0f;
+                {%- endif %}
+            {%- endif %}  
         }
     {%- endfor %}
 }
