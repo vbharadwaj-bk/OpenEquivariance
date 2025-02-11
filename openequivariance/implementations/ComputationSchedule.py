@@ -423,3 +423,17 @@ class ComputationSchedule:
         launch_config.smem = self.memory_per_warp * warps_per_block 
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
+
+    def reorder_weights_forward(self, weights_in, weights_out):
+        '''
+        Reorders weights from the canonical e3nn form to the
+        form that LoopUnrollTP can ingest. Can also reorder the parameters 
+        of a dense neural network layer that produces the weight matrix. 
+        '''
+        # Step 1: copy over ranges induced by the chunked problem 
+        for i, child_inst in enumerate(self.problem_splitter.new_instructions):
+            parent_start, parent_end = child_inst.parent_weights_start, child_inst.parent_weights_end
+            parent_shape = child_inst.parent_weights_shape
+
+            child_start, child_end, _ = self.updated_config.weight_range_and_shape_for_instruction(i)
+            weights_out[child_start:child_end] = weights_in[parent_start:parent_end].reshape(parent_shape)[child_inst.weights_subrange]
