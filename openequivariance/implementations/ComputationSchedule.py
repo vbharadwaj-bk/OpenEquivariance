@@ -150,10 +150,9 @@ class ProblemSplitter:
     of the output are "ChildIrreps", and the new
     instructions are "ChildInstructions". 
     ''' 
-
     class ChildIrrep:
-        def __init__(self, mul_ir, parent_idx):
-            self.mul_ir, self.parent_idx = mul_ir, parent_idx
+        def __init__(self, mul_ir, parent_idx, mul_start):
+            self.mul_ir, self.parent_idx, self.mul_start = mul_ir, parent_idx, mul_start 
 
     class ChildInstruction:
         def __init__(self, instruction_tup, parent_idx):
@@ -173,7 +172,7 @@ class ProblemSplitter:
                 self.irrep_maps[input_rep_idx, mul_ir_idx] = []
                 for mul_start in range(0, mul_ir.mul, mult_threshold): 
                     mul = min(mult_threshold, mul_ir.mul - mul_start) 
-                    child_reps[input_rep_idx] += [self.ChildIrrep((mul, mul_ir.ir), input_rep_idx)]
+                    child_reps[input_rep_idx] += [self.ChildIrrep((mul, mul_ir.ir), input_rep_idx, mul_start)]
                     self.irrep_maps[input_rep_idx, mul_ir_idx].append(len(child_reps[input_rep_idx]) - 1)
 
         new_instructions = []
@@ -191,18 +190,44 @@ class ProblemSplitter:
                     for idx2 in self.irrep_maps[1, v]:
                         for idx3 in self.irrep_maps[2, w]:
                             new_instructions.append(
-                                self.ChildInstruction((idx1, idx2, idx3, connection_mode, has_weight, path_weight ** 2),
-                                                      inst_idx))
+                                self.ChildInstruction(  (idx1, idx2, idx3, 
+                                                        connection_mode, has_weight, 
+                                                        path_weight ** 2), inst_idx))
 
         self.L1, self.L2, self.L3 = [   Irreps([child.mul_ir for child in reps])
                                         for reps in child_reps]
-        new_instructions = [child.instruction_tup for child in new_instructions]
         self.output = TPProblem(self.L1, self.L2, self.L3, 
-            new_instructions, irrep_normalization="none", path_normalization="none", 
+            [child.instruction_tup for child in new_instructions], 
+            irrep_normalization="none", path_normalization="none", 
             internal_weights=False, shared_weights=input.shared_weights)
 
         assert(self.output.weight_numel == input.weight_numel)
 
+        # For each new instruction, calculate the subrange of original weights
+        # that it maps to 
+
+        for child_inst in new_instructions:
+            u, v, w, connection_mode, _, _ = child_inst.instruction_tup
+
+            u_start = child_reps[0][u].mul_start
+            v_start = child_reps[1][v].mul_start
+            w_start = child_reps[2][w].mul_start
+
+            u_end = u_start + child_reps[0][u].mul_ir[0]
+            v_end = v_start + child_reps[1][v].mul_ir[0]
+            w_end = w_start + child_reps[2][w].mul_ir[0]
+
+            if connection_mode == "uvw":
+                child_inst.weights_subrange = (slice(u_start, u_end), slice(v_start, v_end), slice(w_start, w_end))
+            elif connection_mode == "uvu":
+                child_inst.weights_subrange = (slice(u_start, u_end), slice(v_start, v_end)) 
+            elif connection_mode == "uuu":
+                child_inst.weights_subrange = slice(u_start, u_end)
+
+            child_inst.parent_weights_start, child_inst.parent_weights_end, child_inst.parent_weights_shape = \
+                    input.weight_range_and_shape_for_instruction(child_inst.parent_idx)
+
+        self.new_instructions = new_instructions
 
 class ComputationSchedule:
     def __init__(self, 
