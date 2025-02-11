@@ -444,6 +444,13 @@ class ComputationSchedule:
             weights_subrange = child_inst.weights_subrange 
             batch_dim = weights_in.shape[0]
             reshape_size = [-1]
+            transpose_perm = None
+
+            connection_mode = self.updated_config.instrcutions[i].connection_mode
+            if connection_mode == "uvu":
+                transpose_perm = [1, 0]
+            elif connection_mode == "uvw":
+                transpose_perm = [1, 0, 2]
 
             if has_batch_dim:
                 child_range = [slice(0, batch_dim)] + child_range
@@ -451,9 +458,7 @@ class ComputationSchedule:
                 parent_shape = [batch_dim] + parent_shape 
                 weights_subrange = [slice(0, batch_dim)] + child_inst.weights_subrange
                 reshape_size = [batch_dim] + reshape_size
+                transpose_perm = [0] + [i + 1 for i in transpose_perm]
 
-            weights_out[tuple(child_range)] = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)].reshape(reshape_size)
-
-            # Step 2: transpose the weights
-            #if child_inst.connection_mode == "uvu":
-            #    pass
+            sliced_weights = weights_in[tuple(parent_range)].reshape(tuple(parent_shape))[tuple(weights_subrange)]
+            weights_out[tuple(child_range)] = sliced_weights.transpose(tuple(transpose_perm)).reshape(reshape_size)
