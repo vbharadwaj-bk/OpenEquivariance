@@ -436,4 +436,8 @@ class ComputationSchedule:
             parent_shape = child_inst.parent_weights_shape
 
             child_start, child_end, _ = self.updated_config.weight_range_and_shape_for_instruction(i)
-            weights_out[child_start:child_end] = weights_in[parent_start:parent_end].reshape(parent_shape)[child_inst.weights_subrange]
+            weights_out[child_start:child_end] = weights_in[parent_start:parent_end].reshape(parent_shape)[child_inst.weights_subrange].flatten()
+
+            print(parent_start, parent_end, parent_shape)
+            print(child_start, child_end)
+            print('--------------------------------------')

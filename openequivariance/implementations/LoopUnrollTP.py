@@ -28,7 +28,7 @@ class LoopUnrollTP(TensorProductBase):
         assert(config.irrep_dtype == config.weight_dtype)
         self.is_uvw = (config.instructions[0].connection_mode == "uvw")
 
-        forward_schedule = ComputationSchedule(self.config, 
+        self.forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 4,
                 direction = "forward",
@@ -37,7 +37,7 @@ class LoopUnrollTP(TensorProductBase):
                 include_scratch=self.is_uvw,
                 stream_weights=self.is_uvw)
 
-        backward_schedule = ComputationSchedule(self.config, 
+        self.backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=8,
                 block_count=dp.multiprocessorCount * 3,
                 direction = "backward",
@@ -47,13 +47,13 @@ class LoopUnrollTP(TensorProductBase):
                 stream_weights=self.is_uvw)
 
         self.jit_kernel = template.render(
-            forward_schedule=forward_schedule,
-            backward_schedule=backward_schedule)
+            forward_schedule=self.forward_schedule,
+            backward_schedule=self.backward_schedule)
 
         logger.info("Starting NVRTC")
         self.internal = JITTPImpl(self.jit_kernel,
-                forward_schedule.launch_config,
-                backward_schedule.launch_config)
+                self.forward_schedule.launch_config,
+                self.backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
         logger.info(f"CUDA Kernel File Size: {len(self.jit_kernel) // 1000} KB")
@@ -65,7 +65,9 @@ class LoopUnrollTP(TensorProductBase):
             f.write(self.jit_kernel)
 
     def forward_cpu(self, L1_in, L2_in, L3_out, weights):
-        super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights, "forward"))
+        weights_chunked = np.zeros_like(weights)
+        self.forward_schedule.reorder_weights_forward(weights, weights_chunked) 
+        super().forward_cpu(L1_in, L2_in, L3_out, self.reorder_weights(weights_chunked, "forward"))
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad):
         super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad,
