@@ -177,8 +177,8 @@ if __name__=='__main__':
         #        "1x0e+1x1o+1x2e+1x3o",
         #        "128x0e+128x1o+128x2e+128x3o")
         #ChannelwiseTPP("32x0e", "5x0e", "32x0e")
-        #FCTPP("48x0e", "2x0e", "48x0e", shared_weights=False),
-        FCTPP("10x1o + 10x1e + 48x0e + 48x0o", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e + 48x0o", shared_weights=False, label='DiffDock-L=2'),
+        FCTPP("64x0e", "1x0e", "1x0e", shared_weights=False),
+        #FCTPP("10x1o + 10x1e + 48x0e + 48x0o", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e + 48x0o", shared_weights=False, label='DiffDock-L=2'),
     ]
 
     #for problem in conv_problems:
