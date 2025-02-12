@@ -292,30 +292,3 @@ class TensorProductBase:
             return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7)
 
         backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
-
-
-    def reorder_weights(self, weights, direction):
-        config = self.config
-        weights_copy = weights.copy()
-
-        for i, inst in enumerate(self.config.instructions):
-            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
-            if inst.connection_mode == "uvu":
-                if direction == "backward":
-                    shape = (shape[1], shape[0])
-                if not config.shared_weights:
-                    shape = (weights_copy.shape[0], shape[0], shape[1])
-                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
-                else:
-                    raise Exception("Not supported (yet)!")
-
-            if inst.connection_mode == "uvw":
-                if direction == "backward":
-                    shape = (shape[1], shape[0], shape[2])
-                if config.shared_weights:
-                    weights_copy[start:end] = weights[start:end].reshape(shape).transpose(1, 0, 2).flatten()
-                else:
-                    shape = (weights_copy.shape[0], shape[0], shape[1], shape[2])
-                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1, 3).reshape(-1, end - start)
-
-        return weights_copy

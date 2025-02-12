@@ -87,7 +87,7 @@ def benchmark_uvu(params):
 
             problems.append(problem)
  
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, problems, directions)]
 
@@ -101,7 +101,7 @@ def benchmark_uvu(params):
     if 'e3nn' in params.implementations and 'float64' in params.datatypes:
         tests.extend([TestDefinition(E3NNTensorProduct, 
             CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
-                    'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=False, benchmark=True) 
+                    'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=True, benchmark=True) 
                     for direction in ['forward', 'backward']])
 
     bench_suite = TestBenchmarkSuite(
@@ -121,7 +121,7 @@ def benchmark_roofline(params):
     directions = [  'forward',
                     'backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, roofline_configs, directions)]
 
@@ -184,7 +184,7 @@ def benchmark_convolution(params):
                     implementations = implementations,
                     graph = graph,
                     direction=direction, 
-                    correctness=False,
+                    correctness=True,
                     double_backward_correctness=False,
                     benchmark=True,
                     output_folder=params.output_folder)

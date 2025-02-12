@@ -177,7 +177,7 @@ if __name__=='__main__':
         #        "128x0e+128x1o+128x2e+128x3o")
         #ChannelwiseTPP("48x0e", "2x0e", "48x0e")
         #FCTPP("48x0e", "2x0e", "1x0e", shared_weights=False),
-        #FCTPP("10x1o + 10x1e + 48x0e", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e", shared_weights=False, label='DiffDock-L=2'),
+        FCTPP("10x1o + 10x1e + 48x0e", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e", shared_weights=False, label='DiffDock-L=2'),
     ]
 
     #for problem in conv_problems:
@@ -203,7 +203,7 @@ if __name__=='__main__':
     directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
-                correctness=True, benchmark=False) 
+                correctness=True, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
