@@ -4,7 +4,7 @@
 [[Supported Tensor Products]](#tensor-products-we-accelerate)
 [[Citation and Acknowledgements]](#citation-and-acknowledgements)
 
-OpeqnEquivariance is a kernel generator for the Clebsch-Gordon tensor product, 
+OpenEquivariance is a kernel generator for the Clebsch-Gordon tensor product, 
 a key kernel in rotation-equivariant deep neural networks. 
 It implements some of the tensor products 
 that [e3nn](https://e3nn.org/) supports that are
@@ -225,7 +225,7 @@ developers and maintainers!
 
 ## Copyright
 
-Copyright (c) 2025, The Regents of the University of California, through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy.) All rights reserved. 
+Copyright (c) 2025, The Regents of the University of California, through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy). All rights reserved. 
 
 If you have questions about your rights to use or distribute this software, please contact Berkeley Lab's Intellectual Property Office at IPO@lbl.gov.
 

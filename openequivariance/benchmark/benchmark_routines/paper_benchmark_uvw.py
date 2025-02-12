@@ -31,7 +31,7 @@ def run_paper_uvw_benchmark(params) -> pathlib.Path:
         CUETensorProduct,
         LoopUnrollTP]
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
                 for problem, direction, implementation
                 in itertools.product(problems, params.directions, implementations)]
 
