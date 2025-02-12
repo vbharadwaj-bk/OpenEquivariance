@@ -127,7 +127,7 @@ We highly recommend that you use
 ### Install via pip
 After activating an environment of your choice, run
 ```bash
-pip install git+https://github.com/vbharadwaj-bk/OpenEquivariance
+pip install git+https://github.com/PASSIONLab/OpenEquivariance
 ```
 After installation, the very first library
 import will trigger a build of a C++ extension we use.
@@ -151,7 +151,7 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
 
 2. **Install**: Build our package and install via `pip`: 
     ```bash
-    git clone https://github.com/vbharadwaj-bk/OpenEquivariance
+    git clone https://github.com/PASSIONLab/OpenEquivariance
     cd OpenEquivariance 
     sh dev_build.sh 
     pip install . # Use pip install -e . for an editable install 
