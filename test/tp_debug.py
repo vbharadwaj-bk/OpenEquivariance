@@ -19,7 +19,6 @@ from openequivariance.implementations.E3NNTensorProduct import (
     E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
     )
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct
-import openequivariance.implementations.warp_matmul as warp_matmul 
 
 logger = getLogger()
 
@@ -177,8 +176,8 @@ if __name__=='__main__':
         #        "1x0e+1x1o+1x2e+1x3o",
         #        "128x0e+128x1o+128x2e+128x3o")
         #ChannelwiseTPP("48x0e", "2x0e", "48x0e")
-        #FCTPP("64x0e", "2x0e", "1x0e", shared_weights=False),
-        FCTPP("10x1o + 10x1e + 48x0e + 48x0o", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e + 48x0o", shared_weights=False, label='DiffDock-L=2'),
+        #FCTPP("48x0e", "2x0e", "1x0e", shared_weights=False),
+        FCTPP("10x1o + 10x1e + 32x0e + 16x0e", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 32x0e", shared_weights=False, label='DiffDock-L=2'),
     ]
 
     #for problem in conv_problems:
@@ -201,7 +200,7 @@ if __name__=='__main__':
         #ManyOneUVWTP
         ]
 
-    directions = ['backward'] 
+    directions = ['forward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
                 correctness=True, benchmark=False) 
