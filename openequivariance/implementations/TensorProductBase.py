@@ -71,7 +71,7 @@ class TensorProductBase:
         weights_chunked = np.zeros_like(weights)        
         if self.reorder_weights_e3nn_to_oeq is not None:
             weights_chunked = np.zeros_like(weights)
-            self.reorder_weights_e3nn_to_oeq(weights, weights_chunked)
+            self.reorder_weights_e3nn_to_oeq(weights, weights_chunked, not self.config.shared_weights)
         else:
             weights_chunked = weights
 

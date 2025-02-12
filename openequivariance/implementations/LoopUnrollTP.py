@@ -69,19 +69,6 @@ class LoopUnrollTP(TensorProductBase):
         #with open("scratch.txt", "w") as f:
         #    f.write(self.jit_kernel)
 
-    #def forward_cpu(self, L1_in, L2_in, L3_out, weights):
-    #    weights_chunked = np.zeros_like(weights)
-    #    self.forward_schedule.reorder_weights(weights, weights_chunked, "forward", not self.config.shared_weights) 
-    #    super().forward_cpu(L1_in, L2_in, L3_out, weights_chunked)
-
-    #def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad):
-    #    weights_chunked = np.zeros_like(weights)
-    #    self.forward_schedule.reorder_weights(weights, weights_chunked, "forward", not self.config.shared_weights) 
-
-    #    super().backward_cpu(L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights_chunked, weights_grad)
-    #    weights_grad_copy = weights_grad.copy()
-    #    self.forward_schedule.reorder_weights(weights_grad_copy, weights_grad, "backward", not self.config.shared_weights)
-
     @staticmethod
     def name():
         return "LoopUnrollTP"
