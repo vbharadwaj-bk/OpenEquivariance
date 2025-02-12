@@ -424,7 +424,7 @@ class ComputationSchedule:
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
 
-    def reorder_weights_forward(self, weights_in, weights_out, has_batch_dim):
+    def reorder_weights(self, weights_in, weights_out, direction, has_batch_dim):
         '''
         Reorders weights from the canonical e3nn form to the
         form that LoopUnrollTP can ingest. Can also reorder the parameters 
@@ -432,7 +432,9 @@ class ComputationSchedule:
 
         If has_batch_dim is true, the first dimension of the input weight matrix
         is treated as the batch dimension. 
-        ''' 
+        '''
+        weights_out *= 0.0
+        assert(direction in ["forward", "backward"])
         for i, child_inst in enumerate(self.problem_splitter.new_instructions):
             parent_start, parent_end = child_inst.parent_weights_start, child_inst.parent_weights_end
             parent_shape = list(child_inst.parent_weights_shape)
@@ -455,9 +457,14 @@ class ComputationSchedule:
                 child_range = [slice(0, batch_dim)] + child_range
                 parent_range = [slice(0, batch_dim)] + parent_range 
                 parent_shape = [batch_dim] + parent_shape 
+                child_shape = [batch_dim] + list(child_shape)
                 weights_subrange = [slice(0, batch_dim)] + child_inst.weights_subrange
                 reshape_size = [batch_dim] + reshape_size
                 transpose_perm = [0] + [i + 1 for i in transpose_perm]
 
-            sliced_weights = weights_in[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)]
-            weights_out[tuple(child_range)] = sliced_weights.transpose(transpose_perm).reshape(reshape_size)
+            if direction == "forward":
+                sliced_weights = weights_in[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)]
+                weights_out[tuple(child_range)] = sliced_weights.transpose(transpose_perm).reshape(reshape_size)
+            elif direction == "backward":
+                sliced_weights = weights_in[tuple(child_range)].reshape(child_shape).transpose(transpose_perm)
+                weights_out[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)] = sliced_weights.flatten().reshape(child_shape)
