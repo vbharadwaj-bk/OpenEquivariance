@@ -466,5 +466,6 @@ class ComputationSchedule:
                 sliced_weights = weights_in[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)]
                 weights_out[tuple(child_range)] = sliced_weights.transpose(transpose_perm).reshape(reshape_size)
             elif direction == "backward":
-                sliced_weights = weights_in[tuple(child_range)].reshape(child_shape).transpose(transpose_perm)
+                transpose_child_shape = [child_shape[i] for i in transpose_perm]
+                sliced_weights = weights_in[tuple(child_range)].reshape(transpose_child_shape).transpose(transpose_perm)
                 weights_out[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)] = sliced_weights.flatten().reshape(child_shape)
