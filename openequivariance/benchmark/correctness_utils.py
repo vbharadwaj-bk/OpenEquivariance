@@ -154,8 +154,8 @@ def correctness_backward(
         ]:
         result[name] = check_similiarity(name, to_check, ground_truth, threshold)
 
-    print(la.norm(test_weights_grad))
-    print(la.norm(ref_weights_grad))
+    print(la.norm(test_in2_grad))
+    print(la.norm(ref_in2_grad))
 
     return result
 
