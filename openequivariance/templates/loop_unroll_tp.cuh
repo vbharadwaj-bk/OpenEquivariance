@@ -152,7 +152,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
         {%- endif %}
 
         for(int k = 0; k < {{L2[v].mul}}; k++) {
-            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] or L2[v].mul > 1 %}
+            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] or L2[v].mul > 1 or L1[u].mul != L1[interactions[k-1][0]].mul %}
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}]; 
@@ -218,7 +218,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                 }
             {%- endif %}
 
-            {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 %}
+            {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 or L1[u].mul != L1[interactions[k+1][0]].mul %}
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
                     if(lane_id >= {{L1[u].mul}}) {
