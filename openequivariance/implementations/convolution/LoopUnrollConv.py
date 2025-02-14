@@ -25,7 +25,7 @@ class LoopUnrollConv(ConvolutionBase):
             backward_schedule_type = 3
             template = env.get_template("loop_unroll_conv_det.cuh")
 
-        forward_schedule = ComputationSchedule(self.config, 
+        self.forward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock // 4 * 3, warps_per_block=6,
                 block_count=dp.multiprocessorCount,
                 direction = "forward",
@@ -33,7 +33,7 @@ class LoopUnrollConv(ConvolutionBase):
                 weight_dtype = config.weight_dtype,
                 schedule_type=forward_schedule_type)
 
-        backward_schedule = ComputationSchedule(self.config, 
+        self.backward_schedule = ComputationSchedule(self.config, 
                 smem_limit=dp.maxSharedMemPerBlock, warps_per_block=6,
                 block_count=dp.multiprocessorCount * 2,
                 direction = "backward",
@@ -42,11 +42,11 @@ class LoopUnrollConv(ConvolutionBase):
                 schedule_type=backward_schedule_type)
 
         if not deterministic:
-            for segment in forward_schedule.segments:
+            for segment in self.forward_schedule.segments:
                 for key in segment.L3Map.storeback_procedure:
                     segment.L3Map.storeback_procedure[key] = "atomic_accumulate"
 
-            for segment in backward_schedule.segments:
+            for segment in self.backward_schedule.segments:
                 for key in segment.L1Map.storeback_procedure:
                     segment.L1Map.storeback_procedure[key] = "atomic_accumulate"
 
@@ -61,20 +61,20 @@ class LoopUnrollConv(ConvolutionBase):
         if deterministic:
             destination_index_bytes = 32 # Add extra to account for padding
             workspace_size = max(
-                (forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * forward_schedule.total_warps,
-                (backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * backward_schedule.total_warps)
+                (self.forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * self.forward_schedule.total_warps,
+                (self.backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize + destination_index_bytes) * self.backward_schedule.total_warps)
             self.allocate_workspace(workspace_size)
 
-            self.forward_workspace_offset = forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize * forward_schedule.total_warps
-            self.backward_workspace_offset = backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize * backward_schedule.total_warps
+            self.forward_workspace_offset = self.forward_schedule.L3.dim * np.dtype(config.irrep_dtype).itemsize * self.forward_schedule.total_warps
+            self.backward_workspace_offset = self.backward_schedule.L1.dim * np.dtype(config.irrep_dtype).itemsize * self.backward_schedule.total_warps
 
             self.forward_workspace_offset = (self.forward_workspace_offset + 7) // 8 * 8
             self.backward_workspace_offset = (self.backward_workspace_offset + 7) // 8 * 8
 
 
         self.jit_kernel = template.render(
-            forward_schedule=forward_schedule,
-            backward_schedule=backward_schedule,
+            forward_schedule=self.forward_schedule,
+            backward_schedule=self.backward_schedule,
             idx_type=idx_type_map[idx_dtype],
             forward_workspace_offset=self.forward_workspace_offset,
             backward_workspace_offset=self.backward_workspace_offset)
@@ -82,8 +82,8 @@ class LoopUnrollConv(ConvolutionBase):
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
-                forward_schedule.launch_config, 
-                backward_schedule.launch_config)
+                self.forward_schedule.launch_config, 
+                self.backward_schedule.launch_config)
         logger.info("Kernel compiled!")
 
     @staticmethod

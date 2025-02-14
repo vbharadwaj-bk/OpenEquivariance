@@ -254,10 +254,14 @@ class TensorProductBase:
             L2_grad = torch.empty_like(L2_in)
             weights_grad = torch.empty_like(weights)
             
-            self.backward_raw( L1_in.shape[0], L1_in.data_ptr(), L1_grad.data_ptr(),
-                        L2_in.data_ptr(), L2_grad.data_ptr(),
-                        weights.data_ptr(), weights_grad.data_ptr(),
-                        L3_grad.data_ptr() )
+            self.backward_raw( L1_in.shape[0], 
+                        L1_in.contiguous().data_ptr(), 
+                        L1_grad.data_ptr(),
+                        L2_in.contiguous().data_ptr(), 
+                        L2_grad.data_ptr(),
+                        weights.contiguous().data_ptr(), 
+                        weights_grad.data_ptr(),
+                        L3_grad.contiguous().data_ptr() )
             
             return [L1_grad, L2_grad, weights_grad] 
         

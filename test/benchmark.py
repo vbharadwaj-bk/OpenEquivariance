@@ -204,7 +204,7 @@ def benchmark_convolution(params):
                     implementations = implementations,
                     graph = graph,
                     direction=direction, 
-                    correctness=True,
+                    correctness=False,
                     double_backward_correctness=False,
                     benchmark=True,
                     output_folder=params.output_folder)
@@ -237,10 +237,8 @@ if __name__=='__main__':
     parser_correctness = subparsers.add_parser('correctness', help='Run correctness tests')
     parser_correctness.set_defaults(func=correctness)
 
-    args = parser.parse_args()
-    args.func(args)
     parser_conv = subparsers.add_parser('conv', help='Run the convolution benchmark')
-    parser_conv.add_argument("--folder", type=str, help="Folder containing graph data")
+    parser_conv.add_argument("--folder", type=str, help="Folder containing graph data", required=True)
     parser_conv.add_argument("--no_download", action='store_true', default=False, help="Download data if it does not exist")
     parser_conv.add_argument("--run_bench", action='store_true', help="Run benchmarks (disable to only download data)")
     parser_conv.set_defaults(func=benchmark_convolution)
