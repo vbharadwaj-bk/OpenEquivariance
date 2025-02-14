@@ -10,7 +10,11 @@ It implements some of the tensor products
 that [e3nn](https://e3nn.org/) supports that are
 commonly found in graph neural networks 
 (e.g. [Nequip](https://github.com/mir-group/nequip) or
-[MACE](https://github.com/ACEsuit/mace)). 
+[MACE](https://github.com/ACEsuit/mace)). To get started, install our package via
+
+```bash
+pip install git+https://github.com/PASSIONLab/OpenEquivariance
+```
 
 We provide up to an order of magnitude acceleration over e3nn
 and up to ~2x speedup over 
@@ -19,8 +23,7 @@ which has a closed-source kernel package. We also offer fused
 equivariant graph convolutions that can reduce 
 computation and memory consumption significantly. 
 
-We currently support NVIDIA GPUs and offer a torch frontend.
-HIP support for AMD is planned!
+We currently support NVIDIA GPUs and offer a PyTorch frontend.
 
 **Warning**: This is an early release, bug reports are welcome.
 
