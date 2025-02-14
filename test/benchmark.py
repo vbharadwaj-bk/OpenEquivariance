@@ -137,6 +137,26 @@ def benchmark_roofline(params):
     logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
+def correctness(params):
+    implementations = [LoopUnrollTP]
+    directions = [ 'forward', 'backward']
+    problems = [CTPP(*config) for config in mace_conv + nequip_conv]
+
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
+             for implementation, problem, direction
+             in itertools.product(implementations, problems, directions)]
+
+    bench_suite = TestBenchmarkSuite(
+        correctness_threshold = 5e-5,
+        num_warmup=100,
+        num_iter=100,
+        prng_seed=11111,
+        torch_op=False
+    )
+
+    logger.setLevel(logging.INFO)
+    bench_suite.run(tests, params.output_folder)
+
 def benchmark_convolution(params):
     filenames = [   "covid_spike_radius3.0.pickle", 
                     "1drf_radius6.0.pickle", 
@@ -214,6 +234,11 @@ if __name__=='__main__':
     parser_roofline = subparsers.add_parser('roofline', help='Run the roofline comparison')
     parser_roofline.set_defaults(func=benchmark_roofline)
 
+    parser_correctness = subparsers.add_parser('correctness', help='Run correctness tests')
+    parser_correctness.set_defaults(func=correctness)
+
+    args = parser.parse_args()
+    args.func(args)
     parser_conv = subparsers.add_parser('conv', help='Run the convolution benchmark')
     parser_conv.add_argument("--folder", type=str, help="Folder containing graph data")
     parser_conv.add_argument("--no_download", action='store_true', default=False, help="Download data if it does not exist")

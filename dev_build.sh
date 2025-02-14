@@ -7,4 +7,4 @@ cmake ../openequivariance/extension -Dpybind11_DIR=$($PYTHON -m pybind11 --cmake
 make -j4
 cmake --install . --prefix ../openequivariance/extlib
 popd;
-rm -rf build;
+#rm -rf build;

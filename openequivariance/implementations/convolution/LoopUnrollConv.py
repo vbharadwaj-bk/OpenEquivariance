@@ -78,13 +78,13 @@ class LoopUnrollConv(ConvolutionBase):
             idx_type=idx_type_map[idx_dtype],
             forward_workspace_offset=self.forward_workspace_offset,
             backward_workspace_offset=self.backward_workspace_offset)
+        self.jit_kernel = postprocess_kernel(self.jit_kernel)
 
         logger.info("Starting NVRTC")
         self.internal = JITConvImpl(self.jit_kernel,
                 forward_schedule.launch_config, 
                 backward_schedule.launch_config)
         logger.info("Kernel compiled!")
-
 
     @staticmethod
     def name():

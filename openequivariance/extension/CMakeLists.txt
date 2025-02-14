@@ -6,20 +6,10 @@ find_package(pybind11 REQUIRED)
 find_package(Python COMPONENTS Interpreter Development)
 
 set(core_SOURCES
-  util/gpu_util.hpp
   util/buffer.hpp
-  util/buffer.cpp
-  util/jit.hpp
-  util/jit.cpp
-  util/device_prop.hpp
-  util/device_prop.cpp
-  util/mm_tester.hpp
-
-  tensorproducts/tensorproducts.hpp
-  tensorproducts/jit_tp.cpp
-
-  convolution/convolution.hpp
-  convolution/jit_conv.cpp
+  util/backend_cuda.hpp
+  tensorproducts.hpp
+  convolution.hpp
 )
 
 add_library(kernel_wrapper MODULE ${core_SOURCES} kernel_wrapper.cpp)
@@ -27,8 +17,6 @@ set_property(TARGET kernel_wrapper PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(kernel_wrapper PUBLIC 
   ${CMAKE_CURRENT_SOURCE_DIR}/util
-  ${CMAKE_CURRENT_SOURCE_DIR}/tensorproducts
-  ${CMAKE_CURRENT_SOURCE_DIR}/convolution
 )
 
 set_target_properties(kernel_wrapper PROPERTIES LINKER_LANGUAGE CXX)
