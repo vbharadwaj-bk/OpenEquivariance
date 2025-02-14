@@ -100,8 +100,8 @@ public:
 
     JITConvImpl(
         std::string jit_kernel,
-        KernelLaunchConfig &forward_config_i,
-        KernelLaunchConfig &backward_config_i) :
+        KernelLaunchConfig forward_config_i,
+        KernelLaunchConfig backward_config_i) :
             jit(jit_kernel),
             forward_config(forward_config_i),  
             backward_config(backward_config_i) {

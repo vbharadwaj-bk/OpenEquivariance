@@ -591,10 +591,10 @@ class ConvolutionBase:
                 weights_grad = torch.empty_like(weights)
 
                 self.internal.backward_rawptrs(
-                        L1_in.data_ptr(), L1_grad.data_ptr(),
-                        L2_in.data_ptr(), L2_grad.data_ptr(),
-                        weights.data_ptr(), weights_grad.data_ptr(),
-                        L3_grad.data_ptr(),
+                        L1_in.contiguous().data_ptr(), L1_grad.data_ptr(),
+                        L2_in.contiguous().data_ptr(), L2_grad.data_ptr(),
+                        weights.contiguous().data_ptr(), weights_grad.data_ptr(),
+                        L3_grad.contiguous().data_ptr(),
                         rows.data_ptr(), cols.data_ptr(),
                         rows.shape[0], L1_in.shape[0],
                         self.workspace_ptr,
@@ -664,10 +664,10 @@ class ConvolutionBase:
                 weights_grad = torch.empty_like(weights)
 
                 self.internal.backward_rawptrs(
-                        L1_in.data_ptr(), L1_grad.data_ptr(),
-                        L2_in.data_ptr(), L2_grad.data_ptr(),
-                        weights.data_ptr(), weights_grad.data_ptr(),
-                        L3_grad.data_ptr(),
+                        L1_in.contiguous().data_ptr(), L1_grad.data_ptr(),
+                        L2_in.contiguous().data_ptr(), L2_grad.data_ptr(),
+                        weights.contiguous().data_ptr(), weights_grad.data_ptr(),
+                        L3_grad.contiguous().data_ptr(),
                         rows.data_ptr(), cols.data_ptr(),
                         rows.shape[0], L1_in.shape[0],
                         self.workspace_ptr,
