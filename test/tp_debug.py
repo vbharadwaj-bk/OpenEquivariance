@@ -19,7 +19,6 @@ from openequivariance.implementations.E3NNTensorProduct import (
     E3NNTensorProductCompiledMaxAutotuneCUDAGraphs,
     )
 from openequivariance.implementations.CUETensorProduct import CUETensorProduct
-import openequivariance.implementations.warp_matmul as warp_matmul 
 
 logger = getLogger()
 
@@ -173,9 +172,12 @@ if __name__=='__main__':
         #FCTPP("10x1o + 10x1e + 48x0e + 48x0o", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e + 48x0o", shared_weights=False, label='DiffDock L = 2'),
 
         #SingleInstruction("32x5e", "1x3e", "32x5e", "uvu", True),
-        ChannelwiseTPP("128x0e+128x1o+128x2e", 
-                "1x0e+1x1o+1x2e+1x3o",
-                "128x0e+128x1o+128x2e+128x3o")
+        #ChannelwiseTPP("128x0e+128x1o+128x2e", 
+        #        "1x0e+1x1o+1x2e+1x3o",
+        #        "128x0e+128x1o+128x2e+128x3o")
+        #ChannelwiseTPP("48x0e", "2x0e", "48x0e")
+        #FCTPP("48x0e", "2x0e", "1x0e", shared_weights=False),
+        FCTPP("10x1o + 10x1e + 48x0e", "1x0e + 1x1o + 1x2e", "10x1o + 10x1e + 48x0e", shared_weights=False, label='DiffDock-L=2'),
     ]
 
     #for problem in conv_problems:
@@ -198,10 +200,10 @@ if __name__=='__main__':
         #ManyOneUVWTP
         ]
 
-    directions = ['forward'] 
+    directions = ['backward'] 
 
     tests = [TestDefinition(implementation, problem, direction, 
-                correctness=False, benchmark=True) 
+                correctness=True, benchmark=True) 
              for problem, direction, implementation
              in itertools.product(problems, directions, implementations)]
  
@@ -209,7 +211,7 @@ if __name__=='__main__':
         correctness_threshold = 5e-5,
         num_warmup=100,
         num_iter=30,
-        correctness_batch_size=1_000,
+        correctness_batch_size=10,
         bench_batch_size=50_000,
         #reference_implementation=NumpyTensorProduct,
         prng_seed=11111,

@@ -4,7 +4,7 @@
 [[Supported Tensor Products]](#tensor-products-we-accelerate)
 [[Citation and Acknowledgements]](#citation-and-acknowledgements)
 
-OpeqnEquivariance is a kernel generator for the Clebsch-Gordon tensor product, 
+OpenEquivariance is a kernel generator for the Clebsch-Gordon tensor product, 
 a key kernel in rotation-equivariant deep neural networks. 
 It implements some of the tensor products 
 that [e3nn](https://e3nn.org/) supports that are
@@ -127,7 +127,7 @@ We highly recommend that you use
 ### Install via pip
 After activating an environment of your choice, run
 ```bash
-pip install git+https://github.com/vbharadwaj-bk/OpenEquivariance
+pip install git+https://github.com/PASSIONLab/OpenEquivariance
 ```
 After installation, the very first library
 import will trigger a build of a C++ extension we use.
@@ -151,7 +151,7 @@ compiler that CMake can find. If not, you can install [gxx](https://anaconda.org
 
 2. **Install**: Build our package and install via `pip`: 
     ```bash
-    git clone https://github.com/vbharadwaj-bk/OpenEquivariance
+    git clone https://github.com/PASSIONLab/OpenEquivariance
     cd OpenEquivariance 
     sh dev_build.sh 
     pip install . # Use pip install -e . for an editable install 
@@ -222,3 +222,11 @@ Our codebase includes a lightweight clone of
 and separated the implementation from the problem description (for future
 frontend support outside of torch). Thank you to the current
 developers and maintainers! 
+
+## Copyright
+
+Copyright (c) 2025, The Regents of the University of California, through Lawrence Berkeley National Laboratory (subject to receipt of any required approvals from the U.S. Dept. of Energy). All rights reserved. 
+
+If you have questions about your rights to use or distribute this software, please contact Berkeley Lab's Intellectual Property Office at IPO@lbl.gov.
+
+NOTICE. This Software was developed under funding from the U.S. Department of Energy and the U.S. Government consequently retains certain rights. As such, the U.S. Government has been granted for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the Software to reproduce, distribute copies to the public, prepare derivative works, and perform publicly and display publicly, and to permit others to do so.

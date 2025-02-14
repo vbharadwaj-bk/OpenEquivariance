@@ -70,7 +70,6 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
             {%- endfor %}
             // ----------------- CORE CALCULATION -----------------
 
-
             {%- if problem.instructions[k].connection_mode == "uvw" %}
                 {{transpose_store(L1[u].mul, L3[w].ir.dim, 'scratch', '0', 'l3_vec', '=', '1.0')}}
                 __syncwarp();
@@ -86,7 +85,13 @@ __device__ __forceinline__ void forward_loop_unroll_{{id}}(IRREP_T* __restrict__
             {%- if problem.instructions[k].connection_mode != "uvw" %}
                 offset = {{ L3.slices()[w].start}}; 
                 {{transpose_store(L3[w].mul, L3[w].ir.dim, 'L3_smem', 'offset', 'l3_vec', '+=', '1.0')}}
-            {%- endif %}
+
+                {%- if L2[v].mul > 1%}
+                #pragma unroll
+                for(int j = 0; j < {{L3[w].ir.dim}}; j++)
+                    l3_vec[j] = 0.0f;
+                {%- endif %}
+            {%- endif %}  
         }
     {%- endfor %}
 }
@@ -147,7 +152,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
         {%- endif %}
 
         for(int k = 0; k < {{L2[v].mul}}; k++) {
-            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] or L2[v].mul > 1 %}
+            {%- if k == 0 or interactions[k][1] != interactions[k-1][1] or L2[v].mul > 1 or L1[u].mul != L1[interactions[k-1][0]].mul %}
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
                     l2_vec[j] = L2_smem[j + {{L2.slices()[v].start}} + k * {{L2[v].ir.dim}}]; 
@@ -213,7 +218,7 @@ __device__ __forceinline__ void backward_loop_unroll_{{id}}(
                 }
             {%- endif %}
 
-            {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 %}
+            {%- if k == num_interact - 1 or interactions[k][1] != interactions[k+1][1] or L2[v].mul > 1 or L1[u].mul != L1[interactions[k+1][0]].mul %}
                 #pragma unroll
                 for(int j = 0; j < {{L2[v].ir.dim}}; j++) {
                     if(lane_id >= {{L1[u].mul}}) {

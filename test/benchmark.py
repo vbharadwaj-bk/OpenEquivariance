@@ -1,4 +1,6 @@
-import itertools, logging, argparse
+import itertools, logging, argparse, os
+from pathlib import Path
+import urllib.request
 
 import numpy as np
 import numpy.linalg as la
@@ -11,6 +13,10 @@ from openequivariance.implementations.CUETensorProduct import CUETensorProduct
 from openequivariance.benchmark.TestBenchmarkSuite import TestBenchmarkSuite, TestDefinition, Direction
 from openequivariance.benchmark.tpp_creation_utils import ChannelwiseTPP, FullyConnectedTPProblem, SingleInstruction
 from openequivariance.benchmark.benchmark_routines.paper_benchmark_uvw import run_paper_uvw_benchmark
+
+from openequivariance.implementations.convolution.LoopUnrollConv import *
+from openequivariance.implementations.convolution.CUEConv import *
+from openequivariance.benchmark.ConvBenchmarkSuite import *
 
 logger = getLogger()
 
@@ -81,7 +87,7 @@ def benchmark_uvu(params):
 
             problems.append(problem)
  
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, problems, directions)]
 
@@ -95,7 +101,7 @@ def benchmark_uvu(params):
     if 'e3nn' in params.implementations and 'float64' in params.datatypes:
         tests.extend([TestDefinition(E3NNTensorProduct, 
             CTPP('64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e',  '0e + 1o + 2e + 3o', '64x0o + 64x0e + 64x1o + 64x1e + 64x2o + 64x2e + 64x3o + 64x3e', 
-                    'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=False, benchmark=True) 
+                    'nequip-revmd17-benzene', irrep_dtype=np.float64, weight_dtype=np.float64), direction, correctness=True, benchmark=True) 
                     for direction in ['forward', 'backward']])
 
     bench_suite = TestBenchmarkSuite(
@@ -115,7 +121,7 @@ def benchmark_roofline(params):
     directions = [  'forward',
                     'backward']
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
              for implementation, problem, direction
              in itertools.product(implementations, roofline_configs, directions)]
 
@@ -133,9 +139,7 @@ def benchmark_roofline(params):
 
 def correctness(params):
     implementations = [LoopUnrollTP]
-    directions = [ 'forward', 
-                    #'backward' Disabled temporarily while testing HIP warp reduction
-                ]
+    directions = [ 'forward', 'backward']
     problems = [CTPP(*config) for config in mace_conv + nequip_conv]
 
     tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=False) 
@@ -152,6 +156,58 @@ def correctness(params):
 
     logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
+
+def benchmark_convolution(params):
+    filenames = [   "covid_spike_radius3.0.pickle", 
+                    "1drf_radius6.0.pickle", 
+                    "carbon_lattice_radius6.0.pickle"]
+    download_prefix = "https://portal.nersc.gov/project/m1982/equivariant_nn_graphs/"
+
+    if not Path(params.folder).exists():
+        os.makedirs(params.folder, exist_ok=True) 
+
+    graphs = []
+    for filename in filenames:
+        target_path = Path(params.folder) / filename 
+        if not target_path.exists():
+            if params.no_download:
+                logging.critical(f"Error, {target_path} does not exist.")
+                exit(1)
+            else:
+                logging.info(f"Downloading {download_prefix + filename}...")
+                urllib.request.urlretrieve(download_prefix + filename, target_path)
+        
+        graphs.append(load_graph(str(target_path)))
+
+    configs = [ ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o"),
+                ChannelwiseTPP("128x0e+128x1o+128x2e", 
+                "1x0e+1x1o+1x2e+1x3o",
+                "128x0e+128x1o+128x2e+128x3o"),
+                ] # MACE-large 
+
+    configs[1].irrep_dtype = np.float64
+    configs[1].weight_dtype = np.float64
+
+    bench = ConvBenchmarkSuite(configs, torch_op=True)
+
+    implementations = [ LoopUnrollConvScatterSum, 
+                        CUEConv,
+                        LoopUnrollConvDeterministic, 
+                        LoopUnrollConvAtomic
+                        ]
+
+    for graph in graphs: 
+        for direction in ["forward", "backward"]:
+            bench.run(
+                    implementations = implementations,
+                    graph = graph,
+                    direction=direction, 
+                    correctness=True,
+                    double_backward_correctness=False,
+                    benchmark=True,
+                    output_folder=params.output_folder)
 
 if __name__=='__main__':
     dp = DeviceProp(0)
@@ -183,5 +239,18 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     args.func(args)
+    parser_conv = subparsers.add_parser('conv', help='Run the convolution benchmark')
+    parser_conv.add_argument("--folder", type=str, help="Folder containing graph data")
+    parser_conv.add_argument("--no_download", action='store_true', default=False, help="Download data if it does not exist")
+    parser_conv.add_argument("--run_bench", action='store_true', help="Run benchmarks (disable to only download data)")
+    parser_conv.set_defaults(func=benchmark_convolution)
 
-    #run_paper_uvw_benchmark()
+    parser_uvu = subparsers.add_parser('uvw', help='Run the UVW kernel benchmark without fusion') 
+    parser_uvu.add_argument("--batch_size", "-b", type=int, default=50000, help="Batch size for benchmark")
+    parser_uvu.add_argument("--directions", "-d", type=str, nargs='+',
+            default=['forward', 'backward'], help="Directions to benchmark",
+            choices=['forward', 'backward'])
+    parser_uvu.set_defaults(func=run_paper_uvw_benchmark)
+
+    args = parser.parse_args()
+    args.func(args)

@@ -1,12 +1,5 @@
-import itertools
-import sys
-import os
-import logging
-import copy
-import pathlib
+import itertools, sys, os, logging, copy, pathlib
 import numpy as np
-
-sys.path.insert(1, os.path.join(sys.path[0], '../../../'))
 
 from openequivariance.benchmark.logging_utils import getLogger
 from openequivariance.implementations.E3NNTensorProduct import E3NNTensorProductCompiledCUDAGraphs
@@ -18,18 +11,13 @@ from openequivariance.benchmark.benchmark_configs import e3nn_torch_tetris_polyn
 
 logger = getLogger()
 
-def run_paper_uvw_benchmark() -> pathlib.Path:
+def run_paper_uvw_benchmark(params) -> pathlib.Path:
     FCTPP = FullyConnectedTPProblem
 
     problems =  list(itertools.chain(
         e3nn_torch_tetris_polynomial,
         diffdock_configs
     ))
-
-    directions : list[Direction] = [
-        'forward',
-        'backward',
-    ]
 
     float64_problems = copy.deepcopy(problems)
     for problem in float64_problems: 
@@ -43,21 +31,21 @@ def run_paper_uvw_benchmark() -> pathlib.Path:
         CUETensorProduct,
         LoopUnrollTP]
 
-    tests = [TestDefinition(implementation, problem, direction, correctness=False, benchmark=True) 
+    tests = [TestDefinition(implementation, problem, direction, correctness=True, benchmark=True) 
                 for problem, direction, implementation
-                in itertools.product(problems, directions, implementations)]
+                in itertools.product(problems, params.directions, implementations)]
 
     bench_suite = TestBenchmarkSuite(
             correctness_threshold = 5e-5,
             num_warmup=100,
             num_iter=100,
-            bench_batch_size=50_000,
+            bench_batch_size=params.batch_size,
             prng_seed=11111,
             torch_op=True
         )
     
     logger.setLevel(logging.INFO)
-    return bench_suite.run(tests)
+    return bench_suite.run(tests, output_folder=params.output_folder)
 
 if __name__ == '__main__':
     run_paper_uvw_benchmark()

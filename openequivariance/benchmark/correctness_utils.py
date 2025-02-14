@@ -72,7 +72,6 @@ def correctness_forward(
         L2_in=in2.copy(), 
         L3_out=test_out, 
         weights=weights_copy)
-    
 
     for name, to_check, ground_truth in [
         ("output", ref_out, test_out)
@@ -145,8 +144,11 @@ def correctness_backward(
 
     weight_threshold = correctness_threshold * batch_size if problem.shared_weights else correctness_threshold
 
+    if problem.shared_weights:
+        test_weights_grad = test_weights_grad.squeeze()
+
     for name, to_check, ground_truth, threshold in [
-        ("weight_grad", test_weights_grad.squeeze(), ref_weights_grad, weight_threshold),
+        ("weight_grad", test_weights_grad, ref_weights_grad, weight_threshold),
         ("in1_grad", test_in1_grad, ref_in1_grad, correctness_threshold),
         ("in2_grad", test_in2_grad, ref_in2_grad, correctness_threshold),
         ]:

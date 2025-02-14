@@ -61,25 +61,40 @@ class TensorProductBase:
                 L3_grad)
 
     def forward_cpu(
-        self,
-        L1_in: np.ndarray, 
-        L2_in: np.ndarray, 
-        L3_out: np.ndarray, 
-        weights: np.ndarray
-        ) -> None:
+            self,
+            L1_in: np.ndarray, 
+            L2_in: np.ndarray, 
+            L3_out: np.ndarray, 
+            weights: np.ndarray
+            ) -> None:
+        
+        weights_chunked = np.zeros_like(weights)        
+        if self.reorder_weights_e3nn_to_oeq is not None:
+            weights_chunked = np.zeros_like(weights)
+            self.reorder_weights_e3nn_to_oeq(weights, weights_chunked, not self.config.shared_weights)
+        else:
+            weights_chunked = weights
+
         batch = L1_in.shape[0]
         L1_d = DeviceBuffer(L1_in)
         L2_d = DeviceBuffer(L2_in)
         L3_d = DeviceBuffer(L3_out)
-        weights_d = DeviceBuffer(weights)
+        weights_d = DeviceBuffer(weights_chunked)
         self.internal.exec_tensor_product(batch, L1_d.data_ptr(), L2_d.data_ptr(), L3_d.data_ptr(), weights_d.data_ptr())
         L3_d.copy_to_host()
 
     def backward_cpu(self, L1_in, L1_grad, L2_in, L2_grad, L3_grad, weights, weights_grad) -> None:
+        weights_chunked = np.zeros_like(weights)        
+        if self.reorder_weights_e3nn_to_oeq is not None:
+            weights_chunked = np.zeros_like(weights)
+            self.reorder_weights_e3nn_to_oeq(weights, weights_chunked, not self.config.shared_weights)
+        else:
+            weights_chunked = weights
+
         batch = L1_in.shape[0]
         L1_d, L2_d, L3_d = DeviceBuffer(L1_in), DeviceBuffer(L2_in), DeviceBuffer(L3_grad)
         L1_grad_d, L2_grad_d = DeviceBuffer(L1_grad), DeviceBuffer(L2_grad)
-        weights_d, weights_grad_d = DeviceBuffer(weights), DeviceBuffer(weights_grad)
+        weights_d, weights_grad_d = DeviceBuffer(weights_chunked), DeviceBuffer(weights_grad)
 
         self.internal.backward(
                 batch,
@@ -91,6 +106,10 @@ class TensorProductBase:
         L1_grad_d.copy_to_host()
         L2_grad_d.copy_to_host()
         weights_grad_d.copy_to_host()
+
+        if self.reorder_weights_oeq_to_e3nn is not None:
+            weights_grad_copy = weights_grad.copy()
+            self.reorder_weights_oeq_to_e3nn(weights_grad_copy, weights_grad, not self.config.shared_weights)
 
     def benchmark_forward(
             self, 
@@ -273,30 +292,3 @@ class TensorProductBase:
             return op1[0] + op2[0], op1[1] + op2[1], (op4[2] + op5[2]), (op3 + op6 + op7)
 
         backward_helper.register_autograd(double_backward, setup_context=setup_context_double_backward)
-
-
-    def reorder_weights(self, weights, direction):
-        config = self.config
-        weights_copy = weights.copy()
-
-        for i, inst in enumerate(self.config.instructions):
-            start, end, shape = self.config.weight_range_and_shape_for_instruction(i)
-            if inst.connection_mode == "uvu":
-                if direction == "backward":
-                    shape = (shape[1], shape[0])
-                if not config.shared_weights:
-                    shape = (weights_copy.shape[0], shape[0], shape[1])
-                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1).reshape(-1, end - start)
-                else:
-                    raise Exception("Not supported (yet)!")
-
-            if inst.connection_mode == "uvw":
-                if direction == "backward":
-                    shape = (shape[1], shape[0], shape[2])
-                if config.shared_weights:
-                    weights_copy[start:end] = weights[start:end].reshape(shape).transpose(1, 0, 2).flatten()
-                else:
-                    shape = (weights_copy.shape[0], shape[0], shape[1], shape[2])
-                    weights_copy[:, start:end] = weights_copy[:, start:end].reshape(shape).transpose(0, 2, 1, 3).reshape(-1, end - start)
-
-        return weights_copy

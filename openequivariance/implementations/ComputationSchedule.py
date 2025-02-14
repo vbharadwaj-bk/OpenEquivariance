@@ -143,6 +143,91 @@ def create_schedule_case3(instructions, memory_per_warp, calculate_smem):
 
     return segments
 
+class ProblemSplitter:
+    '''
+    Chunks an input problem to produce an output where all 
+    multiplicities lie below a provided threshold. The irreps
+    of the output are "ChildIrreps", and the new
+    instructions are "ChildInstructions". 
+    ''' 
+    class ChildIrrep:
+        def __init__(self, mul_ir, parent_idx, mul_start):
+            self.mul_ir, self.parent_idx, self.mul_start = mul_ir, parent_idx, mul_start 
+
+    class ChildInstruction:
+        def __init__(self, instruction_tup, parent_idx):
+            self.instruction_tup, self.parent_idx = instruction_tup, parent_idx 
+
+    def __init__(self, input, mult_threshold):
+        self.input = input
+        self.mult_threshold = mult_threshold
+
+        input_reps = [input.irreps_in1, input.irreps_in2, input.irreps_out]
+        child_reps = [[], [], []]
+
+        self.irrep_maps = {} # Maps a (input_rep_idx #, mul_ir_idx) to a lst[ir_idx]
+
+        for input_rep_idx, input_rep in enumerate(input_reps): # Loop over L1, L2, L3
+            for mul_ir_idx, mul_ir in enumerate(input_rep):    # Loop over mul_ir's in each representation
+                self.irrep_maps[input_rep_idx, mul_ir_idx] = []
+                for mul_start in range(0, mul_ir.mul, mult_threshold): 
+                    mul = min(mult_threshold, mul_ir.mul - mul_start) 
+                    child_reps[input_rep_idx] += [self.ChildIrrep((mul, mul_ir.ir), input_rep_idx, mul_start)]
+                    self.irrep_maps[input_rep_idx, mul_ir_idx].append(len(child_reps[input_rep_idx]) - 1)
+
+        new_instructions = []
+
+        for inst_idx, (u, v, w, connection_mode, has_weight, path_weight, path_shape) in enumerate(input.instructions):
+            if connection_mode == "uvu":
+                for i, idx1 in enumerate(self.irrep_maps[0, u]):
+                    for idx2 in self.irrep_maps[1, v]:
+                        new_instructions.append(
+                            self.ChildInstruction((idx1, idx2, self.irrep_maps[2, w][i], connection_mode, has_weight, path_weight ** 2),
+                                                  inst_idx))
+
+            elif connection_mode == "uvw":
+                for idx1 in self.irrep_maps[0, u]:
+                    for idx2 in self.irrep_maps[1, v]:
+                        for idx3 in self.irrep_maps[2, w]:
+                            new_instructions.append(
+                                self.ChildInstruction(  (idx1, idx2, idx3, 
+                                                        connection_mode, has_weight, 
+                                                        path_weight ** 2), inst_idx))
+
+        self.L1, self.L2, self.L3 = [   Irreps([child.mul_ir for child in reps])
+                                        for reps in child_reps]
+        self.output = TPProblem(self.L1, self.L2, self.L3, 
+            [child.instruction_tup for child in new_instructions], 
+            irrep_normalization="none", path_normalization="none", 
+            internal_weights=False, shared_weights=input.shared_weights)
+
+        assert(self.output.weight_numel == input.weight_numel)
+
+        # For each new instruction, calculate the subrange of original weights
+        # that it maps to 
+
+        for child_inst in new_instructions:
+            u, v, w, connection_mode, _, _ = child_inst.instruction_tup
+
+            u_start = child_reps[0][u].mul_start
+            v_start = child_reps[1][v].mul_start
+            w_start = child_reps[2][w].mul_start
+
+            u_end = u_start + child_reps[0][u].mul_ir[0]
+            v_end = v_start + child_reps[1][v].mul_ir[0]
+            w_end = w_start + child_reps[2][w].mul_ir[0]
+
+            if connection_mode == "uvw":
+                child_inst.weights_subrange = [slice(u_start, u_end), slice(v_start, v_end), slice(w_start, w_end)]
+            elif connection_mode == "uvu":
+                child_inst.weights_subrange = [slice(u_start, u_end), slice(v_start, v_end)]
+            elif connection_mode == "uuu":
+                child_inst.weights_subrange = [slice(u_start, u_end)]
+
+            child_inst.parent_weights_start, child_inst.parent_weights_end, child_inst.parent_weights_shape = \
+                    input.weight_range_and_shape_for_instruction(child_inst.parent_idx)
+
+        self.new_instructions = new_instructions
 
 class ComputationSchedule:
     def __init__(self, 
@@ -160,10 +245,6 @@ class ComputationSchedule:
         smem_limit: size of available shared memory in bytes 
         '''
         # Note: does not work with variances for irreps; easy to add that in 
-
-        # Step 1: Break the irreps and the instructions into chunks of at most 32 x 32 x 32. 
-
-        self.L1_raw, self.L2_raw, self.L3_raw = config.irreps_in1, config.irreps_in2, config.irreps_out
         self.total_warps = warps_per_block * block_count
 
         dtype_to_str_map = {
@@ -177,43 +258,12 @@ class ComputationSchedule:
         # Stream weights on the fly before pre-loading 
         self.stream_weights = stream_weights 
 
-        reps_raw = [self.L1_raw, self.L2_raw, self.L3_raw]
-        reps = [Irreps(), Irreps(), Irreps()]
+        # Step 1: Break the irreps and the instructions into chunks of at most 32 x 32 x 32. 
 
-        irrep_maps = {} # Maps a (rep_raw #, ir_idx_raw) to a lst[ir_idx]
-
-        for rep_raw_idx, rep in enumerate(reps_raw):
-            for ir_idx_raw, mul_ir in enumerate(rep):
-                irrep_maps[rep_raw_idx, ir_idx_raw] = []
-                for mul_start in range(0, mul_ir.mul, 32): 
-                    mul = min(32, mul_ir.mul - mul_start) 
-                    reps[rep_raw_idx] += [(mul, mul_ir.ir)]
-                    irrep_maps[rep_raw_idx, ir_idx_raw].append(len(reps[rep_raw_idx]) - 1)
-
-        self.new_instructions = []
-
-        for (u, v, w, connection_mode, has_weight, path_weight, path_shape) in config.instructions:
-            if connection_mode == "uvu":
-                for i, idx1 in enumerate(irrep_maps[0, u]):
-                    for idx2 in irrep_maps[1, v]:
-                        self.new_instructions.append((idx1, idx2, irrep_maps[2, w][i], connection_mode, has_weight, path_weight ** 2))
-
-            elif connection_mode == "uvw":
-                for idx1 in irrep_maps[0, u]:
-                    for idx2 in irrep_maps[1, v]:
-                        for idx3 in irrep_maps[2, w]:
-                            self.new_instructions.append((idx1, idx2, idx3, connection_mode, has_weight, path_weight ** 2))
-
-        #self.new_instructions.sort(key=lambda x: (x[2], x[0], x[1]))
-
-        self.L1, self.L2, self.L3 = reps
-        self.updated_config = TPProblem(self.L1, self.L2, self.L3, 
-            self.new_instructions, irrep_normalization="none", path_normalization="none", 
-            internal_weights=False, shared_weights=config.shared_weights)
-
+        self.problem_splitter = ProblemSplitter(config, 32)
+        self.updated_config = self.problem_splitter.output
+        self.L1, self.L2, self.L3 = self.updated_config.irreps_in1, self.updated_config.irreps_in2, self.updated_config.irreps_out 
         self.new_instructions = self.updated_config.instructions
-
-        assert(self.updated_config.weight_numel == config.weight_numel)
 
         self.memory_per_warp = smem_limit // warps_per_block
         self.memory_per_warp -= self.memory_per_warp % 4
@@ -373,3 +423,49 @@ class ComputationSchedule:
         launch_config.smem = self.memory_per_warp * warps_per_block 
         logger.info(f"{direction.title()} pass needs {launch_config.smem // 1000} KB of shared memory.")
         self.launch_config = launch_config
+
+    def reorder_weights(self, weights_in, weights_out, direction, has_batch_dim):
+        '''
+        Reorders weights from the canonical e3nn form to the
+        form that LoopUnrollTP can ingest. Can also reorder the parameters 
+        of a dense neural network layer that produces the weight matrix.
+
+        If has_batch_dim is true, the first dimension of the input weight matrix
+        is treated as the batch dimension. 
+        '''
+        weights_out *= 0.0
+        assert(direction in ["forward", "backward"])
+        for i, child_inst in enumerate(self.problem_splitter.new_instructions):
+            parent_start, parent_end = child_inst.parent_weights_start, child_inst.parent_weights_end
+            parent_shape = list(child_inst.parent_weights_shape)
+
+            child_start, child_end, child_shape = self.updated_config.weight_range_and_shape_for_instruction(i)
+
+            parent_range, child_range = [slice(parent_start, parent_end)], [slice(child_start, child_end)]
+            weights_subrange = child_inst.weights_subrange 
+            batch_dim = weights_in.shape[0]
+            reshape_size = [-1]
+            transpose_perm = None
+
+            connection_mode = self.updated_config.instructions[i].connection_mode
+            if connection_mode == "uvu":
+                transpose_perm = [1, 0]
+            elif connection_mode == "uvw":
+                transpose_perm = [1, 0, 2]
+
+            if has_batch_dim:
+                child_range = [slice(0, batch_dim)] + child_range
+                parent_range = [slice(0, batch_dim)] + parent_range 
+                parent_shape = [batch_dim] + parent_shape 
+                child_shape = [batch_dim] + list(child_shape)
+                weights_subrange = [slice(0, batch_dim)] + child_inst.weights_subrange
+                reshape_size = [batch_dim] + reshape_size
+                transpose_perm = [0] + [i + 1 for i in transpose_perm]
+
+            if direction == "forward":
+                sliced_weights = weights_in[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)]
+                weights_out[tuple(child_range)] = sliced_weights.transpose(transpose_perm).reshape(reshape_size)
+            elif direction == "backward":
+                transpose_child_shape = [child_shape[i] for i in transpose_perm]
+                sliced_weights = weights_in[tuple(child_range)].reshape(transpose_child_shape).transpose(transpose_perm)
+                weights_out[tuple(parent_range)].reshape(parent_shape)[tuple(weights_subrange)] = sliced_weights.flatten().reshape(child_shape)
