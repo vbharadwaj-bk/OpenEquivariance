@@ -112,7 +112,6 @@ def benchmark_uvu(params):
         prng_seed=11111
     )
 
-    logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
 def benchmark_roofline(params):
@@ -134,7 +133,6 @@ def benchmark_roofline(params):
         torch_op=False
     )
 
-    logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
 def correctness(params):
@@ -154,7 +152,6 @@ def correctness(params):
         torch_op=False
     )
 
-    logger.setLevel(logging.INFO)
     bench_suite.run(tests, params.output_folder)
 
 def benchmark_convolution(params):
@@ -210,6 +207,8 @@ def benchmark_convolution(params):
                     output_folder=params.output_folder)
 
 if __name__=='__main__':
+    logger.setLevel(logging.INFO)
+
     dp = DeviceProp(0)
     paper_benchmark_gpu = "NVIDIA A100-SXM4-80GB"
     if dp.name != paper_benchmark_gpu:

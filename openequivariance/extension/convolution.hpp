@@ -136,7 +136,13 @@ public:
 
         if(reinterpret_cast<uint64_t>(workspace) != 0) {
             void *fixup_args[] = {&workspace, &L3_out};
-            jit.execute(2, fixup_args, forward_config);
+            
+            KernelLaunchConfig fixup_config;
+            fixup_config.num_blocks = forward_config.num_blocks;
+            fixup_config.num_threads = forward_config.num_threads;
+            fixup_config.smem = 0;
+
+            jit.execute(2, fixup_args, fixup_config);
         }
     } 
 
@@ -156,7 +162,13 @@ public:
 
         if(reinterpret_cast<uint64_t>(workspace) != 0) {
             void *fixup_args[] = {&workspace, &L1_grad};
-            jit.execute(3, fixup_args, backward_config);
+
+            KernelLaunchConfig fixup_config;
+            fixup_config.num_blocks = backward_config.num_blocks;
+            fixup_config.num_threads = backward_config.num_threads;
+            fixup_config.smem = 0;
+
+            jit.execute(3, fixup_args, fixup_config);
         }
     }
 

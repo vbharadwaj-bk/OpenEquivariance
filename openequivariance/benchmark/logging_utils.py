@@ -1,6 +1,6 @@
 import logging
 logger = logging.getLogger("ETP")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.CRITICAL)
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)

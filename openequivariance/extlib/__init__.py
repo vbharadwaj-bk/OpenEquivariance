@@ -1,7 +1,7 @@
-import os, warnings, logging, tempfile
+import os, warnings, tempfile
 from pathlib import Path
 
-# Last Modified: 02/14/2025
+from openequivariance.benchmark.logging_utils import getLogger
 
 oeq_root = str(Path(__file__).parent.parent)
 
@@ -38,7 +38,7 @@ else:
             if os.path.exists(cuda_libs + '/stubs'):
                 extra_link_args.append('-L' + cuda_libs + '/stubs')
         except Exception as e:
-            logging.info(str(e))
+            getLogger().info(str(e))
 
         extra_cflags.append("-DCUDA")
     elif torch.cuda.is_available() and torch.version.hip:
