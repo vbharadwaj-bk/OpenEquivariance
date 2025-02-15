@@ -56,13 +56,12 @@ else:
     include_dirs = [oeq_root + '/extension/' + d for d in include_dirs] + include_paths('cuda')
 
     with warnings.catch_warnings():
-        with tempfile.TemporaryDirectory() as tmpdir:
-            warnings.simplefilter("ignore")
-            kernel_wrapper = torch.utils.cpp_extension.load("kernel_wrapper",
-                sources,
-                extra_cflags=extra_cflags,
-                extra_include_paths=include_dirs,
-                extra_ldflags=extra_link_args,
-                build_directory=tmpdir)
+#        with tempfile.TemporaryDirectory() as tmpdir: // Might be needed for RocM
+        warnings.simplefilter("ignore")
+        kernel_wrapper = torch.utils.cpp_extension.load("kernel_wrapper",
+            sources,
+            extra_cflags=extra_cflags,
+            extra_include_paths=include_dirs,
+            extra_ldflags=extra_link_args)
 
 from kernel_wrapper import *
